@@ -1,0 +1,272 @@
+# Changelog
+
+All notable changes to the cenk-jobs plugin. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html). Every change gets an entry here and a new version in
+`plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
+the version changes.
+
+## [0.12.1] - 2026-11-07
+
+### Changed
+
+- The repository history starts again at this version, as one commit: the earlier commits held personal data
+  of the developer. The versions below are kept as notes; their commits are gone.
+
+### Fixed
+
+- The shared blacklist holds findings only, labelled by the rules in `RULES.md`, never a person's decision: one
+  finding (a parent group named as a creditor in a report that is not one of the four step-1 lists) had the level
+  "direct" from the developer's own answer; it is "indirect", as the two-step check defines it. What each person
+  does with a finding stays in their own `EMPLOYER_RULES` and `EMPLOYER_CHECKS`.
+
+## [0.12.0] - 2026-11-06
+
+### Added
+
+- The usage report counts the jobs turned down because of the employer rules (`employer_rules`): excluded before
+  applying, withdrawn after applying (before or after a hiring step) and waiting on the person's answer to an
+  "ask", each by category and by where the finding came from (shared list, own check, decision, never-apply list).
+  The person's own filters count as `custom`. The email's summary gets one line. Example: "Turned down because of
+  the employer rules: 4 (defence 3, named_list 1) before applying, 1 (climate 1) withdrawn after applying; 2
+  (sexism 2) waiting on the person's answer."
+- `usage.py stats` prints the same block for the person, whatever `USAGE_SHARING` says; it sends nothing.
+- `employerlib.excluding()`: the categories behind an exclude verdict.
+- A declined entry in `PIPELINE` with `why: ethics` carries the `category`.
+
+### Fixed
+
+- A `never_apply` name matches every name that starts with it as whole words, and parts in brackets: "Acme"
+  catches "Acme Cloud Services" and "Acme Bank (CIB)". Before, only the exact name matched, so a group's units
+  passed the list. `always_ok` stays exact. Same in `employerlib.py` and the screening workflow.
+- The report's "Steps that did not end ok" no longer lists a run's `started` line.
+
+## [0.11.0] - 2026-11-06
+
+### Added
+
+- The Gmail label `GMAIL_DONE_LABEL` (default `cenk-jobs/Done`) on each job-search message whose action is done:
+  booked and in the calendar, recorded, or the person's reply sent. A message waiting on the person stays
+  unlabelled. The run searches with `-label:`, labels messages, not threads, so a new reply in a thread is found,
+  and never archives, marks read or removes the person's own labels. Setup creates the label (RULES.md, "Mail").
+- Withdrawal lines for the `sanctions` category and for custom categories in `templates/withdrawal-email.txt`.
+
+### Changed
+
+- The withdrawal draft goes to every excluded employer the person applied to once it writes beyond an automatic
+  confirmation (an invitation, a task, a recruiter's mail) or offers a job, also when a new check excludes it
+  mid-process; it states the employer's sourced fact. Before, only an employer that offered a job or invited to a
+  step got one.
+- A draft always has a recipient. A no-reply sender: the recruiter named in the mail, else the careers contact on
+  the employer's own site, else the privacy contact on the posting, each checked on its page.
+
+### Fixed
+
+- `templates/dashboard/datasets.json` parses again: the calendar dataset missed a closing brace since 0.2.0, so
+  setup could not read the store documents from it.
+
+## [0.10.0] - 2026-11-06
+
+### Changed
+
+- The Israel check runs in two steps, for the employer and its parent or majority owner: the lists (the BDS
+  movement's current targets, the UN OHCHR settlement-business database, Who Profits, AFSC Investigate), then four
+  questions from the company's own pages, each with a source link (founded or headquartered in Israel; its own
+  office, R&D team or subsidiary there; its majority owner; supplying Israel's military or police, or the
+  settlements). A list hit or a yes is a direct tie; resellers, investors' other holdings, customers, board members'
+  outside seats and licensees' owners are indirect. A small or new brand is checked through its parent first, and
+  nothing found is "nothing found", never "clear". The default stays "warn and ask" for both levels.
+- The shared blacklist was checked source by source before going public: each flagged finding was kept, fixed or
+  dropped (wrong, a namesake, unsupported, personal data, not a finding, or an ended tie), and true ties judged weak
+  stay as indirect findings, so each person's own rules decide. It now holds 268 employers and 148 flagged
+  findings (51 direct, 97 indirect).
+- `LICENSE` (MIT); the README is written for a public repository.
+
+## [0.9.0] - 2026-11-06
+
+### Changed
+
+- One skill per job, no "jobs" repeated in the names: `setup` (the first run, once), `coordinate` (the main
+  session), `search` (find and screen only), `plan` (which applications, in which order, with which CV and letter),
+  `apply`, `prepare` (hiring steps and interviews) and `schedule` (the daily run). `start` is gone: its name read as
+  setup-only, so people never knew to use it every day. The dashboard has no skill: setup creates it and every run
+  refreshes it.
+- The rules every skill shares are in `plugins/cenk-jobs/RULES.md`; the scripts, templates, data and workflows
+  moved from `skills/start/` to plugin level (`plugins/cenk-jobs/scripts/`, ...).
+- The repository is now `cenksimsek1988/cenk-jobs` (was `claude-job-search`), like the plugin's name.
+- Every run says when it starts and finishes (`usage.py log run started|ok`); the dashboard header shows "Running
+  now" or the last run and the next one (`SEARCH_TIME`, default 19:00).
+- The health check fails without a dashboard; the run then creates it and offers to pin it.
+- One main session: every run says that the coordinator is the person's main session, and a skill started in
+  another session sends the person there.
+- Usage reports go to `cenk.plugins.reports@gmail.com` (`DEVELOPER_EMAIL` in `scripts/usage.py`), an address only
+  for reports about Cenk Simsek's plugins.
+
+### Added
+
+- Setup offers the defaults in one choice, says how to change each one, and asks for the person's own filters: the
+  daily run at 19:00, optional consents off, open questions left to the person, drafts only, and every employer
+  category "warn and ask" for direct and indirect ties.
+- A `sanctions` category for everyone: the UN Security Council list plus the lists the person follows (`lists`).
+- The person's own filters as categories with `"custom": true` (example: gambling); checks, decisions and the
+  screening workflow treat them like the shared ones, and they stay out of the shared blacklist.
+
+## [0.8.0] - 2026-11-06
+
+### Added
+
+- An "In progress" kind in Do now (to-do kind `working`): Claude, or a session with the person, is on it, so the
+  person waits. Those rows come first, with their own chip, tile and count; the coordinator sets them when a piece
+  starts and removes them when its report is recorded.
+- The dashboard leads with the full count of applications (sent and not sent) and their split by outcome, a tall
+  segmented bar with each part's share, a legend and hover names; colors validated in light and dark mode.
+- `employer.py merge --from-checks`: the developer merges their own checks into the shared blacklist, every
+  sourced finding, direct and indirect, without their decisions and with their name masked in every fact.
+- Keep-alive while a filled form waits for the person: a second tab on the same site is reloaded every 10 minutes,
+  for at most 2 hours; the form's own tab never is. At sign-in the person ticks "Keep me signed in".
+
+### Changed
+
+- A decision never turns a finding into "clear": the shared list keeps every sourced finding, so each person's own
+  rules decide.
+- The shared blacklist now holds 270 employers (it held 18), merged from the developer's own checks.
+
+## [0.7.0] - 2026-11-06
+
+### Added
+
+- Two outcomes beside rejected: `closed` (the role closed, was filled or put on hold, or the person was late: not a
+  rejection) and `declined` (the person said no, with `why`: ethics, relocation, pay, other). `PIPELINE` stages
+  `closed` and `declined`, tracker statuses `closed` and `declined`, folders `closed/` and `declined/`, README
+  sections, dashboard tiles and filters, and counts in the usage report.
+- `employer_link` and `JOB_BOARD` in `trackerlib.py`: an employer's own site is never signed in to through a job
+  board's page. `logins.py sync` drops such a link and takes the employer's own one from the job.
+- Every Do now row on the dashboard has a link: its own, else the step's email, else the job's application page.
+
+### Changed
+
+- Claude checks every link before giving it to the person: it lands on the employer's own site or hiring system, or
+  a job board only when that board's form is the way to apply. 404, 410 or "no longer available" means closed.
+- The screening stores the employer's own application page in `apply_url`, checked by fetching it.
+
+## [0.6.0] - 2026-11-06
+
+### Added
+
+- A hiring step in `PIPELINE` has `link` (its own page: meeting, test, booking or interview) and `mail` (the Gmail
+  link of the email that set it). The job summary (`overview.md`) links both in the step's line.
+- Every calendar event the person owns holds the step's own link and the email link in its description.
+
+### Changed
+
+- A to-do's `link` is the email link. A personal access link stays in the calendar and the person's folder, never
+  on the dashboard.
+
+## [0.5.2] - 2026-11-06
+
+### Changed
+
+- The dashboard's Calendar tab drops an event once it has ended. Before, an interview earlier today stayed until
+  midnight. An existing dashboard gets this by updating its `files/index.html` from the template.
+
+### Fixed
+
+- The Calendar window starts at the viewer's local midnight. Before, it used the UTC date, so in the first hour
+  after midnight in Europe it still showed the day before.
+
+## [0.5.1] - 2026-11-06
+
+### Fixed
+
+- The dashboard export masks pay in job titles, folder names and step names too. Before, a title such as
+  "Senior Java Software Engineer - EUR 400 a day" reached the dashboard with its rate.
+
+## [0.5.0] - 2026-11-06
+
+### Added
+
+- `templates/withdrawal-email.txt`: the withdrawal mail for an employer the rules exclude that offers a job or
+  invites to a step, with one subject and rule line per category. Claude drafts it; the person sends it.
+
+### Changed
+
+- Records the plugin writes in the person's folder are fact lines, never narrative or quoted chat; a decision is a
+  value and a date. Example: `exclude, defence, 2026-11-06`.
+- `employer.py decide "<name>" <exclude|apply> [<category>]` takes no quote; it stores `{date, verdict, category}`.
+  Older decisions with `words` are still read.
+- Rule changes in `EMPLOYER_RULES` record `{date, field, new}` in `changes`.
+- The coordinate skill's report asks for one fact line per new fact. A go-ahead forwarded between sessions is still
+  quoted in that message, and is not stored.
+- This repository is developed by the workbench rules: fact lines with an example (`CLAUDE.md`).
+
+### Fixed
+
+- The pay mask hides a whole range: "EUR 70-90k", "70k-90k EUR", "€70,000 – €90,000", "USD 60–100/h",
+  "500-650/day". Before, "EUR 70-90k" became "[private]-90k" in the dashboard export.
+- The pay mask no longer hides ordinary words: a currency code must stand alone, and TRY counts only in capitals.
+  Before, "try 2 times" became "[private] times" and "12 European" became "[private]opean".
+
+## [0.4.1] - 2026-11-06
+
+### Changed
+
+- A session started outside the main folder (another project, a git worktree) now moves there with the app's
+  change-directory tool, ends the turn, and reads the main folder's `CLAUDE.md` on the next one. It starts a new
+  session there only when the move is refused, and without a session tool it tells the person to run `claude` in
+  the main folder. Before, a session in a worktree or another project never tried to move.
+- A coordinator that moved takes the title "Job search coordinator", so the daily trigger finds it.
+- Install from Cenk Simsek's public catalog `cenk` (repository `cenksimsek1988/claude-plugins`) as `cenk-jobs@cenk`,
+  once this repository is public and listed there. This repository's own catalog is renamed from `cenk` to
+  `cenk-jobs`, for a clone you work on and for invited people (`cenk-jobs@cenk-jobs`). An install from the old `cenk`
+  of this repository: `/plugin marketplace remove cenk`, then install again one way.
+- The version lives only in `plugins/cenk-jobs/.claude-plugin/plugin.json`; the catalog entry has none, since
+  Claude Code reads `plugin.json` first.
+
+## [0.4.0] - 2026-11-06
+
+0.3.1 was never released; its changes are in this version.
+
+### Added
+
+- Employer rules for everyone: seven default categories (ties to Israel's occupation or military, defence industry,
+  animal cruelty, climate and environmental harm, sexism, human rights, working conditions), each counting only with
+  a crime-level problem shown by a sourced finding. Default: warn and ask; per category the person picks never / ask
+  / apply, and for indirect ties ask / warn / apply (`templates/employer-rules.json`, `EMPLOYER_RULES`).
+- The shared blacklist `data/blacklist.json`, seeded from the developer's own sourced exclusions, and
+  `employer.py` (check, record, decide, import-tracker, merge).
+- The screening workflow returns one check per category and applies the person's settings: "never" excludes, "ask"
+  waits for the person; `track.py sync` writes the checks to `EMPLOYER_CHECKS`.
+- Usage reports, only with the person's yes (`USAGE_SHARING`): `usage.py` logs routine steps and builds a weekly
+  report without personal data (applications per week, outcomes and first "yes" answers, sites, employers checked
+  with their findings, steps), drafted in Gmail to the developer for the person to send.
+- Calendar: each online interview is checked for a video link; without one, a draft request to the recruiter the
+  day before.
+- The daily run: on the first run, with the person's OK, a scheduled task "Job search: daily run" every day at 19:00
+  in the person's local time (the default for everyone), which starts the run in the coordinator session.
+- This changelog, and `CLAUDE.md` for sessions opened in this repository.
+
+### Changed
+
+- The coordinate skill's example session names no longer name real companies: `apply-workday-acme`,
+  `prep-acme-18nov`, `study-acme-6nov`.
+- `cheat-sheet.md` holds keyword lines only, never scripted sentences.
+- The study section offers the mock interview the day before the step, not on its morning.
+- `build_app_folders.py` keeps the jobs of an "ask" employer visible; the pay mask moved to `trackerlib.py`.
+
+## [0.3.0] - 2026-11-05
+
+- Shipped from GitHub only; `release.py` builds `dist/cenk-jobs.plugin` from HEAD.
+- The job search runs only in its main folder; a study piece for hiring steps.
+- The plugin scripts are the only code a job search needs.
+
+## [0.2.0] - 2026-11-05
+
+- Renamed to cenk-jobs, with the skills start and coordinate.
+- Published to a Drive folder and as an uploadable `cenk-jobs.plugin`.
+
+## [0.1.0] - 2026-11-05
+
+- The job-search plugin, shared through a Google Drive folder.
+- The documents step: say where things are, or drop them in documents-inbox.
+- The dashboard as a tree of linked files, a login state file and a job-search calendar category.
+- The job-search-coordinator skill.

@@ -1,0 +1,395 @@
+<meta name="dash-one-writer">
+<style>
+#dash-root .ja { font-family: var(--font-anthropic-sans); display: grid; gap: var(--cds-gap-lg); }
+#dash-root .ja-head h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; text-wrap: balance; }
+#dash-root .ja-head p { margin: var(--cds-gap-xs) 0 0; color: var(--color-fg-muted); }
+#dash-root .ja-head b, #dash-root .ja-tile b { font-weight: 600; }
+#dash-root .ja-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: var(--cds-gap-md); }
+#dash-root .ja-tile, #dash-root .ja-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); min-width: 0; }
+#dash-root .ja-tile .ja-label { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+#dash-root .ja-tile .ja-num { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); font-variant-numeric: tabular-nums; line-height: 1.2; }
+#dash-root .ja-tile.forward .ja-num { color: var(--color-ok); }
+#dash-root .ja-tile.todo .ja-num { color: var(--color-warn); }
+#dash-root .ja-tile.rejected .ja-num { color: var(--color-fg-muted); }
+#dash-root .ja-tabs { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); border-bottom: 1px solid var(--color-border-line); padding-bottom: var(--cds-pad-sm); }
+#dash-root .ja-tab { font: inherit; padding: var(--cds-pad-xs) var(--cds-pad-md); border-radius: var(--cds-radius); border: 1px solid transparent; background: none; color: var(--color-fg-muted); cursor: pointer; }
+#dash-root .ja-tab[aria-selected="true"] { color: var(--color-fg); border-color: var(--color-border-line); background: var(--color-panel); }
+#dash-root .ja-card h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+#dash-root .ja-card .ja-note { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); margin: var(--cds-gap-xs) 0 var(--cds-gap-sm); }
+#dash-root .ja-scroll { overflow: auto; max-height: 36rem; }
+#dash-root table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+#dash-root th, #dash-root td { text-align: left; padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); vertical-align: top; }
+#dash-root th { position: sticky; top: 0; background: var(--color-panel); color: var(--color-fg-muted); font-weight: var(--cds-font-weight-medium); }
+#dash-root td.ja-when { white-space: nowrap; }
+#dash-root .ja-pill { display: inline-block; padding: 0 var(--cds-pad-sm); border-radius: 999px; border: 1px solid var(--color-border-line); white-space: nowrap; }
+#dash-root .ja-pill.forward, #dash-root .ja-pill.ok { color: var(--color-ok); border-color: var(--color-ok); }
+#dash-root .ja-pill.notsent, #dash-root .ja-pill.warn, #dash-root .ja-pill.task { color: var(--color-warn); border-color: var(--color-warn); }
+#dash-root .ja-pill.bad { color: var(--color-bad); border-color: var(--color-bad); }
+#dash-root .ja-pill.rejected { color: var(--color-fg-muted); }
+#dash-root .ja-tools { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); align-items: center; margin-bottom: var(--cds-gap-sm); }
+#dash-root .ja-chip { font: inherit; font-size: var(--cds-font-size-caption); padding: var(--cds-pad-xs) var(--cds-pad-sm); border-radius: 999px; border: 1px solid var(--color-border-line); background: var(--color-bg); color: var(--color-fg); cursor: pointer; }
+#dash-root .ja-chip[aria-pressed="true"] { background: var(--color-fg); color: var(--color-bg); }
+#dash-root .ja-chip:focus-visible, #dash-root .ja-tab:focus-visible, #dash-root .ja-search:focus-visible { outline: 2px solid var(--color-fg); outline-offset: 2px; }
+#dash-root .ja-search { font: inherit; font-size: var(--cds-font-size-caption); padding: var(--cds-pad-xs) var(--cds-pad-sm); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-bg); color: var(--color-fg); min-width: 0; flex: 1 1 12rem; }
+#dash-root .ja-muted { color: var(--color-fg-muted); }
+#dash-root a { color: inherit; }
+#dash-root [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+@media (max-width: 900px) { #dash-root .ja-wide { display: none; } }
+#dash-root { --ja-seg-1: #2a78d6; --ja-seg-2: #eb6834; --ja-seg-3: #1baf7a; --ja-seg-4: #eda100; --ja-seg-5: #e87ba4; --ja-seg-6: #008300; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #dash-root { --ja-seg-1: #3987e5; --ja-seg-2: #d95926; --ja-seg-3: #199e70; --ja-seg-4: #c98500; --ja-seg-5: #d55181; --ja-seg-6: #008300; } }
+:root[data-theme="dark"] #dash-root { --ja-seg-1: #3987e5; --ja-seg-2: #d95926; --ja-seg-3: #199e70; --ja-seg-4: #c98500; --ja-seg-5: #d55181; --ja-seg-6: #008300; }
+#dash-root .ja-split-total { font-family: var(--font-anthropic-sans); font-size: 3rem; font-weight: 600; line-height: 1; }
+#dash-root .ja-split { display: flex; gap: 2px; height: 28px; margin: var(--cds-gap-sm) 0; }
+#dash-root .ja-seg { flex: 1 1 0; min-width: 2px; border-radius: 4px; display: flex; align-items: center; padding: 0 6px; overflow: hidden; white-space: nowrap; font-size: var(--cds-font-size-caption); font-weight: 600; }
+#dash-root .ja-seg:focus-visible { outline: 2px solid var(--color-fg); outline-offset: 2px; }
+#dash-root .ja-legend { list-style: none; display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs) var(--cds-gap-md); margin: 0; padding: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+#dash-root .ja-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+#dash-root .s1 { background: var(--ja-seg-1); } #dash-root .s2 { background: var(--ja-seg-2); } #dash-root .s3 { background: var(--ja-seg-3); }
+#dash-root .s4 { background: var(--ja-seg-4); } #dash-root .s5 { background: var(--ja-seg-5); } #dash-root .s6 { background: var(--ja-seg-6); }
+</style>
+
+<div class="ja">
+  <header class="ja-head">
+    <h1>Job applications</h1>
+    <p><b data-draw="h-working" data-source="index" data-field="n" data-where="key=actions:working">—</b> in progress (Claude or a session with you is on it: wait). You can do <b data-draw="h-todo" data-source="index" data-field="n" data-where="key=actions:click">—</b> sign-ins and <b data-draw="h-info" data-source="index" data-field="n" data-where="key=actions:info">—</b> answers now, with <b data-draw="h-task" data-source="index" data-field="n" data-where="key=actions:task">—</b> tasks on a deadline. Built from your job-search folder on <b data-draw="h-generated" data-source="index" data-field="label" data-where="key=meta:generated">—</b>.</p>
+    <p class="ja-run"><b data-draw="h-run" data-source="index" data-field="label" data-where="key=meta:run">—</b></p>
+  </header>
+
+  <section class="ja-tiles" aria-label="Headline counts">
+    <div class="ja-tile forward"><div class="ja-label">Moving forward</div><div class="ja-num" data-draw="t-forward" data-source="index" data-field="n" data-where="key=stage:Moving forward">—</div></div>
+    <div class="ja-tile"><div class="ja-label">Waiting for a reply</div><div class="ja-num" data-draw="t-waiting" data-source="index" data-field="n" data-where="key=stage:Waiting for reply">—</div></div>
+    <div class="ja-tile"><div class="ja-label">Not sent yet</div><div class="ja-num" data-draw="t-notsent" data-source="index" data-field="n" data-where="key=stage:Not sent">—</div></div>
+    <div class="ja-tile rejected"><div class="ja-label">Rejected</div><div class="ja-num" data-draw="t-rejected" data-source="index" data-field="n" data-where="key=stage:Rejected">—</div></div>
+    <div class="ja-tile"><div class="ja-label">Closed (not a rejection)</div><div class="ja-num" data-draw="t-closed" data-source="index" data-field="n" data-where="key=stage:Closed">—</div></div>
+    <div class="ja-tile"><div class="ja-label">Declined by you</div><div class="ja-num" data-draw="t-declined" data-source="index" data-field="n" data-where="key=stage:Declined">—</div></div>
+    <div class="ja-tile todo"><div class="ja-label">In progress: wait</div><div class="ja-num" data-draw="t-working" data-source="index" data-field="n" data-where="key=actions:working">—</div></div>
+    <div class="ja-tile todo"><div class="ja-label">Tasks with a deadline</div><div class="ja-num" data-draw="t-task" data-source="index" data-field="n" data-where="key=actions:task">—</div></div>
+    <div class="ja-tile todo"><div class="ja-label">Logins that need you</div><div class="ja-num" data-draw="t-logins" data-source="index" data-field="n" data-where="key=logins:action">—</div></div>
+  </section>
+
+  <section class="ja-card" data-draw="split" data-source="index" aria-label="All applications by outcome">
+    <div><span class="ja-split-total">—</span> <span class="ja-muted ja-split-sub"></span></div>
+    <div class="ja-split" role="img" aria-label="Applications by outcome"></div>
+    <ul class="ja-legend"></ul>
+  </section>
+
+  <nav class="ja-tabs" role="tablist" aria-label="Sections">
+    <button type="button" class="ja-tab" role="tab" data-tab="do-now" aria-selected="true">Do now</button>
+    <button type="button" class="ja-tab" role="tab" data-tab="calendar" aria-selected="false">Calendar</button>
+    <button type="button" class="ja-tab" role="tab" data-tab="logins" aria-selected="false">Logins</button>
+    <button type="button" class="ja-tab" role="tab" data-tab="steps" aria-selected="false">Hiring steps</button>
+    <button type="button" class="ja-tab" role="tab" data-tab="applications" aria-selected="false">All applications</button>
+  </nav>
+
+  <section class="ja-card ja-page" id="do-now">
+    <h2>Do now</h2>
+    <p class="ja-note">In progress first: Claude, or a session with you, is on it, so wait for it. Then everything waiting on you, deadlines first: sign-ins to click, questions only you can answer, and tasks such as online tests or AI interviews. When one is done, tell Claude.</p>
+    <div class="ja-tools">
+      <button type="button" class="ja-chip ja-kind" data-kind="all" aria-pressed="true">All</button>
+      <button type="button" class="ja-chip ja-kind" data-kind="working" aria-pressed="false">In progress</button>
+      <button type="button" class="ja-chip ja-kind" data-kind="task" aria-pressed="false">Tasks</button>
+      <button type="button" class="ja-chip ja-kind" data-kind="click" aria-pressed="false">Sign-ins and clicks</button>
+      <button type="button" class="ja-chip ja-kind" data-kind="info" aria-pressed="false">Answers</button>
+    </div>
+    <div class="ja-scroll">
+      <table data-source="do_now" data-row-key="key">
+        <thead><tr><th data-field="due">Due</th><th data-field="kind">Kind</th><th data-field="text">What to do</th><th data-field="for">For</th><th data-field="link">Link</th></tr></thead>
+        <tbody data-draw="do-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="ja-card ja-page" id="calendar" hidden>
+    <h2>Interviews and deadlines</h2>
+    <p class="ja-note">Job-search events in your Google Calendar from now to 60 days ahead: interviews, calls and deadlines, marked with the job-search color. An event drops off once it has ended. Read live from your calendar.</p>
+    <div class="ja-scroll">
+      <table data-source="calendar_jobs" data-row-key="id">
+        <thead><tr><th data-field="day">Date</th><th data-field="time">Time</th><th data-field="title">Event</th><th data-field="where" class="ja-wide">Where</th><th data-field="link">Open</th></tr></thead>
+        <tbody data-draw="cal-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="ja-card ja-page" id="logins" hidden>
+    <h2>Logins and connectors</h2>
+    <p class="ja-note">What Claude needs to work for you: connectors checked at each session start, and job sites where an application waits on your sign-in.</p>
+    <div class="ja-scroll">
+      <table data-source="logins" data-row-key="id">
+        <thead><tr><th data-field="name">Login</th><th data-field="kind">Kind</th><th data-field="status">Status</th><th data-field="jobs">Waiting</th><th data-field="checked" class="ja-wide">Checked</th><th data-field="note" class="ja-wide">Note</th><th data-field="link">Open</th></tr></thead>
+        <tbody data-draw="login-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="ja-card ja-page" id="steps" hidden>
+    <h2>Hiring steps</h2>
+    <p class="ja-note">Every step of the applications moving forward; upcoming ones first. Prep notes and feedback are in each step's folder.</p>
+    <div class="ja-scroll">
+      <table data-source="steps_view" data-row-key="key">
+        <thead><tr><th data-field="date">Date</th><th data-field="company">Company</th><th data-field="step">Step</th><th data-field="detail" class="ja-wide">Details</th><th data-field="upcoming">Upcoming</th></tr></thead>
+        <tbody data-draw="step-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="ja-card ja-page" id="applications" hidden>
+    <h2>All applications</h2>
+    <p class="ja-note">One row per application folder. Open the folder in Drive for the posting, prep notes, the CV and letter sent, and feedback.</p>
+    <div class="ja-tools">
+      <button type="button" class="ja-chip ja-stage" data-stage="all" aria-pressed="true">All</button>
+      <button type="button" class="ja-chip ja-stage" data-stage="Moving forward" aria-pressed="false">Moving forward</button>
+      <button type="button" class="ja-chip ja-stage" data-stage="Waiting for reply" aria-pressed="false">Waiting for a reply</button>
+      <button type="button" class="ja-chip ja-stage" data-stage="Not sent" aria-pressed="false">Not sent</button>
+      <button type="button" class="ja-chip ja-stage" data-stage="Rejected" aria-pressed="false">Rejected</button>
+      <button type="button" class="ja-chip ja-stage" data-stage="Closed" aria-pressed="false">Closed</button>
+      <button type="button" class="ja-chip ja-stage" data-stage="Declined" aria-pressed="false">Declined</button>
+      <input type="search" class="ja-search" placeholder="Search company, role or city" aria-label="Search applications">
+    </div>
+    <div class="ja-scroll">
+      <table data-source="applications" data-row-key="id">
+        <thead><tr><th data-field="company">Company</th><th data-field="role">Role</th><th data-field="stage">Stage</th><th data-field="applied">Applied</th><th data-field="status" class="ja-wide">Status</th><th data-field="cv" class="ja-wide">CV</th><th data-field="folder" class="ja-wide">Folder</th></tr></thead>
+        <tbody data-draw="app-rows"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+// The calendar window: today and the next 60 days, as whole local dates (coarse values cache well; a UTC date
+// started the window a day early in the first hour after midnight in Europe).
+const day = (d) => d3.timeFormat('%Y-%m-%d')(d) + 'T00:00:00';
+const setWindow = () => dash.setParams({from: day(new Date()), to: day(d3.timeDay.offset(new Date(), 60))});
+setWindow();
+
+dash.loader('calendar', {
+  description: 'Google Calendar events as rows: id, start, end, all-day flag, title, color, where, links.',
+  fn: ({answer}) => {
+    const a = typeof answer === 'string' ? JSON.parse(answer) : answer;
+    if (a && a.error) throw new Error(String(a.error.message || a.error));
+    return (a.events || []).map((e) => ({
+      id: e.id, start: (e.start && (e.start.dateTime || e.start.date)) || '', end: (e.end && (e.end.dateTime || e.end.date)) || '',
+      all_day: !!(e.start && e.start.date), title: e.summary || '', color: e.colorId || '', where: e.location || '',
+      meet: (e.conferenceData && e.conferenceData.videoEntryPoint && e.conferenceData.videoEntryPoint.uri) || e.conferenceUrl || '',
+      link: e.htmlLink || '',
+    }));
+  },
+});
+
+dash.calc('calendar_jobs', {
+  inputs: ['calendar'],
+  title: 'Job-search events',
+  description: 'Calendar events in the job-search color (Grape) or titled "Job search" that have not ended yet, soonest first.',
+  fn: (calendar) => calendar
+    .filter((e) => e.color === '3' || e.title.startsWith('Job search'))
+    // An all-day event's end is the next day's date (exclusive): it ends at that local midnight.
+    .filter((e) => !e.end || new Date(e.all_day ? e.end + 'T00:00:00' : e.end) > new Date())
+    .map((e) => ({id: e.id, day: e.start.slice(0, 10), time: e.all_day ? 'all day' : e.start.slice(11, 16) + '–' + e.end.slice(11, 16),
+                  title: e.title.replace(/^Job search · /, ''), where: e.where, link: e.meet || e.link}))
+    .sort((x, y) => (x.day + x.time).localeCompare(y.day + y.time)),
+});
+
+dash.calc('do_now', {
+  inputs: ['actions', 'applications', 'logins'],
+  title: 'What to do now',
+  description: 'Each action with the application or login it belongs to, looked up by id.',
+  fn: (actions, applications, logins) => {
+    const app = new Map(applications.map((a) => [a.id, a]));
+    const login = new Map(logins.map((l) => [l.id, l]));
+    return actions.map((x) => {
+      const a = app.get(x.app);
+      const l = login.get(x.login);
+      return {key: x.key, due: x.due, kind: x.kind, text: x.text, link: x.link || (l ? l.link : ''),
+              for: a ? a.company + ' – ' + a.role : l ? l.name : ''};
+    });
+  },
+});
+
+dash.calc('steps_view', {
+  inputs: ['steps', 'applications'],
+  title: 'Hiring steps with their company',
+  description: 'Each hiring step with its company, looked up by the application id; upcoming first.',
+  fn: (steps, applications) => {
+    const app = new Map(applications.map((a) => [a.id, a]));
+    return steps.map((s) => ({key: s.key, date: s.date, company: (app.get(s.app) || {}).company || '', step: s.step,
+                              detail: s.detail, upcoming: s.upcoming}))
+      .sort((x, y) => (y.upcoming === 'yes') - (x.upcoming === 'yes') || x.date.localeCompare(y.date));
+  },
+});
+
+window.jaState = {kind: 'all', stage: 'all', q: ''};
+const KIND = {working: 'In progress', task: 'Task', click: 'Sign-in / click', info: 'Answer'};
+const PILL = {'Moving forward': 'forward', 'Waiting for reply': '', 'Not sent': 'notsent', 'Rejected': 'rejected',
+              'Closed': 'notsent', 'Declined': 'notsent',
+              connected: 'ok', 'signed-in': 'ok', 'needs-sign-in': 'warn', 'needs-reconnect': 'bad', blocked: 'bad', unknown: '',
+              task: 'task', click: 'warn', info: '', working: 'forward'};
+const STAGE_ORDER = {'Moving forward': 0, 'Waiting for reply': 1, 'Not sent': 2, 'Rejected': 3, 'Closed': 4, 'Declined': 5};
+
+const indexValue = (key, field) => (el) => {
+  const d = dash.data('index');
+  const row = d.status === 'ok' ? d.data.find((r) => r.key === key) : null;
+  el.textContent = row ? String(row[field]) : '—';
+};
+[['h-working', 'actions:working'], ['t-working', 'actions:working'],
+ ['h-todo', 'actions:click'], ['h-info', 'actions:info'], ['h-task', 'actions:task'], ['t-forward', 'stage:Moving forward'],
+ ['t-waiting', 'stage:Waiting for reply'], ['t-notsent', 'stage:Not sent'], ['t-rejected', 'stage:Rejected'],
+ ['t-closed', 'stage:Closed'], ['t-declined', 'stage:Declined'],
+ ['t-task', 'actions:task'], ['t-logins', 'logins:action']].forEach(([name, key]) => dash.draw(name, indexValue(key, 'n')));
+dash.draw('h-generated', indexValue('meta:generated', 'label'));
+// Is a run going? Started and finished rows from the usage log, and the next scheduled run.
+dash.draw('h-run', indexValue('meta:run', 'label'));
+
+// One whole split into its outcomes: a tall segmented bar, parts side by side in a fixed order and fixed colors.
+const SPLIT = ['Moving forward', 'Waiting for reply', 'Not sent', 'Rejected', 'Closed', 'Declined'];
+const inkFor = (el) => {
+  const [r, g, b] = (getComputedStyle(el).backgroundColor.match(/\d+/g) || [0, 0, 0]).map(Number)
+    .map((c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return (1.05 / (lum + 0.05)) >= ((lum + 0.05) / 0.0509) ? '#ffffff' : '#0b0b0b';
+};
+dash.draw('split', (el) => {
+  const d = dash.data('index');
+  if (d.status !== 'ok') return;
+  const parts = SPLIT.map((label, i) => {
+    const row = d.data.find((r) => r.key === 'stage:' + label);
+    return {label, slot: i + 1, n: row ? row.n : 0};
+  });
+  const total = parts.reduce((s, p) => s + p.n, 0);
+  const notSent = parts[2].n;
+  el.querySelector('.ja-split-total').textContent = String(total);
+  el.querySelector('.ja-split-sub').textContent = `applications in the tracker: ${total - notSent} sent, ${notSent} not sent yet`;
+  const bar = el.querySelector('.ja-split');
+  const legend = el.querySelector('.ja-legend');
+  bar.replaceChildren(); legend.replaceChildren();
+  const shown = parts.filter((p) => p.n > 0);
+  bar.setAttribute('aria-label', 'Applications by outcome: '
+    + shown.map((p) => `${p.label} ${p.n} (${Math.round(100 * p.n / total)}%)`).join(', '));
+  shown.forEach((p) => {
+    const share = Math.round(100 * p.n / total);
+    const seg = document.createElement('div');
+    seg.className = 'ja-seg s' + p.slot;
+    seg.style.flexGrow = String(p.n);
+    seg.tabIndex = 0;
+    seg.title = `${p.label}: ${p.n} (${share}%)`;
+    seg.setAttribute('aria-label', seg.title);
+    const t = document.createElement('span');
+    t.textContent = share + '%';
+    seg.appendChild(t);
+    bar.appendChild(seg);
+    const li = document.createElement('li');
+    const sw = document.createElement('span');
+    sw.className = 'ja-swatch s' + p.slot;
+    li.append(sw, p.label);
+    legend.appendChild(li);
+  });
+  // A block too narrow for its label prints none: the tiles above give every count. Checked whenever the bar is
+  // laid out, since a hidden tab has no width yet.
+  const fit = () => bar.querySelectorAll('.ja-seg').forEach((seg) => {
+    const t = seg.firstChild;
+    t.style.color = inkFor(seg);
+    t.style.visibility = seg.clientWidth > 0 && t.offsetWidth > seg.clientWidth - 8 ? 'hidden' : 'visible';
+  });
+  fit();
+  if (el.jaFit) el.jaFit.disconnect();
+  if (window.ResizeObserver) { el.jaFit = new ResizeObserver(fit); el.jaFit.observe(bar); }
+});
+
+const cell = (tr, text, cls) => { const td = document.createElement('td'); td.textContent = text || ''; if (cls) td.className = cls; tr.appendChild(td); return td; };
+const pill = (tr, text, cls) => { const td = cell(tr, ''); const s = document.createElement('span'); s.className = 'ja-pill ' + (cls || ''); s.textContent = text; td.appendChild(s); return td; };
+const link = (tr, url, label) => {
+  const td = cell(tr, '');
+  if (/^https?:\/\//.test(url || '')) { const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = label; td.appendChild(a); }
+  return td;
+};
+
+dash.draw('do-rows', (tbody) => {
+  const d = dash.data('do_now');
+  tbody.replaceChildren();
+  if (d.status !== 'ok') return;
+  d.data.filter((r) => window.jaState.kind === 'all' || r.kind === window.jaState.kind).forEach((r) => {
+    const tr = document.createElement('tr');
+    tr.dataset.key = r.key;
+    cell(tr, r.due, 'ja-when'); pill(tr, KIND[r.kind] || r.kind, PILL[r.kind]); cell(tr, r.text); cell(tr, r.for); link(tr, r.link, 'Open');
+    tbody.appendChild(tr);
+  });
+});
+
+dash.draw('cal-rows', (tbody) => {
+  const d = dash.data('calendar_jobs');
+  tbody.replaceChildren();
+  if (d.status !== 'ok') return;
+  d.data.forEach((r) => {
+    const tr = document.createElement('tr');
+    tr.dataset.key = r.id;
+    cell(tr, r.day, 'ja-when'); cell(tr, r.time, 'ja-when'); cell(tr, r.title); cell(tr, r.where, 'ja-wide'); link(tr, r.link, 'Open');
+    tbody.appendChild(tr);
+  });
+});
+
+dash.draw('login-rows', (tbody) => {
+  const d = dash.data('logins');
+  tbody.replaceChildren();
+  if (d.status !== 'ok') return;
+  d.data.slice().sort((x, y) => (PILL[x.status] === 'ok') - (PILL[y.status] === 'ok') || x.name.localeCompare(y.name)).forEach((r) => {
+    const tr = document.createElement('tr');
+    tr.dataset.key = r.id;
+    cell(tr, r.name); cell(tr, r.kind); pill(tr, r.status, PILL[r.status]); cell(tr, r.jobs ? String(r.jobs) : '', 'ja-when');
+    cell(tr, r.checked, 'ja-wide ja-when'); cell(tr, r.fix || r.note, 'ja-wide ja-muted'); link(tr, r.link, 'Open');
+    tbody.appendChild(tr);
+  });
+});
+
+dash.draw('step-rows', (tbody) => {
+  const d = dash.data('steps_view');
+  tbody.replaceChildren();
+  if (d.status !== 'ok') return;
+  d.data.forEach((r) => {
+    const tr = document.createElement('tr');
+    tr.dataset.key = r.key;
+    cell(tr, r.date, 'ja-when'); cell(tr, r.company); cell(tr, r.step); cell(tr, r.detail, 'ja-wide'); cell(tr, r.upcoming);
+    tbody.appendChild(tr);
+  });
+});
+
+dash.draw('app-rows', (tbody) => {
+  const d = dash.data('applications');
+  tbody.replaceChildren();
+  if (d.status !== 'ok') return;
+  const st = window.jaState;
+  const q = st.q.trim().toLowerCase();
+  d.data.filter((r) => st.stage === 'all' || r.stage === st.stage)
+    .filter((r) => !q || [r.company, r.role, r.where, r.stage].join(' ').toLowerCase().includes(q))
+    .slice().sort((x, y) => (STAGE_ORDER[x.stage] - STAGE_ORDER[y.stage]) || String(y.applied).localeCompare(String(x.applied)))
+    .forEach((r) => {
+      const tr = document.createElement('tr');
+      tr.dataset.key = r.id;
+      cell(tr, r.company); cell(tr, r.role); pill(tr, r.stage, PILL[r.stage]); cell(tr, r.applied, 'ja-when');
+      cell(tr, r.status, 'ja-wide ja-muted'); cell(tr, r.cv, 'ja-wide'); cell(tr, r.folder, 'ja-wide ja-muted');
+      tbody.appendChild(tr);
+    });
+});
+
+// Tabs: only the open section is shown, so only its data loads (a hidden section loads nothing).
+const openTab = (id) => {
+  document.querySelectorAll('#dash-root .ja-page').forEach((s) => { s.hidden = s.id !== id; });
+  document.querySelectorAll('#dash-root .ja-tab').forEach((b) => b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === id)));
+  dash.setLink(id);
+};
+document.querySelectorAll('#dash-root .ja-tab').forEach((b) => b.addEventListener('click', () => openTab(b.getAttribute('data-tab'))));
+const named = location.hash.slice(1);
+if (named && document.getElementById(named) && document.getElementById(named).classList.contains('ja-page')) openTab(named);
+
+document.querySelectorAll('#dash-root .ja-kind').forEach((btn) => btn.addEventListener('click', () => {
+  window.jaState.kind = btn.getAttribute('data-kind');
+  document.querySelectorAll('#dash-root .ja-kind').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+  dash.draw('do-rows');
+}));
+document.querySelectorAll('#dash-root .ja-stage').forEach((btn) => btn.addEventListener('click', () => {
+  window.jaState.stage = btn.getAttribute('data-stage');
+  document.querySelectorAll('#dash-root .ja-stage').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+  dash.draw('app-rows');
+}));
+document.querySelectorAll('#dash-root .ja-search').forEach((input) => input.addEventListener('input', () => {
+  window.jaState.q = input.value;
+  dash.draw('app-rows');
+}));
+</script>

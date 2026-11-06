@@ -1,0 +1,21 @@
+{
+ "_about": "Optional. Name this file in job-search.env as TRACKER_SETTINGS. It holds what one person's older records need, so the scripts stay the same for everyone. Every key is optional.",
+ "cv_names": [
+  ["Backend Lead CV|BL CV", "Jane-Doe-CV-Backend-Lead.pdf"],
+  ["Payments CV", "Jane-Doe-CV-Payments.pdf"]
+ ],
+ "cv_copied_when_note_has": "new CV",
+ "sync": {
+  "_about": "track.py sync. merge: search-result files ({companies: [...]}) joined to the tracker, each with an origin label. labels: agent-label prefixes per kind of result, newest run first (defaults: exclusion = excl-judge:, excl-verify:, excl-screen:; prep = prep-jobs:; screen and refute = none). refute_incomplete: companies whose 'incomplete' screen takes the refuting check's verdict. verdict_overrides: company -> [verdict, why]. exclude_overrides: company -> why it is excluded.",
+  "merge": [["apply/search-2026-11-06.json", "search-6nov"]],
+  "labels": {
+   "exclusion": ["excl-judge:", "excl-verify:", "excl-screen:"],
+   "prep": ["prep-jobs:"],
+   "screen": [],
+   "refute": []
+  },
+  "refute_incomplete": [],
+  "verdict_overrides": {"Example Group": ["uncertain", "owner not public; the person decides"]},
+  "exclude_overrides": {"Example Bank": "excluded by the person's rule R2 (source: ...)"}
+ }
+}

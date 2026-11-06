@@ -1,0 +1,39 @@
+Withdrawal mail for an employer the person's rules exclude, once the person applied and the employer wrote beyond an
+automatic confirmation (an invitation, a task, a recruiter's mail) or offered a job (RULES.md, "Employer rules").
+Claude fills the fields, writes a Gmail draft to the sender (a no-reply sender: the address RULES.md names), and the
+person sends it. Everything above the line of dashes is for Claude; the draft starts at "Subject:".
+
+Fields:
+- {employer}: the name the sender uses. Example: Acme Data.
+- {next_step}: the step they invited to. Example: do your online interview. No step yet: leave out ", and I will
+  not {next_step}".
+- {fact}: one sentence from the employer's check (EMPLOYER_CHECKS or data/blacklist.json), never stronger than its
+  source. Example: Acme Data, which owns and runs Acme Experts, prepares data for a national air force's AI systems.
+- {subject_reason} and {rule_line}: from the table below, for the category that excluded the employer.
+- {full_name}: the person's name from the master record.
+
+Per category ({subject_reason} | {rule_line}):
+- israel: I do not work for companies tied to Israel's occupation | I do not work for companies with ties to Israel's occupation or military.
+- defence: I do not work for suppliers of the military | I do not work for the defence industry, and I will not work for a company that sells to it.
+- animal_cruelty: I do not work for companies that harm animals | I do not work for companies with a record of animal cruelty.
+- climate: I do not work for companies that cause serious environmental harm | I do not work for companies with a record of serious environmental harm.
+- sexism: I do not work for companies with a record of sexism | I do not work for companies with a record of discrimination against women.
+- human_rights: I do not work for companies that abuse human rights | I do not work for companies with a record of human rights abuses.
+- working_conditions: I do not work for companies that abuse their workers | I do not work for companies with a record of abusing their workers.
+- sanctions: I do not work for sanctioned companies | I do not work for companies under the sanctions lists I follow.
+- a custom category: "I do not work for" plus its label | the same sentence with its `what`.
+
+Rules:
+- Facts only: no thanks, no softening, no story, no claim the source does not hold.
+- An employer the person keeps only for practice gets no draft.
+- A recruiter reached only on LinkedIn: tell the person to paste the same text there; Claude sends nothing.
+------------------------------------------------------------------------------------------------------------------
+Subject: I withdraw from {employer}: {subject_reason}
+
+I withdraw my application to {employer}, for every role I applied to, and I will not {next_step}.
+
+The reason is ethical. {fact} {rule_line}
+
+Do not route me to any other role.
+
+{full_name}

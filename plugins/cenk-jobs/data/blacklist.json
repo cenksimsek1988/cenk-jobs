@@ -1,0 +1,4735 @@
+{
+ "employers": [
+  {
+   "name": "ABN AMRO Bank",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "ABN AMRO is listed in the Don't Buy Into Occupation V report (Nov 2025) as no. 95 of the top 100 European investors (US$2,082m, Aug 2025) in 104 businesses it lists as involved in Israel's occupation.",
+     "source_url": "https://dontbuyintooccupation.org/wp-content/uploads/2025/11/2025-DBIO-V-report-1.pdf",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Abusix",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Acid Tango",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Adaptive Financial Consulting",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "HSBC and Citi made a strategic investment in Adaptive, terms undisclosed (Adaptive, 5 Mar 2026); Citi's own Israel page lists a Citibank, N.A. office in Tel Aviv and says its first Innovation Lab opened there in 2013.",
+     "source_url": "https://weareadaptive.com/trading-resources/adaptive-strategic-investment-hsbc-citi/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "adesso Belgium",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "adesso Belgium shows a Microsoft Gold Partner badge and offers Microsoft services such as Dynamics, Copilot and Power Platform (adesso.be); BDS's 'What to boycott' page lists Microsoft as a consumer-boycott priority for supplying Azure cloud and AI to Israel's military.",
+     "source_url": "https://www.adesso.be/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "ADP",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "ADP's worldwide-locations page lists Israel among its Europe, Middle East and Africa countries, served by ADP Global Payroll (local services) and Global HCM (multinational services).",
+     "source_url": "https://www.adp.com/worldwide-locations.aspx",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Adyen",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Affirm",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "AgeSA Hayat ve Emeklilik",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "AgeSA is a Sabanci Holding and Ageas joint venture; Sabanci's cement maker Akcansa is a joint venture with HeidelbergCement (Wikipedia), and the UN OHCHR settlement database lists Heidelberg Materials AG and Hanson Israel Ltd. (OpenSanctions copy of the database).",
+     "source_url": "https://data.opensanctions.org/datasets/latest/ps_ohchr_settlement/targets.simple.csv",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Ailin.health",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Airwallex",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Airwallex runs its Israel and Middle East operations from an office in Tel Aviv, its first Middle East hub, with sales, marketing, partnerships and product teams there (Maariv, 21 Aug 2024).",
+     "source_url": "https://www.maariv.co.il/economy/israel/article-1126572",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Albaraka Türk - ValensPara Ödeme Kuruluşu",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Albert Heijn",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Albert Heijn sells Israeli products such as peanuts in the shell, and says it follows national and international rules and that these products do not come from occupied territories (NL Times, 9 Sep 2025).",
+     "source_url": "https://nltimes.nl/2025/09/09/dutch-supermarkets-wont-stop-selling-israeli-products",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Alignerr",
+   "aliases": [],
+   "checks": {
+    "working_conditions": {
+     "status": "clear",
+     "level": "direct",
+     "fact": "Contractor complaints and a BBB F rating, but no lawsuit, ruling or fine found (6 Nov 2026)",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Labelbox, which operates Alignerr, announced on 18 Aug 2022 that it was one of several awardees of a US Air Force JADC2 IDIQ contract with a $950M ceiling, supplying software that prepares image, video and text data for military AI.",
+     "source_url": "https://www.prnewswire.com/news-releases/labelbox-joins-air-forces-950-million-jadc2-effort-301608758.html",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Labelbox, which operates Alignerr, partners with Google Cloud to offer LLM human evaluation to Vertex AI customers (Labelbox, 9 Apr 2024); BDS's 'What to boycott' page lists Google as a pressure target for cloud and AI services to Israel's military under Project Nimbus.",
+     "source_url": "https://labelbox.com/blog/google-cloud-partners-with-labelbox-to-offer-llm-human-evaluation-services/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Alpaca",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Altherias",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Amazon (AWS)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "AWS provides Israel's Military Intelligence Directorate with a server farm that stores intelligence from mass surveillance of Gaza, used in some cases before airstrikes, +972 Magazine and Local Call report citing intelligence sources (4 Aug 2024).",
+     "source_url": "https://www.972mag.com/cloud-israeli-army-gaza-amazon-google-microsoft/",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "AWS runs a dedicated US defence offering: it supports each military service's JADC2 command-and-control initiative, took part in edge-computing tests for the Air Force's Advanced Battle Management System, and sells Modular Data Centers to DoD JWCC customers for the tactical edge.",
+     "source_url": "https://aws.amazon.com/federal/defense/",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Apple (via WA Consultants)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "AppNation",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "AppNation's Genie app offers ChatGPT, DeepSeek, Claude, Gemini and Grok in one app (AppNation, 10 Feb 2025); BDS's 'What to boycott' page lists Google, Gemini's maker, as a pressure target for Project Nimbus services to Israel's military.",
+     "source_url": "https://appnation.co",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Ariad",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Sisu Group's announcement of the Ariad and NedWorks merger (14 Jun 2023) names Carrefour among the merged firm's clients; BDS's 'What to boycott' page lists Carrefour as a consumer-boycott priority over its Israeli franchise partner active in settlements.",
+     "source_url": "https://www.sisu.be/news/sisu-group-announces-merger-ariad-nedworks",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Ashby",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Lemonade appears among the customer logos on Ashby's customers page; Lemonade's FY2023 10-K (Exhibit 21.1) lists its subsidiary Lemonade Ltd., incorporated in Israel.",
+     "source_url": "https://www.ashbyhq.com/customers",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Ashby's customers page carries a testimonial from Slingshot Aerospace, which won a $69.2M US Space Force contract for AI-powered mission rehearsal and training of Guardians (Via Satellite, 15 Jul 2026).",
+     "source_url": "https://www.ashbyhq.com/customers",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Atolls",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Axmed",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "BarkleyOKRP",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "BAWAG Group",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Bending Spoons",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Bending Spoons S.p.A.'s F-1 registration statement, filed with the SEC on 8 June 2026, states that it has team members and operations in regions of geopolitical instability or armed conflict, including Israel and Ukraine.",
+     "source_url": "https://www.sec.gov/Archives/edgar/data/2004711/000110465926071170/tm2613674-7_f1.htm",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Billie",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Tencent, named as a new investor in Billie's Series C round on Billie's press page, was added on 7 Jan 2025 to the US Defense Department's Section 1260H list of Chinese military companies; Tencent called its inclusion a mistake (RTE, 7 Jan 2025).",
+     "source_url": "https://www.rte.ie/news/business/2025/0107/1489478-us-adds-tencent-to-firms-allegedly-aiding-china-military",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Bitvavo",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "BNP Paribas CIB",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "BNP Paribas is listed in the Don't Buy Into Occupation V report (Nov 2025) as no. 1 of 47 European creditors (US$41,480m, Jan 2023-Aug 2025) and no. 12 of the top 100 European investors (US$30,239m, Aug 2025) in 104 businesses it lists as involved in Israel's occupation.",
+     "source_url": "https://dontbuyintooccupation.org/wp-content/uploads/2025/11/2025-DBIO-V-report-1.pdf",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "BNP Paribas Fortis",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "The Don't Buy Into Occupation coalition's 2024 report names BNP Paribas Fortis among the Belgian banks investing in companies active in Israeli settlements, and ranks BNP Paribas the largest European creditor of such companies for the fourth year running (The Brussels Times, 26 Nov 2024).",
+     "source_url": "https://www.brusselstimes.com/belgium/1328338/belgian-banks-investing-in-massive-violations-of-international-law-in-palestine-tbtb/",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "The Don't Buy Into Occupation report says BNP Paribas lends USD 91 million to Elbit Systems, a supplier to the Israeli army (11.11.11 press release, 11 Dec 2023).",
+     "source_url": "https://pers.11.be/new-report-european-banks-invest-massively-in-companies-in-occupied-palestinian-territory",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Brainbridge IT Staffing",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "bunch",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "BVNK",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Camunda",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Canonical",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Canonical's blog of 2 Nov 2023 introduces its Federal and DoD team at Alamo ACE 2023 and says Ubuntu STIG containers are available in the US Department of Defense's Iron Bank registry.",
+     "source_url": "https://ubuntu.com/blog/meet-the-canonical-federal-and-dod-team-at-alamo-ace-2023",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Israel is among the countries in the country list of Canonical's Ubuntu sales contact form.",
+     "source_url": "https://ubuntu.com/pricing/contact-us",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Capgemini Engineering",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Capgemini's 'Defense en Europe' page offers armed forces, governments and the defence industry services to speed up production and build 'software-defined defense', including digital twins and AI-augmented systems.",
+     "source_url": "https://www.capgemini.com/fr-fr/secteurs/aeronautique-et-defense/defense-en-europe/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    },
+    "human_rights": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "AFSC Investigate lists Capgemini (profile valid as of 16 Jul 2024) for providing US immigration authorities with IT used to support deportations, including work for ICE's Enforcement and Removal Operations.",
+     "source_url": "https://investigate.afsc.org/company/capgemini",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Capital on Tap",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Celonis",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "On 2 Feb 2026 Celonis launched 'Celonis for Defense & Security', an initiative built on its process-intelligence platform for defence logistics, maintenance and supply chains; the release names KNDS, Navantia, CycloTech and Daimler Truck as existing defence-supplier customers.",
+     "source_url": "https://www.celonis.com/news/press/celonis-launches-defense-security-initiative-to-drive-mission-readiness",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Circle (circle.so)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Circle Internet Group (USDC)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "On 9 Sep 2025 Fireblocks and a Circle affiliate announced a strategic collaboration on stablecoin services for financial institutions; Globes (22 Nov 2020) calls Fireblocks an Israeli startup with its R&D centre in Tel Aviv.",
+     "source_url": "https://www.circle.com/pressroom/fireblocks-and-circle-strategically-collaborate-to-accelerate-stablecoin-adoption-for-financial-institutions",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "ClickHouse",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Coinspaid Dev",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "CRIF",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Cyberhaven",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Cyberhaven says its core technology is based on research that received more than USD 1 million in grants from DARPA and the Swiss federal government in 2016 (Cyberhaven press release, 5 Dec 2019).",
+     "source_url": "https://www.cyberhaven.com/press-releases/cyberhaven-product-launch-2019-12-05",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Since 22 Apr 2026 Cyberhaven is sold on the AWS, Microsoft Azure and Google Cloud marketplaces (Cyberhaven newsroom); BDS's 'What to boycott' page lists Microsoft as a consumer-boycott priority target and Google and Amazon as pressure targets.",
+     "source_url": "https://www.cyberhaven.com/newsroom",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "CYBERTEC PostgreSQL International",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "DataAnnotation",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Surge Labs Inc. (Surge AI, which runs DataAnnotation per Wikipedia) received two 2023 SBIR Phase I awards: US Army, USD 149,285, for AI-assisted data labelling; US Air Force, USD 73,194, for a language model to search and summarise intelligence reports.",
+     "source_url": "https://inknowvation.com/node/205422",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Wikipedia lists Google, Microsoft, Meta, OpenAI and Anthropic among the customers of Surge AI, which runs DataAnnotation; BDS's 'What to boycott' page lists Microsoft as a consumer-boycott priority target and Google as a pressure target.",
+     "source_url": "https://en.wikipedia.org/wiki/Surge_AI",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Databricks",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Databricks announced on 31 May 2023 that it had opened an office in Herzliya, Israel, and hired a dedicated Israel country manager.",
+     "source_url": "https://www.databricks.com/company/newsroom/press-releases/databricks-expands-israel-and-announces-appointment-yannis-daubin",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Datadog",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Dataroid (Commencis)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Deltatre",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Bain Capital, Deltatre's majority shareholder (Deltatre, 26 Mar 2026), lists ITP Aero among its current private-equity investments; ITP Aero develops, produces and maintains the Eurofighter's EJ200 engine and is a partner in the TP400 (A400M) and MTR390-E (Tiger helicopter) military engines.",
+     "source_url": "https://www.itpaero.com/en/defence/",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Denodo",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Deutsche Bank",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Devoteam",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Google Cloud named Devoteam its top Sales Partner for the EMEA region for the fifth year in a row (Consultancy.eu, 18 Apr 2024); BDS's 'What to boycott' page lists Google and Amazon as pressure targets (bdsmovement.net, read Nov 2026).",
+     "source_url": "https://www.consultancy.eu/news/10032/google-cloud-names-devoteam-top-sales-partner-for-emea-region",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "DGS",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "DGS names Defence as one of its markets and supports Italian Defence and Internal Security institutions round the clock with infrastructure management, perimeter protection, application services and cybersecurity.",
+     "source_url": "https://www.dgsspa.com/what-we-do/markets/defence",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "DGS lists Check Point Software Technologies among its strategic alliances and shows Check Point's 'New Business Partner of the Year 2025' award; Check Point's international headquarters is in Tel Aviv (Check Point company overview).",
+     "source_url": "https://www.dgsspa.com/what-we-do/alliances-expertises/strategic-alliances",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Discord",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "On 2 Oct 2025 Discord named AppsFlyer its first mobile measurement platform for Video Quests on Mobile ads; AppsFlyer was founded in 2011, was headquartered in Herzliya and has development offices in Herzliya and Haifa (Times of Israel, 21 Jan 2020).",
+     "source_url": "https://discord.com/press-releases/discord-launches-newest-ad-format-and-partners-with-appsflyer-gamesight-for-ads-measurement",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "The Washington Post (15 Apr 2023, reprinted by Stars and Stripes) reported that US military branches had for years used Discord to reach Generation Z recruits, including an Army esports Discord server.",
+     "source_url": "https://www.stripes.com/theaters/us/2023-04-15/military-loved-discord-gen-z-recruiting-before-leaks-9812304.html",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Distribusion Technologies",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "DKB Code Factory",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "dLocal",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Doodle",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Dremio",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "SAP, which completed its purchase of Dremio in July 2026, houses its Israeli R&D centre, SAP Labs (about 800 staff), in a NIS 240m Ra'anana building; SAP Israel's local customers include the government and the Israeli army (Times of Israel, 28 May 2017).",
+     "source_url": "https://www.timesofisrael.com/sap-sets-up-new-67-million-hq-in-raanana/",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "SAP NS2, an independent US subsidiary of Dremio's parent SAP SE, announced a $1bn IDIQ contract with the US Army, awarded in Sept 2025 and running to Sept 2035, for RISE with SAP enterprise resource planning, supply-chain and analytics software (SAP NS2 release, 23 Oct 2025).",
+     "source_url": "https://www.prnewswire.com/news-releases/sap-ns2-announces-1b-contract-with-united-states-army-302582039.html",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "DSV - Global Transport and Logistics",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "DSV operates in Israel through DSV Israel, which grew from Israeli forwarders including Daphna Weissman (1947), Transclal and Newlog; UTi Worldwide took 75% of them in 2007 and full ownership in 2011, and DSV merged with UTi in 2016 (DSV Israel timeline page).",
+     "source_url": "https://il.dsv.com/en/about-dsv/timeline/",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Dynatrace",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Dynatrace Israel Ltd., organized in Israel, is a subsidiary listed in Exhibit 21.1 of the FY2026 10-K (filed 2026-05-20).",
+     "source_url": "https://www.sec.gov/Archives/edgar/data/1773383/000177338326000019/exhibit211todynatraceformf.htm",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "eBay (Certilogo)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Ebury",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "edenity (client: Turkish licensed-brokerage investment app, unnamed)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "eDreams ODIGEO",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "AFSC Investigate (page dated 5 May 2025) says eDreams, Opodo and Travellink list rentals in Israeli settlements, citing Who Profits counts for 2022 (18 West Bank, 29 Golan); OHCHR removed eDreams ODIGEO and Opodo from the UN database on 26 Sep 2025 (Novact, 4 Dec 2025).",
+     "source_url": "https://investigate.afsc.org/node/1617",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "EIOPA",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "EIOPA's then-chair met the head of Israel's Capital Markets, Insurance and Savings Authority in Berlin on 6 May 2015 (consumer protection, financial awareness) and in Frankfurt on 19 Mar 2019 (insurance supervision, equivalence, cyber risks), per EIOPA's meetings register.",
+     "source_url": "https://register.eiopa.europa.eu/Pages/Meetings/Gabriel-Bernardino-meets-the-Commissioner-of-the-Capital-Markets-Insurance-and-Savings-Division-of-Israe.aspx",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Elastic",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "On 1 Jul 2019 Israel Police's Technology and Communications Division sought to renew its Elasticsearch subscription via Matrix, the product's exclusive marketer in Israel: about NIS 7.4M over 4 years to 30 Sep 2023, for dispatch-centre, GIS patrol-car tracking and licence-plate-recognition systems.",
+     "source_url": "https://mr.gov.il/ilgstorefront/he/p/attachment/005056BF4DAB1EDABCC014930793E123/%D7%94%D7%9E%D7%9C%D7%A6%D7%95%D7%AA%20%D7%9E%D7%A7%D7%A6%D7%95%D7%A2%D7%99%D7%95%D7%AA",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Elastic's defense industry page says military agencies use Elastic to eliminate data silos across commands and weapon systems, offers air-gapped and FedRAMP deployments, and names NCIS, Army CERDEC and Air Combat Command.",
+     "source_url": "https://www.elastic.co/industries/public-sector/defense",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Eligo Group of Companies",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "EPAM Systems",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "EPAM's FY2025 10-K Exhibit 21.1 (filed 26 Feb 2026) lists three subsidiaries incorporated in Israel: WhiteHat Ltd., WhiteHat Cyber Labs Ltd. and Naya P.A.I. Technologies Ltd.",
+     "source_url": "https://www.sec.gov/Archives/edgar/data/1352010/000135201026000015/exhibit211subsidiariesofth.htm",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Epassi",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "TA Associates and Warburg Pincus took a majority stake in Epassi Group in 2023. On 3 Feb 2025 Warburg Pincus and Berkshire Partners agreed to buy Triumph Group, which designs, makes and repairs aerospace and defense systems and components for military and commercial aircraft operators (closed July 2025).",
+     "source_url": "https://warburgpincus.com/2025/02/03/triumph-to-be-acquired-by-affiliates-of-warburg-pincus-and-berkshire-partners-in-an-all-cash-transaction-valued-at-approximately-3-billion/",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Euronext",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Caisse des Dépôts et Consignations, an 8.23% holder of Euronext (30 Sep 2026), is listed in the Don't Buy Into Occupation V report (Nov 2025) as no. 39 of 47 European creditors (US$124m, Jan 2023-Aug 2025) and no. 55 of the top 100 European investors (US$3,598m, Aug 2025) in 104 businesses it lists as involved in Israel's occupation.",
+     "source_url": "https://dontbuyintooccupation.org/wp-content/uploads/2025/11/2025-DBIO-V-report-1.pdf",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "European Banking Authority (ESAs)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "European Dynamics",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "European Dynamics lists defence and law enforcement among its e-government areas of expertise, alongside customs, taxation and ICT security.",
+     "source_url": "https://www.eurodyn.com/company/who-we-are/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "EVAM",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "eXalt Fi",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Festo",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Fever",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Fever's ticketing site has an Israel country page listing experiences in Tel Aviv, Jerusalem, Haifa, Ashdod, Netanya and Beer Sheva.",
+     "source_url": "https://feverup.com/en/country/israel",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Findr",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Finom",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Finom's privacy policy (v2.1, Mar 2023) names Amazon Web Services, Google and Microsoft Power BI as data recipients; BDS lists Microsoft as a consumer boycott target and Google and Amazon as pressure targets (bdsmovement.net, Dec 2024).",
+     "source_url": "https://storage.googleapis.com/fnm-pub/legal-documents/documents/privacy_policy/v2.1.0/privacy_policy-EN.html",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "General Catalyst, an investor in Finom since 2021 that joined its EUR 115m Series C (TechCrunch, 23 Jun 2025), led the EUR 209m Series B of Helsing, a developer of defence AI (14 Sep 2023).",
+     "source_url": "https://cooley.com/news/coverage/2023/2023-09-14-general-catalyst-leads-helsings-209-million-euro-series-b-financing",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Fiserv",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Flow Traders",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Form3",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "83North, a venture capital firm with offices in Herzliya, Israel, and London (formerly Greylock IL), invested in Form3's US$33m strategic equity round in August 2020.",
+     "source_url": "https://techcrunch.com/2015/01/07/greylock-il-partners-cut-the-apron-strings-to-create-83north-a-new-200m-fund",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Freenow (Lyft)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Future Horizons (client: financial-markets infrastructure, unnamed)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "GEICO",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "GEICO's parent Berkshire Hathaway owns IMC International Metalworking Companies (brands include ISCAR), which has primary manufacturing facilities and a regional central warehouse in Israel (Berkshire 10-K for FY2025).",
+     "source_url": "https://www.sec.gov/Archives/edgar/data/1067983/000119312526083899/brka-20251231.htm",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Precision Castparts, a subsidiary of GEICO's parent Berkshire Hathaway, makes investment castings and forgings for armament applications and components for military aerospace (Berkshire 10-K for FY2025).",
+     "source_url": "https://www.sec.gov/Archives/edgar/data/1067983/000119312526083899/brka-20251231.htm",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Gelecek Varlık Yönetimi",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Getnet Platforms (Santander Group)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Banco Santander, the parent group, is listed in the Don't Buy Into Occupation V report (Nov 2025) as no. 7 of 47 European creditors (US$20,606m, Jan 2023-Aug 2025) and no. 68 of the top 100 European investors (US$3,034m, Aug 2025) in 104 businesses it lists as involved in Israel's occupation.",
+     "source_url": "https://dontbuyintooccupation.org/wp-content/uploads/2025/11/2025-DBIO-V-report-1.pdf",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-07"
+  },
+  {
+   "name": "GetYourGuide",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Giesecke+Devrient",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "secunet Security Networks AG, 75.12% owned by Giesecke+Devrient GmbH, has a Defence & Space division that supplies armed forces with SINA crypto workstations, phones and encryption boxes for classified data up to NATO SECRET.",
+     "source_url": "https://www.secunet.com/en/industries/defence-space",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "G+D Mobile Security and Sony Semiconductor Israel launched a commercial iSIM solution with remote SIM provisioning, built on Sony's ALT1350 chipset and G+D's SIM operating system (G+D, 26 Sep 2023).",
+     "source_url": "https://www.gi-de.com/en/group/press/press-releases/g-d-mobile-security-and-sony-semiconductor-israel-launch-first-solution-for-remote-sim-provisioning-of-isims",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Global Payments Inc.",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Global Technologies Italia (client unnamed)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Glovo (Delivery Hero)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Uber Technologies, which holds 24.77% of Delivery Hero's voting rights (Uber offer document release, 2026), runs a taxi-hailing service in Israel, mainly in Jerusalem and Tel Aviv, under a general manager of Uber Israel (Reuters, 5 Jul 2022).",
+     "source_url": "https://finance.yahoo.com/news/uber-continues-global-expansion-launch-124421772.html",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "GLS Türkiye",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "GLS, the parent of GLS Türkiye, began delivering Israel Post's business parcels across Europe in May 2015 under a partnership with Israel Post, with deliveries from Europe to Israel planned next (VerkehrsRundschau, 29 Jul 2015).",
+     "source_url": "https://www.verkehrsrundschau.de/nachrichten/transport-logistik/gls-stellt-fuer-israelische-post-zu-2995625",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "GoMining",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Google",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Time (12 Apr 2024) reported a draft contract in which Google billed Israel's Ministry of Defense over US$1M for Google Cloud consulting at a 15% Nimbus-framework discount; the ministry already had its own Google Cloud landing zone.",
+     "source_url": "https://time.com/6966102/google-contract-israel-defense-ministry-gaza-war/",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Google Public Sector announced a contract with a US$200M ceiling from the US Department of Defense's Chief Digital and AI Office (CDAO) to supply frontier AI and cloud infrastructure for defence challenges (Google Cloud blog, 14 Jul 2025).",
+     "source_url": "https://cloud.google.com/blog/topics/public-sector/google-public-sector-awarded-200-million-contract-to-accelerate-ai-and-cloud-capabilities-across-department-of-defenses-chief-digital-and-artificial-intelligence-office-cdao",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "GR8 Tech",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "GRiT Solutions",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Gruppo Credem",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Guardsquare",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Hard Rock Digital",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Hays",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Hays Australia runs a Defence recruitment desk that fills civilian and Australian Defence Force roles on defence acquisition and sustainment programmes across air, land and sea.",
+     "source_url": "https://www.hays.com.au/defence",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "HelloFresh",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Hercle",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Horoz Logistics",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "HUGO BOSS",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "BOSS is the official fashion partner of Maccabi Tel Aviv FC through a collaboration with FACTORY 54, in its third year in Jan 2023, and has a flagship store at Ramat Aviv mall, Tel Aviv (Maccabi Tel Aviv, 10 Jan 2023).",
+     "source_url": "https://www.maccabi-tlv.co.il/?p=276768",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    },
+    "human_rights": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "BuzzFeed News (2021) reported HUGO BOSS shipments from Esquel, which spins cotton in Xinjiang, after the US ban on Xinjiang cotton; HUGO BOSS later cut ties with Esquel and denies having Xinjiang suppliers; ECCHR filed a criminal complaint against German textile brands including HUGO BOSS on 6 Sep 2021, and the Federal Prosecutor declined to investigate in Oct 2021. A company-funded study (Roman Köster, Hugo Boss 1924-1945, 2011) found that the founder joined the NSDAP in 1931 and that the factory made Nazi uniforms and used 140 forced labourers and 40 French prisoners of war; the company expressed profound regret (Reuters, Sep 2011, via business-humanrights.org).",
+     "source_url": "https://www.buzzfeednews.com/article/alison_killing/hugo-boss-removes-esquel-xinjiang-forced-labor",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "HumanIT Digital Consulting (client: business-aviation tech company)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "ICTWORKS Bilişim ve Yazılım A.Ş.",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "ICTWorks shows Amazon Web Services and Google Cloud among the partner logos on its website; Amazon and Google are pressure targets on the BDS 'What to boycott' list (bdsmovement.net, 2024).",
+     "source_url": "https://www.ictworks.com.tr/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "IDT Corporation (Net2Phone)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Who Profits lists Afek Oil and Gas, a Genie Energy subsidiary, for oil exploration in the occupied Golan (data to Mar 2015; drilling suspended Nov 2017 per Wikipedia). Genie was spun off from IDT in 2011 and is chaired by Howard Jonas, IDT's chairman and majority voting holder (IDT 10-K FY2026).",
+     "source_url": "https://www.whoprofits.org/companies/company/4034?afek-oil-and-gaz",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "IMC Trading",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "INFINNI",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "ING Group",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "ING Group is listed in the Don't Buy Into Occupation V report (Nov 2025) as no. 11 of 47 European creditors (US$10,021m, Jan 2023-Aug 2025) and no. 51 of the top 100 European investors (US$4,413m, Aug 2025) in 104 businesses it lists as involved in Israel's occupation.",
+     "source_url": "https://dontbuyintooccupation.org/wp-content/uploads/2025/11/2025-DBIO-V-report-1.pdf",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Insify",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Integrity360",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Integrity360 lists Tufin among its technology partners; Tufin's 2019 SEC prospectus puts its corporate headquarters and main R&D team in Tel Aviv, Israel.",
+     "source_url": "https://www.integrity360.com/partners",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Integrity360 lists Thales, a French aerospace and defence group that makes military systems, among its technology partners.",
+     "source_url": "https://www.integrity360.com/partners",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "IntelliCare",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Intermedia Intelligent Communications",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Intertech (DenizBank's IT company)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Invisible Technologies",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Invisible Technologies' public-sector page says it is an Awardable Vendor on the Tradewinds Solutions Marketplace, the US Department of Defense AI marketplace run by the CDAO (Intelligence Community News, 30 Apr 2024).",
+     "source_url": "https://invisibletech.ai/industries/public-sector",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Jet HR",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "JetBrains",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "JetBrains extended its Google Cloud partnership to bring Google's Gemini models into its AI Assistant (ITPro, 19 Jun 2024); Google is a pressure target on the BDS 'What to boycott' list (bdsmovement.net, 2024).",
+     "source_url": "https://www.itpro.com/technology/artificial-intelligence/jetbrains-extends-google-cloud-partnership-to-bring-gemini-models-to-ai-assistant",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Joseph Harry Ltd (client: financial services, unnamed)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Julius Baer",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Julius Baer Financial Services (Israel), a representative office at 46 Rothschild Blvd, Tel Aviv, is on the Bank of Israel's list of representative offices of foreign banks in Israel (last updated 1 Dec 2024).",
+     "source_url": "https://boi.org.il/media/x0hn21ep/202423en.pdf",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Just Eat Takeaway.com",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Just Eat Takeaway.com runs 10bis, an Israeli food-ordering service founded in 2000; JET's own careers page says the 10bis headquarters in Tel Aviv is home to one of JET's main tech hubs.",
+     "source_url": "https://careers.justeattakeaway.com/global/en/israel",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "JustMarkets",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "K2 Partnering Solutions",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "King (Microsoft)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Microsoft, which owns King through Activision Blizzard, is listed by BDS as a consumer-boycott priority target; BDS calls for boycotting Microsoft's Xbox and gaming, cutting institutional contracts with Microsoft and divesting from it.",
+     "source_url": "https://bdsmovement.net/get-involved/what-to-boycott",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "knowmad mood",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "knowmad mood's partners page lists it as an AWS Channel Reseller and Consulting Partner, a Microsoft Gold Solutions Partner and a Google Cloud partner; BDS lists Microsoft as a consumer-boycott priority target and Google and Amazon as pressure targets over Project Nimbus (BDS 'What to boycott', Nov 2026).",
+     "source_url": "https://www.knowmadmood.com/es/como-somos/partners",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Grupo Antea, which brands itself 'a knowmad mood company', shows Airbus and Isdefe among the client logos on its website.",
+     "source_url": "https://www.antea.es/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Kong",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Kong's customers page shows a SentinelOne logo; SentinelOne lists Sentinel Labs Israel Ltd and Prompt Security Ltd, both organised in Israel, as subsidiaries (SentinelOne 10-K Exhibit 21.1, as of 31 Jan 2026).",
+     "source_url": "https://konghq.com/customers",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Kronia (Kronia Technologies)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "KSC Trading",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Labelbox",
+   "aliases": [],
+   "checks": {
+    "working_conditions": {
+     "status": "clear",
+     "level": "direct",
+     "fact": "Contractor complaints and a BBB F rating, but no lawsuit, ruling or fine found (6 Nov 2026)",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Labelbox announced it was awarded a place on the US Air Force's multiple-award JADC2 IDIQ contract (USD 950M ceiling) to supply its AI data software for Joint All-Domain Command and Control capability (Labelbox release, 18 Aug 2022).",
+     "source_url": "https://www.prnewswire.com/news-releases/labelbox-joins-air-forces-950-million-jadc2-effort-301608758.html",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Labelbox partners with Google Cloud to offer LLM human-evaluation services to Vertex AI customers (Labelbox blog, 9 Apr 2024); BDS lists Google as a pressure target over Project Nimbus, its cloud contract with the Israeli government and military (BDS 'What to boycott', seen Nov 2026).",
+     "source_url": "https://labelbox.com/blog/google-cloud-partners-with-labelbox-to-offer-llm-human-evaluation-services/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Landytech",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Levy Professionals",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Levy Global's practice-areas page lists 'CyberArk specialists' among the cybersecurity roles it places; Palo Alto Networks, which completed its purchase of CyberArk on 11 Feb 2026, refers to its Israeli R&D centre (Palo Alto Networks release, 11 Feb 2026).",
+     "source_url": "https://levy-global.com/about-us/practice-areas/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Lexroom",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Liebherr Group",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Liebherr's aerospace Defense market page says it is a key supplier to the Eurofighter Typhoon and supplies air management for the Rafale, flight control and air management systems for the A400M, major systems for the Eurodrone and flight and environmental control parts for the NH90.",
+     "source_url": "https://www.liebherr.com/en-int/aerospace-and-transportation-systems/markets/defense/defense-7174919",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Who Profits lists Liebherr International (Liebherr-International AG) under the Wall and checkpoints, settlement enterprise and occupied-land construction, saying Liebherr 942 and 944 excavators were documented building the separation Wall at Ni'lin in the occupied West Bank (entry valid to 2017).",
+     "source_url": "https://www.whoprofits.org/companies/company/3758?liebherr-international",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Lightspeed Commerce",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Llamazing Digital Engineering GmbH",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Lumyn (recruiter for an unnamed exchange)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Luxoft (DXC Technology)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "DXC Services Israel Ltd., organised in Israel, is listed as a subsidiary of DXC Technology, Luxoft's parent, in Exhibit 21 of DXC's 10-K for FY2026 (subsidiaries as of 31 Mar 2026).",
+     "source_url": "https://www.sec.gov/Archives/edgar/data/1688568/000168856826000022/fy26ex21-dxcsubsidiaries_f.htm",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "DXC Technology, Luxoft's parent, runs an aerospace and defense industry practice that provides IT services to customers including Lockheed Martin Aeronautics, Textron and the New Zealand Defence Force.",
+     "source_url": "https://dxc.com/us/en/industries/aerospace-and-defense",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "MariaDB plc",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "MariaDB's 'Defense and Intelligence' solution page markets MariaDB Enterprise Server and GridGain for C4ISR and JADC2 workflows, cites a DISA-approved STIG and says the platform is used across the US DoD and intelligence community.",
+     "source_url": "https://mariadb.com/industry/defense-and-intelligence/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Mastercard",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Mastercard's careers site lists its Tel Aviv office in One Tower, Ramat Gan, as the headquarters of Mastercard Israel and of Dynamic Yield, which Mastercard bought in full in April 2022.",
+     "source_url": "https://careers.mastercard.com/us/en/tel-aviv-israel",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Match Profiler",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Match Profiler shows Critical Software among its client logos; Critical Software lists a Defense and Security industry with 'defence and homeland security software solutions' for command and control (criticalsoftware.com, seen Nov 2026).",
+     "source_url": "https://www.m-profiler.com/en",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "MDOTM",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Mediatica Digital",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "MEDvidi",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Mercury Business Services (Mercury Teknoloji A.Ş.)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Mesmer (YC P25)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Metabase",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Migros One",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Migros One is the digital subsidiary of Migros Ticaret, which Anadolu Group controls. Anadolu Savunma, an Anadolu Group brand that develops military vehicles, hosted Turkey's Defence Industries Presidency (SSB) at its production facilities on 23-24 Sep 2026 (company statement, 28 Sep 2026).",
+     "source_url": "https://www.foreks.com/haber/detay/6aba473a95016b5817e61221/FRKS/tr/ssb-kara-araclari-daire-baskanligi-heyeti-anadolu-savunma-uretim-tesislerini-ziyaret-etti-28-09-26/",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Mirakl",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Mirakl's About page lists a partner of 83North among its investors and advisors. 83North, a venture capital firm founded in 2006 as Greylock Israel, operates from London and Tel Aviv (Globes, 19 May 2021).",
+     "source_url": "https://www.mirakl.com/why-mirakl/about-us",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Mollie",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "MoneyPay (Migros)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "MoneyPay is a subsidiary of Migros Ticaret, which Anadolu Group controls. Anadolu Defence (Anadolu Savunma), an Anadolu Group brand active in defence since 2017, launched the SEYIT 6x6 tactical wheeled vehicle and the KIA light tactical vehicle at IDEF 2025 (press conference, 24 Jul 2025).",
+     "source_url": "https://defenceturkey.com/news/anadolu-defence-introduces-seyit-6x6-tta-and-kia-ltv",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "MongoDB",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "The RSU award agreement filed as Exhibit 10.3 to MongoDB's 10-K for FY2026 has an Israel section covering RSUs granted to employees of MongoDB's Israeli subsidiary under Section 102(b)(2) and 102(b)(3) of Israeli tax law.",
+     "source_url": "https://www.sec.gov/Archives/edgar/data/1441816/000162828026016799/mdb-13126x10kxex103rsu.htm",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Moniepoint Group",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "MotherDuck",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "MotherDuck runs its service on AWS, in six AWS regions. BDS ('What to boycott') lists Amazon as a pressure target over Project Nimbus, a US$1.22bn contract it holds jointly with Google.",
+     "source_url": "https://motherduck.com/docs/concepts/architecture-and-capabilities/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "MRP-Global",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "MRP Global, an SAP recruitment and consulting agency, names Siemens among its clients. BDS ('What to boycott') lists Siemens as a consumer-boycott priority target as the main contractor for the EuroAsia Interconnector.",
+     "source_url": "https://www.mrp-global.com/clients/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Murat Lojistik Hizmetleri INC",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "MYLAPS",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "MYLAPS is a Garmin brand. Garmin's 10-K for FY2025 says its Aviation segment offers COTS and mission-optimized solutions to military and defense contractors and customers; its G3000 flight deck was selected for the USSOCOM Armed Overwatch combat aircraft (Garmin, 1 Nov 2022).",
+     "source_url": "https://www.sec.gov/Archives/edgar/data/1121788/000119312526056028/grmn-20251227.htm",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Natixis in Portugal (Groupe BPCE)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Groupe BPCE, the parent of Natixis, is listed in the Don't Buy Into Occupation V report (Nov 2025) as no. 16 of 47 European creditors (US$3,577m, Jan 2023-Aug 2025) and no. 5 of the top 100 European investors (US$70,344m, Aug 2025) in 104 businesses it lists as involved in Israel's occupation.",
+     "source_url": "https://dontbuyintooccupation.org/wp-content/uploads/2025/11/2025-DBIO-V-report-1.pdf",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Navan",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Neo4j",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Neo4j announced on 3 Jun 2026 that it is acquiring GraphAware, maker of the Hume intelligence-analysis platform designed for defence organisations; the U.S. Department of Defense runs Neo4j and Hume on a DoD IL5 network.",
+     "source_url": "https://neo4j.com/press-releases/neo4j-acquires-graphaware/",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "NetBird",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "New Relic",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "New Relic's 10-K for FY2021 says its R&D team has a significant presence in its offices in Barcelona and Tel Aviv, Israel; its 10-K for FY2023 (year to 31 Mar 2023) says it has operations in Israel.",
+     "source_url": "https://www.sec.gov/Archives/edgar/data/1448056/000144805621000025/newr-20210331.htm",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "TPG, co-owner of New Relic since Nov 2023 (New Relic, 8 Nov 2023), agreed on 10 Jul 2023 to buy Forcepoint's government cybersecurity business (G2CI) for $2.45bn. Now named Everfox, it lists U.S. and global government and defense among its markets (everfox.com).",
+     "source_url": "https://www.cybersecuritydive.com/news/tpg-acquires-forcepoint/686007/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Next Engineering",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Next Engineering is one of Prime Group's 14 brands. Prime Group lists Defense & Naval among its sectors, offering consulting, engineering, nearshore and R&D services there, with Thales among its references.",
+     "source_url": "https://www.weareprimegroup.com/sectors/defense-naval/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Nextlane",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Nitro Software",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Nordhealth",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Fjärde AP-fonden (AP4) held 4% of Nordhealth (3,270,000 shares) at 31 Dec 2025 (Annual Report 2025). The Don't Buy Into Occupation 2025 report (Nov 2025) lists AP4 as no. 79 of European investors in businesses involved in Israeli settlements (US$2.6bn).",
+     "source_url": "https://nordhealth.com/assets/attachments/nhg-annual-report-2025-and-auditors-report.pdf",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "NTT DATA Europe & Latam",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Nuitee",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Nuitée's Series A announcement (18 Dec 2024) names Robert J. Mylod Jr., Chairman of Booking.com, among the industry leaders it partnered with. BDS ('What to boycott') lists Booking Holdings as a pressure target for offering rentals in Israeli settlements.",
+     "source_url": "https://nuitee.com/insights/Nuitee-raises-USD48M-Series-A-led-by-Accel",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Nutrient",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Nymphis Technologies",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Oliver Bernard (agency)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "One Identity",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "OneSpan",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "In its Q3 2016 earnings call (27 Oct 2016), VASCO, now named OneSpan, reported 'wins at the largest bank in Israel'; the bank is not named.",
+     "source_url": "https://www.sec.gov/Archives/edgar/data/1044777/000119312516756852/d282107dex992.htm",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "orderbird",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "orderbird has been wholly owned by Nexi since 2022. CDP Equity, of Italy's state lender Cassa Depositi e Prestiti, is a minority shareholder of Nexi (about 19%, May 2026) and the main shareholder of Fincantieri, which builds warships including frigates and submarines.",
+     "source_url": "https://www.fincantieri.com/en/investors-relations/investing-in-fincantieri/shareholders/",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Owen Thomas | B Corp (recruiter; client unnamed, global tech business)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "pathway solutions GmbH",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Patrianna",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "PayCore",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "People First",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Personio",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Picnic Technologies",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Pillar",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Pillar's About page shows a Palantir logo among 19 logos under 'Sostenuti da chi ha già costruito il futuro' (backed by those who already built the future); its role is not stated. Who Profits lists Palantir Technologies in its company database (no. 330).",
+     "source_url": "https://www.pillar.it/about-us",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Pliant",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "PPRO",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "PPRO's payment-methods page includes Israel in its market filter.",
+     "source_url": "https://www.ppro.com/payment-methods/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Prima",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Proxify",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Qualcomm (Arduino)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Qualcomm completed its acquisition of Autotalks, an Israeli maker of V2X communication chips founded in 2009; about 100 Autotalks employees joined Qualcomm (Calcalist, 5 Jun 2025).",
+     "source_url": "https://www.calcalistech.com/ctechnews/article/95ujdebr8",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Qualifyze",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Reap",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Reap uses Fireblocks for stablecoin repayments on the Reap Card (Reap newsroom, 11 Jan 2023); Globes (22 Nov 2020) calls Fireblocks an Israeli startup with its R&D centre in Tel Aviv.",
+     "source_url": "https://reap.global/newsroom",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Recruiter4you",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Reddit",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "RevenueCat",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Revolut",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Revolut hired a head for its Israeli operations and is recruiting in Israel for credit, risk, AML and operations roles while it seeks a Bank of Israel 'lean bank' licence (Calcalist, 5 Oct 2026).",
+     "source_url": "https://www.calcalistech.com/ctechnews/article/bjncfxzsgx",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "REWE International",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "REWE's German online shop offered two Hermon wines and a Yarden white labelled 'Israel' that Frankfurter Rundschau research traced to occupied territories; REWE took the Yarden wine offline pending review (BHRRC, 4 Feb 2026).",
+     "source_url": "https://www.business-humanrights.org/en/latest-news/israelopt-deutsche-supermarktketten-verkaufen-laut-recherche-weine-aus-besetzten-gebieten-mit-der-herkunftsangabe-israel/",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "RGI Group",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "RGI's owner CVC agreed to buy about 40% of Fibrotex, an Israeli maker of military camouflage in Petah Tikva that has supplied the Israeli army for over 30 years, through its CVC Catalyst III fund (Realtid, 12 Oct 2026).",
+     "source_url": "https://www.realtid.se/bors-finans/ahlsells-agare-ville-tysta-ner-israelisk-forsvarsaffar/",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "RIGHTYON TECHNOLOGY",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Rightyon's homepage says it builds tailored projects with '18 years of defence-industry experience' and lists defence alongside textiles, aviation and retail among its sectors (seen Nov 2026).",
+     "source_url": "https://www.rightyon.com/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Robert Walters (recruiter; client bank not named)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Roche",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Roche's Finance Report 2024 (Note 33, list of subsidiaries and associates) lists two wholly owned Israeli companies: Medingo Ltd. in Yokneam Illit and Roche Pharmaceuticals (Israel) Ltd. in Hod Hasharon.",
+     "source_url": "https://assets.roche.com/f/176343/x/38d96ed8ec/fb24e.pdf",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Runtime Group",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Sabadell Digital (Banco Sabadell)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Banco Sabadell's chairman wrote to Israel's president on 14 Nov 2025 that the bank had revised its procedures for Israeli clients and had served over 2,000 companies trading with Israel, about EUR 500m in transactions, in 12 months (Jerusalem Post, 31 Dec 2025).",
+     "source_url": "https://www.jpost.com/spanish/diaspora-y-antisemitismo/article-881875",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Santander Consumer Finance Global Services (Santander Auto Software)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Banco Santander, the parent group, is listed in the Don't Buy Into Occupation V report (Nov 2025) as no. 7 of 47 European creditors (US$20,606m, Jan 2023-Aug 2025) and no. 68 of the top 100 European investors (US$3,034m, Aug 2025) in 104 businesses it lists as involved in Israel's occupation.",
+     "source_url": "https://dontbuyintooccupation.org/wp-content/uploads/2025/11/2025-DBIO-V-report-1.pdf",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Parent Banco Santander has open credit lines of USD 198m with Leonardo and finances arms companies exporting to Israel with USD 2,442m, according to the Centre Delas report 'La banca armada y su corresponsabilidad con el genocidio de Gaza' (El Salto, 2 Oct 2024).",
+     "source_url": "https://www.elsaltodiario.com/industria-armamentistica/bbva-santander-asi-dinero-puede-acabar-financiando-genocidio-israel-gaza",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Satispay",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Scalable Capital",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Scuolapay",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Seeq",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Selby Jennings",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Sibylla S.r.l.",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Siemens",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "BDS lists Siemens (Germany) among its consumer boycott priority targets as the main contractor for the Euro-Asia Interconnector, an Israel-EU undersea power cable planned to connect Israeli settlements to Europe (BDS 'What to Boycott', Nov 2026).",
+     "source_url": "https://bdsmovement.net/get-involved/what-to-boycott",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "SIXT",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Shlomo SIXT, SIXT's franchise in Israel and the country's largest vehicle leasing and rental company, belonged to the Israeli S. Shlomo Holdings, whose controlling shareholder also owned Israel Shipyards (Globes, 8 Jul 2014).",
+     "source_url": "https://en.globes.co.il/en/article-shlomo-shmeltzer-dies-1000952800",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Smadex (Entravision)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Smart Consulting",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Smart Consulting lists AWS, Azure and GCP among the cloud technologies it works with; BDS lists Microsoft as a consumer boycott priority target and Google and Amazon as pressure targets over Project Nimbus (BDS 'What to Boycott', Nov 2026).",
+     "source_url": "https://www.smartconsulting.pt/pt/our-expertise",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Snowflake (Observe)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Snowflake Cloudtech Israel Ltd., organised in Israel, is listed as a subsidiary in Exhibit 21.1 of Snowflake's FY2026 10-K, alongside Observe, LLC.",
+     "source_url": "https://www.sec.gov/Archives/edgar/data/1640147/000164014726000008/ex-211snowflakefy2026q4.htm",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Social Discovery Group",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Social Discovery Group advertised a 'Head of Supply' vacancy on LinkedIn with the location 'Israel' (seen Nov 2026).",
+     "source_url": "https://il.linkedin.com/jobs/social-discovery-group-jobs",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Solactive",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Solance",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Solera Holdings",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Sourcing Trust, LDA",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Sporty Group",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Sporty Group's Backend Software Engineering Team Lead (EU) posting lists AWS in its stack (Kubernetes and AWS, Redis on AWS ElastiCache, AWS CloudWatch). BDS lists Amazon as a pressure target ('What to boycott', viewed 6 Nov 2026).",
+     "source_url": "https://builtindublin.ie/job/software-engineering-team-lead-eu/4655435",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Squarespace",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Permira funds, Squarespace's majority owners since 17 Oct 2024 (SEC filing), bought a 57% controlling stake in BioCatch, an Israeli fraud-prevention company, at a USD 1.3B valuation (Globes, 2 May 2024).",
+     "source_url": "https://en.globes.co.il/en/article-permira-buys-control-of-biocatch-at-13b-valuation-1001477797",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "SQUER",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "StartupHeroes",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Stermedia",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Stermedia's homepage shows a Teva logo under 'Brands we have helped', and its Clutch profile lists a 'Project with Teva'. BDS lists Teva Pharmaceutical Industries as a consumer-boycott priority target ('What to boycott', viewed 6 Nov 2026).",
+     "source_url": "https://stermedia.ai/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Stermedia's Virginia Beach page markets its custom AI development to companies in the region, naming defence-related software as one opportunity area and citing the presence there of 10 of the top US defence contractors.",
+     "source_url": "https://stermedia.ai/custom-ai-development-in-virginia-beach/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "SUMEX AG",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "SUMEX AG is an ELCA Group company; ELCA lists Microsoft, AWS and HPE among its technology partners. BDS lists Microsoft and HP (including HPE) as consumer-boycott priority targets and Amazon as a pressure target ('What to boycott', viewed 6 Nov 2026).",
+     "source_url": "https://www.elca.ch/en/our-group/elca-partners",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Supabase",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Superchat",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Swissquote",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Sygnum Bank",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "TALENT Tree Consulting",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "team.it",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "TeamSystem",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Hellman & Friedman, which acquired TeamSystem in 2016, also lists among its current portfolio companies Checkmarx, an application-security company founded in 2006 and based in Israel, which it acquired in 2020.",
+     "source_url": "https://hf.com/our-portfolio/",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "TeamViewer",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "TeamViewer markets its DEX endpoint-management platform to US federal Defense and Intelligence customers, including closed, air-gapped and DDIL environments, and offers FedRAMP-compliant DEX through federal systems integrators.",
+     "source_url": "https://www.teamviewer.com/en/solutions/industries/federal/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "TeamViewer's partner finder lists Israel among the served markets by which its partners can be filtered.",
+     "source_url": "https://www.teamviewer.com/en/partner/partner-locations/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "TEB (BNP Paribas group)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "BNP Paribas S.A., TEB's majority owner, has a representative office in Tel Aviv, listed by the Bank of Israel among the representative offices of foreign banks in Israel (list updated 1 Dec 2024).",
+     "source_url": "https://boi.org.il/media/x0hn21ep/202423en.pdf",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    },
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "BNP Paribas, TEB's majority owner, deployed EUR 24 billion at end-2024 to large groups and SMEs, of which EUR 12 billion was directly attributable to the defence sector, mainly in NATO countries (BNP Paribas press release, 6 Mar 2025).",
+     "source_url": "https://invest.bnpparibas/document/bnp-paribas-reaffirms-its-long-standing-commitment-to-the-defense-sector-and-its-corporate-clients",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Tebi",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Alphabet's growth fund CapitalG led Tebi's EUR 30M funding round, with Index Ventures (TechCrunch, 10 Jun 2025). Alphabet's Google provides cloud services to Israel's Ministry of Defense under the Project Nimbus framework (TIME, 12 Apr 2024).",
+     "source_url": "https://techcrunch.com/2025/06/10/tebi-the-new-startup-by-adyens-departed-cofounder-raises-a-fresh-30m-from-alphabets-capitalg/",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Techyon",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "TEKsystems (client: large international bank)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Tenth Revolution Group",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Testlio",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "That Recruitment Company (client: insurance software company, not named)",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Thought Machine",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "TicketSwap",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Tiger Data (creators of TimescaleDB)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Tiger Data's TimescaleDB Enterprise release (20 Apr 2026) lists defense among the industries it targets, with manufacturing, oil and gas, renewable energy and utilities, and says the product is built for air-gapped environments.",
+     "source_url": "https://www.tigerdata.com/newsroom/tiger-data-launches-timescaledb-enterprise-a-self-managed-time-series-database-built-for-on-premises-and-edge-deployment",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Tiger Data signed a Strategic Collaboration Agreement with Amazon Web Services (25 Nov 2025). BDS lists Amazon as a pressure target ('What to boycott', viewed 6 Nov 2026).",
+     "source_url": "https://www.tigerdata.com/newsroom/tiger-data-and-amazon-web-services-announce-strategic-collaboration-agreement",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Tissington",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "TOPdesk",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "CVC, whose CVC Growth Funds took a significant minority stake in TOPdesk (Dec 2023), agreed on 12 Oct 2026 via its CVC Catalyst III fund to buy a minority stake in Fibrotex, a multispectral camouflage maker for defence with principal sites in Petah Tikva, Israel, and Kentucky.",
+     "source_url": "https://www.cvc.com/media/news/2026/cvc-agrees-to-invest-in-fibrotex/",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Trading 212",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Trading 212 announced on its community forum that it added 250 new stock CFDs, including Plus500 (5 Sep 2022); Plus500 Ltd. has its headquarters in Haifa, Israel (Plus500 annual report 2021).",
+     "source_url": "https://community.trading212.com/t/fresh-batch-of-250-cfds-on-stocks/58133",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Turkcell",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Turkcell agreed at MWC 2025 to use ULAK Haberlesme's 4.5G and 5G-ready base stations at 3,250 sites (Teknoblog, 4 Mar 2025); ASELSAN took a 51% stake in ULAK in 2018 and HAVELSAN 25% in 2020 (ULAK's SAHA Expo exhibitor profile).",
+     "source_url": "https://www.teknoblog.com/turkcell-ulak-5g-is-birligi/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Turkcell's 5G roaming, offered in 29 countries through local partner operators, includes Israel (Turkcell, 29 Jun 2021).",
+     "source_url": "https://medya.turkcell.com.tr/bulletins/turkcelllilere-yurt-disinda-5g-ayricaligi/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Turkcell Global Bilgi",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Global Bilgi's references page shows ASELSAN and HAVELSAN logos among its technology-sector clients.",
+     "source_url": "https://www.globalbilgi.com.tr/referanslar",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Global Bilgi's references page shows a Coca-Cola Icecek logo among its FMCG clients. BDS lists Coca-Cola among its organic boycott targets ('What to boycott', viewed 6 Nov 2026).",
+     "source_url": "https://www.globalbilgi.com.tr/referanslar",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "TWINT",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "UST",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "CyberProof, a subsidiary of UST, runs offices and security operations centres in Israel, India, Spain, Singapore and the US, and had about 85 employees in Israel (Calcalist, 10 Jul 2024).",
+     "source_url": "https://www.calcalistech.com/ctechnews/article/h1nrv0odr",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Vectra AI",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Curtiss-Wright's Defense Solutions division announced on 12 Sep 2023 that it supports the Vectra AI Platform on its rugged PacStar 400-Series tactical systems, used by the U.S. DoD and coalition partners, for national-security cyber operations.",
+     "source_url": "https://www.vectra.ai/about/news/curtiss-wright-collaborates-with-vectra-ai-to-bring-ai-ml-threat-detection-to-natsec-cyber-tactical-edge-communications",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Ververica",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Alibaba Group, Ververica's parent, invested in the funds of the Israeli venture firm Jerusalem Venture Partners (Reuters, 23 Mar 2015).",
+     "source_url": "https://uk.investing.com/news/technology-news/china's-alibaba-invests-in-funds-of-israeli-venture-capital-firm-40303",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Vinted",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "VirtusLab",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Vista",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "VMWay",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "voize",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Vonage (Ericsson)",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Vonage Apps. Ltd., in Israel, is listed as a subsidiary in Exhibit 21.1 (List of Subsidiaries) of Vonage Holdings Corp.'s 10-K for FY2021.",
+     "source_url": "https://www.sec.gov/Archives/edgar/data/1272830/000127283022000040/a10-k2021exhibit211.htm",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Wallapop",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "wealthAPI",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Wilson & Sterling Consulting",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Workato",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Workato's About Us page lists an office in Israel at Yigal Alon St 114, Tel Aviv-Yafo, among its offices worldwide.",
+     "source_url": "https://www.workato.com/about_us",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Xperteez Technology",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Yapı Kredi Teknoloji",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Otokar calls itself 'a Koç Group company'. It produces 'tracked armoured vehicles and tactical armoured vehicles for the defense industry' and describes itself as a 'Pioneering supplier of land defense systems for Turkish Armed Forces'. Its site has a separate Defense Industry section.",
+     "source_url": "https://www.otokar.com.tr/about-otokar/about-us",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    },
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Zapier",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Zapier's app directory offers a Wix integration; Wix.com Ltd. lists its principal executive offices in Tel Aviv, Israel (Form 20-F for FY2025).",
+     "source_url": "https://zapier.com/apps/wix/integrations",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "ZEAL Network",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Zendesk",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "direct",
+     "fact": "Zendesk's Sub-processor Policy (effective 2 Sep 2026 for new customers) lists Unleash Labs Ltd., Israel, under 'Zendesk Group Sub-processors', the Zendesk Group members through which Zendesk employs personnel.",
+     "source_url": "https://support.zendesk.com/hc/en-us/articles/4408883061530-Sub-processor-Policy",
+     "checked": "2026-11-06",
+     "basis": "hit"
+    }
+   },
+   "reports": 2,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Zyte",
+   "aliases": [],
+   "checks": {
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "israel": {
+     "status": "flagged",
+     "level": "indirect",
+     "fact": "Zyte's subprocessor list names Gong for call recording and customer relationship management; Gong's own company page lists a Tel Aviv office (Icon Tower, Ramat Gan).",
+     "source_url": "https://www.zyte.com/terms-policies/subprocessor/",
+     "checked": "2026-11-06",
+     "basis": "tie"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  },
+  {
+   "name": "Ödeal",
+   "aliases": [],
+   "checks": {
+    "israel": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    },
+    "defence": {
+     "status": "clear",
+     "checked": "2026-11-06"
+    }
+   },
+   "reports": 1,
+   "updated": "2026-11-06"
+  }
+ ],
+ "_about": "The shared employer blacklist of the cenk-jobs plugin: per employer and category, a sourced check (flagged, or clear when someone checked and found nothing). Built from users' usage reports by employer.py merge; it holds no person's data. A flagged check needs its source.",
+ "categories": [
+  "israel",
+  "defence",
+  "animal_cruelty",
+  "climate",
+  "sexism",
+  "human_rights",
+  "working_conditions"
+ ],
+ "updated": "2026-11-06"
+}

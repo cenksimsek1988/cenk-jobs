@@ -1,0 +1,19 @@
+{
+  "name": "cenk-jobs",
+  "owner": {
+    "name": "Cenk Simsek",
+    "email": "35446555+cenksimsek1988@users.noreply.github.com"
+  },
+  "description": "The cenk-jobs plugin from this repository: for a clone you work on, or a private copy you were invited to. Everyone else installs it from Cenk Simsek's public catalog cenk (github.com/cenksimsek1988/claude-plugins).",
+  "plugins": [
+    {
+      "name": "cenk-jobs",
+      "source": "./plugins/cenk-jobs",
+      "description": "Your job search with Claude: finds and screens job postings, writes CVs and cover letters from your own facts, applies in your own Chrome after your go-ahead, tracks every application, puts interviews and deadlines in Google Calendar, and prepares each hiring step. Your data stays in your Google Drive.",
+      "author": { "name": "Cenk Simsek" },
+      "category": "productivity",
+      "keywords": ["job search", "job application", "apply for jobs", "cv", "resume", "cover letter", "interview preparation", "application tracker", "career", "recruiting", "linkedin", "workday", "greenhouse", "google calendar", "google drive", "iş arama", "iş başvurusu", "özgeçmiş", "cerca lavoro", "candidatura", "curriculum", "bewerbung", "lebenslauf", "jobsuche", "buscar trabajo", "candidature", "recherche d'emploi"],
+      "tags": ["job-search", "career", "productivity"]
+    }
+  ]
+}
