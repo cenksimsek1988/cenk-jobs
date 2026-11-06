@@ -6,6 +6,13 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.12.2] - 2026-11-07
+
+### Added
+
+- `plugins/cenk-jobs/LICENSE`, a copy of the repository's MIT licence: an install fetches only the plugin folder, so
+  the licence text now travels with it.
+
 ## [0.12.1] - 2026-11-07
 
 ### Changed

@@ -1,6 +1,6 @@
 {
   "name": "cenk-jobs",
-  "version": "0.12.1",
+  "version": "0.12.2",
   "description": "Your job search with Claude: finds and screens job postings under your own rules, writes CVs and cover letters from your own facts, applies in your own Chrome after your go-ahead, tracks every application in Google Drive, puts interviews and deadlines in Google Calendar, prepares each hiring step, and shows it all on one private dashboard. Skills: setup (first run), coordinate (your main session), search, plan, apply, prepare (interviews) and schedule (the daily run).",
   "license": "MIT",
   "author": {
