@@ -30,9 +30,10 @@ run.
 - **Claude Code**: the Claude desktop app (Code tab) or the `claude` terminal, on a paid Claude plan.
 - **Google Chrome** with the **Claude in Chrome** extension (Chrome Web Store: "Claude"), signed in with the same
   Claude account. Claude fills job applications in your Chrome, with your own sign-ins.
-- **Python 3.10 or newer** and **Google Drive for desktop** (recommended, so your job-search folder is in Drive
-  and on your computer). You don't have to install these first: on the first run Claude checks them and, with your
-  yes for each one, installs what is missing from the official source.
+- **Python 3.10 or newer**, **Google Drive for desktop** (recommended, so your job-search folder is in Drive and on
+  your computer), **pypdf** (reads your PDFs) and **Poppler** (shows Claude PDF pages). You don't have to install
+  these first: on the first run Claude lists what is missing and installs it from the official source, unless you
+  say no.
 - Connectors in Claude: **Gmail** and **Google Calendar** (claude.ai > Settings > Connectors).
 - The plugin: this GitHub repository, or its file **cenk-jobs.plugin** for an upload in the Claude desktop app.
 
@@ -172,9 +173,10 @@ Main commands (S = this skill's scripts folder, run from your job-search folder 
   python -I S/export_dashboard.py <out dir>          the dashboard's files
   python -I S/track.py sync <journal.jsonl> [...]    merge a screen-and-prepare run into the tracker
   python -I S/employer.py check "<name>" [...]       what is known about an employer, and the verdict by your rules
-  python -I S/employer.py decide "<name>" <exclude|apply> "<your words>"
+  python -I S/employer.py decide "<name>" <exclude|apply> [<category>]
   python -I S/usage.py log <step> <ok|failed|stopped> ["<note>"]
   python -I S/usage.py due | report | mark-drafted   the weekly usage report (only with USAGE_SHARING=yes)
+  python -I S/usage.py stats                         jobs turned down by your employer rules (for you; sends nothing)
 For the developer: python -I S/employer.py merge <report.json> [...]   users' reports into data/blacklist.json
 ```
 

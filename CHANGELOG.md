@@ -6,6 +6,22 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.13.0] - 2026-11-07
+
+### Added
+
+- Setup checks two more programs: pypdf (reads the person's PDFs as text and checks each CV built) and Poppler
+  (`pdftoppm`, shows Claude PDF pages as images), with install commands for Windows, Mac and Linux. pypdf goes into
+  Python's own folder, since the scripts run with `python -I`.
+- `check_setup.py` warns when pypdf or Poppler is missing.
+
+### Changed
+
+- Setup lists every missing program in one question and installs each one unless the person says no, saying which
+  licence an install accepts. Before, it asked once per program and installed only on a yes. A command that needs
+  `sudo` or an administrator is the person's to run.
+- README: `employer.py decide` takes a category, not the person's words; `usage.py stats` is listed.
+
 ## [0.12.2] - 2026-11-07
 
 ### Added

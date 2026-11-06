@@ -64,6 +64,12 @@ report("OK" if chrome else "FAIL", "Google Chrome (prints CVs and letters to PDF
 drive = next((p for p in (r"C:\Program Files\Google\Drive File Stream", "/Applications/Google Drive.app") if os.path.exists(p)), None)
 report("OK" if drive else "WARN", "Google Drive for desktop (keeps the main folder in Drive and on this computer)",
        drive or "not found; install it, or keep the main folder somewhere that is backed up")
+pypdf = importlib.util.find_spec("pypdf")
+report("OK" if pypdf else "WARN", "pypdf (reads PDFs as text: old CVs, documents, each CV built)",
+       os.path.dirname(pypdf.origin) if pypdf else "not found; python -I -m pip install pypdf (setup, step 1)")
+poppler = shutil.which("pdftoppm")
+report("OK" if poppler else "WARN", "Poppler pdftoppm (lets Claude see PDF pages as images)",
+       poppler or "not found; install Poppler (setup, step 1), then start a new session")
 
 for key in REQUIRED_DIRS + OPTIONAL_DIRS:
     if env.get(key):
