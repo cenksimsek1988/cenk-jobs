@@ -6,6 +6,15 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.13.1] - 2026-11-07
+
+### Changed
+
+- The withdrawal template covers more cases, with placeholders only, no company or reason written out: a greeting
+  when the mail names a recruiter (`{greeting}`), the role titles when the person applied to several roles
+  (`{roles}`), the role in the step, and a fact that may join two findings of one category and names its source.
+  The draft is shown in the chat as well as in Gmail.
+
 ## [0.13.0] - 2026-11-07
 
 ### Added

@@ -4,11 +4,14 @@ Claude fills the fields, writes a Gmail draft to the sender (a no-reply sender: 
 person sends it. Everything above the line of dashes is for Claude; the draft starts at "Subject:".
 
 Fields:
-- {employer}: the name the sender uses. Example: Acme Data.
-- {next_step}: the step they invited to. Example: do your online interview. No step yet: leave out ", and I will
-  not {next_step}".
-- {fact}: one sentence from the employer's check (EMPLOYER_CHECKS or data/blacklist.json), never stronger than its
-  source. Example: Acme Data, which owns and runs Acme Experts, prepares data for a national air force's AI systems.
+- {greeting}: "Dear <recruiter's name>," and a blank line when the mail names a recruiter; otherwise nothing.
+- {employer}: the name the sender uses.
+- {roles}: with two or more applications at the employer, ": " and the role titles, the last after "and". Example:
+  ": Technical Lead, and AI Engineer". With one, nothing.
+- {next_step}: the step they invited to, with the role when known. Example: do the one-way interview for the Team
+  Lead position. No step yet: leave out ", and I will not {next_step}".
+- {fact}: from the employer's check (EMPLOYER_CHECKS or data/blacklist.json), never stronger than its source, and
+  naming the source. One sentence; two findings in one category may share it, joined by "and".
 - {subject_reason} and {rule_line}: from the table below, for the category that excluded the employer.
 - {full_name}: the person's name from the master record.
 
@@ -27,10 +30,11 @@ Rules:
 - Facts only: no thanks, no softening, no story, no claim the source does not hold.
 - An employer the person keeps only for practice gets no draft.
 - A recruiter reached only on LinkedIn: tell the person to paste the same text there; Claude sends nothing.
+- Show the draft (recipient, subject, body) in the chat as well as in Gmail.
 ------------------------------------------------------------------------------------------------------------------
 Subject: I withdraw from {employer}: {subject_reason}
 
-I withdraw my application to {employer}, for every role I applied to, and I will not {next_step}.
+{greeting}I withdraw my application to {employer}, for every role I applied to{roles}, and I will not {next_step}.
 
 The reason is ethical. {fact} {rule_line}
 
