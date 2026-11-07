@@ -52,7 +52,7 @@
 <div class="ja">
   <header class="ja-head">
     <h1>Job applications</h1>
-    <p><b data-draw="h-working" data-source="index" data-field="n" data-where="key=actions:working">—</b> in progress (Claude or a session with you is on it: wait). You can do <b data-draw="h-todo" data-source="index" data-field="n" data-where="key=actions:click">—</b> sign-ins and <b data-draw="h-info" data-source="index" data-field="n" data-where="key=actions:info">—</b> answers now, with <b data-draw="h-task" data-source="index" data-field="n" data-where="key=actions:task">—</b> tasks on a deadline. Built from your job-search folder on <b data-draw="h-generated" data-source="index" data-field="label" data-where="key=meta:generated">—</b>.</p>
+    <p><b data-draw="h-working" data-source="index" data-field="n" data-where="key=actions:working">—</b> in progress (Claude or a session with you is on it: wait). You can do <b data-draw="h-todo" data-source="index" data-field="n" data-where="key=actions:click">—</b> sign-ins and answer <b data-draw="h-info" data-source="index" data-field="n" data-where="key=actions:info">—</b> questions now, with <b data-draw="h-task" data-source="index" data-field="n" data-where="key=actions:task">—</b> tasks on a deadline. Built from your job-search folder on <b data-draw="h-generated" data-source="index" data-field="label" data-where="key=meta:generated">—</b>.</p>
     <p class="ja-run"><b data-draw="h-run" data-source="index" data-field="label" data-where="key=meta:run">—</b></p>
   </header>
 
@@ -78,6 +78,7 @@
     <button type="button" class="ja-tab" role="tab" data-tab="do-now" aria-selected="true">Do now</button>
     <button type="button" class="ja-tab" role="tab" data-tab="calendar" aria-selected="false">Calendar</button>
     <button type="button" class="ja-tab" role="tab" data-tab="logins" aria-selected="false">Logins</button>
+    <button type="button" class="ja-tab" role="tab" data-tab="excluded" aria-selected="false">Excluded employers</button>
     <button type="button" class="ja-tab" role="tab" data-tab="steps" aria-selected="false">Hiring steps</button>
     <button type="button" class="ja-tab" role="tab" data-tab="applications" aria-selected="false">All applications</button>
   </nav>
@@ -85,12 +86,13 @@
   <section class="ja-card ja-page" id="do-now">
     <h2>Do now</h2>
     <p class="ja-note">In progress first: Claude, or a session with you, is on it, so wait for it. Then everything waiting on you, deadlines first: sign-ins to click, questions only you can answer, and tasks such as online tests or AI interviews. When one is done, tell Claude.</p>
+    <p class="ja-note" data-draw="q-link" data-source="index" data-field="label" data-where="key=meta:questions" hidden>Answer the questions on <a target="_blank" rel="noopener noreferrer">your Questions page</a>: a reply box, or buttons such as Allow / Discuss / Exclude. Claude records your answers at the next run, so each is asked once.</p>
     <div class="ja-tools">
       <button type="button" class="ja-chip ja-kind" data-kind="all" aria-pressed="true">All</button>
       <button type="button" class="ja-chip ja-kind" data-kind="working" aria-pressed="false">In progress</button>
       <button type="button" class="ja-chip ja-kind" data-kind="task" aria-pressed="false">Tasks</button>
       <button type="button" class="ja-chip ja-kind" data-kind="click" aria-pressed="false">Sign-ins and clicks</button>
-      <button type="button" class="ja-chip ja-kind" data-kind="info" aria-pressed="false">Answers</button>
+      <button type="button" class="ja-chip ja-kind" data-kind="info" aria-pressed="false">Questions for you</button>
     </div>
     <div class="ja-scroll">
       <table data-source="do_now" data-row-key="key">
@@ -113,11 +115,30 @@
 
   <section class="ja-card ja-page" id="logins" hidden>
     <h2>Logins and connectors</h2>
-    <p class="ja-note">What Claude needs to work for you: connectors checked at each session start, and job sites where an application waits on your sign-in.</p>
+    <p class="ja-note">What Claude needs to work for you: connectors checked at each session start, and job sites where an application waits on your sign-in. Excluded employers have a tab of their own.</p>
     <div class="ja-scroll">
       <table data-source="logins" data-row-key="id">
         <thead><tr><th data-field="name">Login</th><th data-field="kind">Kind</th><th data-field="status">Status</th><th data-field="jobs">Waiting</th><th data-field="checked" class="ja-wide">Checked</th><th data-field="note" class="ja-wide">Note</th><th data-field="link">Open</th></tr></thead>
         <tbody data-draw="login-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="ja-card ja-page" id="excluded" hidden>
+    <h2>Excluded employers</h2>
+    <p class="ja-note">Your one list of employers you don't apply to: each with what was found about it, its source, and whether your own decision or your rules exclude it. Withdrawn: you had applied, then withdrew. To change one, tell Claude.</p>
+    <div class="ja-tools">
+      <button type="button" class="ja-chip ja-how" data-how="all" aria-pressed="true">All</button>
+      <button type="button" class="ja-chip ja-how" data-how="Withdrawn" aria-pressed="false">Withdrawn</button>
+      <button type="button" class="ja-chip ja-how" data-how="your decision" aria-pressed="false">Your decision</button>
+      <button type="button" class="ja-chip ja-how" data-how="your rules" aria-pressed="false">Your rules</button>
+      <input type="search" class="ja-search ja-excl-search" placeholder="Search employer or reason" aria-label="Search excluded employers">
+    </div>
+    <p class="ja-note" data-draw="excl-count" data-source="excluded"></p>
+    <div class="ja-scroll">
+      <table data-source="excluded" data-row-key="id">
+        <thead><tr><th data-field="employer">Employer</th><th data-field="why">Why</th><th data-field="fact">What was found</th><th data-field="source">Source</th><th data-field="jobs" class="ja-wide">Jobs</th><th data-field="since" class="ja-wide">Since</th></tr></thead>
+        <tbody data-draw="excl-rows"></tbody>
       </table>
     </div>
   </section>
@@ -217,21 +238,20 @@ dash.calc('steps_view', {
   },
 });
 
-window.jaState = {kind: 'all', stage: 'all', q: ''};
-const KIND = {working: 'In progress', task: 'Task', click: 'Sign-in / click', info: 'Answer'};
+window.jaState = {kind: 'all', stage: 'all', q: '', how: 'all', xq: ''};
+const KIND = {working: 'In progress', task: 'Task', click: 'Sign-in / click', info: 'Question'};
 const PILL = {'Moving forward': 'forward', 'Waiting for reply': '', 'Not sent': 'notsent', 'Rejected': 'rejected',
               'Closed': 'notsent', 'Declined': 'notsent',
               connected: 'ok', 'signed-in': 'ok', 'needs-sign-up': 'warn', expired: 'warn', 'needs-sign-in': 'warn',
               'needs-reconnect': 'bad', blocked: 'bad', unknown: 'muted', 'not-signed-in': 'muted', excluded: 'rejected',
               task: 'task', click: 'warn', info: 'warn', working: 'forward'};
 // The Logins tab in groups, in this order; each state with its label, so state is never told by color alone.
-// A site nobody waits on is "Not signed in", not "Needs you"; an employer the person's rules exclude is "Excluded".
+// A site nobody waits on is "Not signed in", not "Needs you". Excluded employers are in their own tab.
 const LOGIN_GROUPS = [
   {name: 'Needs you', states: ['needs-sign-up', 'expired', 'needs-sign-in', 'needs-reconnect', 'blocked']},
   {name: 'Signed in', states: ['signed-in']},
   {name: 'Connected', states: ['connected']},
-  {name: 'Not signed in', states: ['not-signed-in']},
-  {name: 'Excluded', states: ['excluded']}];
+  {name: 'Not signed in', states: ['not-signed-in']}];
 const LOGIN_LABEL = {'needs-sign-up': 'needs sign-up', expired: 'expired', 'needs-sign-in': 'needs sign-in',
                      'needs-reconnect': 'reconnect', blocked: 'blocked', 'signed-in': 'signed in', connected: 'connected',
                      'not-signed-in': 'not signed in', excluded: 'excluded'};
@@ -255,6 +275,14 @@ const indexValue = (key, field) => (el) => {
 dash.draw('h-generated', indexValue('meta:generated', 'label'));
 // Is a run going? Started and finished rows from the usage log, and the next scheduled run.
 dash.draw('h-run', indexValue('meta:run', 'label'));
+// The person's own Questions page (an artifact of its own, QUESTIONS_PAGE in job-search.env); hidden until set.
+dash.draw('q-link', (el) => {
+  const d = dash.data('index');
+  const row = d.status === 'ok' ? d.data.find((r) => r.key === 'meta:questions') : null;
+  const url = row && /^https:\/\/claude\.ai\//.test(row.label) ? row.label : '';
+  el.hidden = !url;
+  if (url) el.querySelector('a').href = url;
+});
 
 // One whole split into its outcomes: a tall segmented bar, parts side by side in a fixed order and fixed colors.
 const SPLIT = ['Moving forward', 'Waiting for reply', 'Not sent', 'Rejected', 'Closed', 'Declined'];
@@ -372,6 +400,44 @@ dash.draw('login-rows', (tbody) => {
   });
 });
 
+// Excluded employers: the reason in words is a column of its own, shown on every screen size.
+const exclRows = () => {
+  const d = dash.data('excluded');
+  if (d.status !== 'ok') return [];
+  const st = window.jaState;
+  const q = st.xq.trim().toLowerCase();
+  return d.data.filter((r) => st.how === 'all' || r.how === st.how || r.by === st.how)
+    .filter((r) => !q || [r.employer, r.why, r.fact, r.jobs].join(' ').toLowerCase().includes(q));
+};
+dash.draw('excl-count', (el) => {
+  const d = dash.data('excluded');
+  if (d.status !== 'ok') { el.textContent = ''; return; }
+  const shown = exclRows().length;
+  el.textContent = shown === d.data.length ? `${d.data.length} employers` : `${shown} of ${d.data.length} employers`;
+});
+dash.draw('excl-rows', (tbody) => {
+  tbody.replaceChildren();
+  exclRows().forEach((r) => {
+    const tr = document.createElement('tr');
+    tr.dataset.key = r.id;
+    const who = cell(tr, r.employer);
+    if (r.how === 'Withdrawn') {
+      const w = document.createElement('span');
+      w.className = 'ja-pill warn';
+      w.textContent = 'withdrawn';
+      who.append(' ', w);
+    }
+    const why = cell(tr, r.why);
+    const by = document.createElement('div');
+    by.className = 'ja-muted';
+    by.textContent = r.by;
+    why.appendChild(by);
+    cell(tr, r.fact); link(tr, r.source, 'Source');
+    cell(tr, r.jobs, 'ja-wide ja-muted'); cell(tr, r.since, 'ja-wide ja-when');
+    tbody.appendChild(tr);
+  });
+});
+
 dash.draw('step-rows', (tbody) => {
   const d = dash.data('steps_view');
   tbody.replaceChildren();
@@ -434,7 +500,16 @@ document.querySelectorAll('#dash-root .ja-stage').forEach((btn) => btn.addEventL
   document.querySelectorAll('#dash-root .ja-stage').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
   dash.draw('app-rows');
 }));
-document.querySelectorAll('#dash-root .ja-search').forEach((input) => input.addEventListener('input', () => {
+document.querySelectorAll('#dash-root .ja-how').forEach((btn) => btn.addEventListener('click', () => {
+  window.jaState.how = btn.getAttribute('data-how');
+  document.querySelectorAll('#dash-root .ja-how').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+  dash.draw('excl-rows'); dash.draw('excl-count');
+}));
+document.querySelectorAll('#dash-root .ja-excl-search').forEach((input) => input.addEventListener('input', () => {
+  window.jaState.xq = input.value;
+  dash.draw('excl-rows'); dash.draw('excl-count');
+}));
+document.querySelectorAll('#dash-root .ja-search:not(.ja-excl-search)').forEach((input) => input.addEventListener('input', () => {
   window.jaState.q = input.value;
   dash.draw('app-rows');
 }));

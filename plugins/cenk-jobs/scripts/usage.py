@@ -22,8 +22,8 @@ pay figures or addresses (masked if they appear). It holds:
   employers     every employer checked, with its verdict and each category's result (flagged with the fact and
                 source, clear, or left out when unknown); flagged employers are reported whatever the person decided
   employer_rules  jobs turned down because of the employer rules: excluded before applying, withdrawn after
-                applying (before or after a hiring step) and waiting on the person's answer to an "ask", each by
-                category and by where the finding came from (shared list, own check, decision, never-apply list);
+                applying (before or after a hiring step) and waiting on the person's answer to a "discuss", each
+                by category and by where the finding came from (shared list, own check, decision);
                 the person's own filters count as "custom"
   steps         how often each routine step ran and how it ended
 The email goes to DEVELOPER_EMAIL as a Gmail draft; the person reads it and sends it.
@@ -133,7 +133,7 @@ RULE_STAGES = ("excluded", "submitted", "skipped", "closed", "declined", "failed
 
 
 def turned_down(jobs, pipeline):
-    """Jobs the employer rules turned down: before applying, withdrawn after applying, and waiting on an ask."""
+    """Jobs the employer rules turned down: before applying, withdrawn after applying, and waiting on a discuss."""
     rule_set = el.rules(env)
     custom = {c for c, s in rule_set["categories"].items() if s.get("custom")}
     memo = {}
@@ -153,7 +153,7 @@ def turned_down(jobs, pipeline):
     def block():
         return {"jobs": 0, "by_category": collections.Counter(), "by_origin": collections.Counter()}
 
-    before, after, ask = block(), block(), block()
+    before, after, discuss = block(), block(), block()
     after.update(before_a_step=0, after_a_step=0)
     for job in jobs:
         company = job.get("company", "")
@@ -170,16 +170,16 @@ def turned_down(jobs, pipeline):
         elif job.get("status") == "excluded" and not sent:
             target, found = before, why(company)
         elif not sent and job.get("status") not in RULE_STAGES:
-            if el.decide(env, company, el.lookup(env, company), rule_set)[0] != "ask":
+            if el.decide(env, company, el.lookup(env, company), rule_set)[0] != "discuss":
                 continue
-            target = ask
+            target = discuss
             found = []
             for c, k in el.lookup(env, company).items():
                 s = rule_set["categories"].get(c)
                 if k.get("status") != "flagged" or s is None:
                     continue
-                act = s.get("action", "ask") if k.get("level", "direct") == "direct" else s.get("indirect", "ask")
-                if act == "ask":
+                act = s.get("action", "discuss") if k.get("level", "direct") == "direct" else s.get("indirect", "discuss")
+                if act == "discuss":
                     found.append({"category": c, "origin": k.get("origin", "own")})
         else:
             continue
@@ -189,7 +189,7 @@ def turned_down(jobs, pipeline):
             target["by_origin"][f["origin"]] += 1
     out = {}
     for key, b in (("excluded_before_applying", before), ("withdrawn_after_applying", after),
-                   ("waiting_on_ask", ask)):
+                   ("waiting_on_discuss", discuss)):
         out[key] = dict(b, by_category=dict(b["by_category"].most_common()),
                         by_origin=dict(b["by_origin"].most_common()))
     return out
@@ -201,7 +201,7 @@ def rules_line(block):
         return f"{b['jobs']}" + (f" ({cats})" if cats else "")
     return (f"Turned down because of the employer rules: {part(block['excluded_before_applying'])} before "
             f"applying, {part(block['withdrawn_after_applying'])} withdrawn after applying; "
-            f"{part(block['waiting_on_ask'])} waiting on the person's answer.")
+            f"{part(block['waiting_on_discuss'])} waiting on the person's answer.")
 
 
 def report():

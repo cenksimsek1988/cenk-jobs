@@ -50,7 +50,8 @@ A skill cannot choose the folder a session starts in, so a session started anywh
    Google Drive (the main folder readable on disk, or the Drive connector), Claude in Chrome `tabs_context_mcp`.
    Record each: `logins.py set <id> connected|needs-reconnect "<what you saw>" kind=connector name=<Name> fix=<how>`,
    then `logins.py sync`. `LOGINS` is the one place login state lives.
-4. The dashboard: `DASHBOARD_URL` set and readable. If not, create it now (see "Dashboard").
+4. The dashboard: `DASHBOARD_URL` set and readable. If not, create it now (see "Dashboard"). The same for
+   `QUESTIONS_PAGE` (see "Questions for the person").
 
 ## Keep learning about the person
 
@@ -68,10 +69,12 @@ A skill cannot choose the folder a session starts in, so a session started anywh
 - An unfinished degree stays unfinished everywhere: "all courses completed; final project not submitted" on CVs and
   letters, never entered as an awarded degree in a form's education section.
 - Every form answer must be true. If no option of a required question is true, ask; if none is true, skip the job.
-- Open free-text questions, essays and self-ratings are the person's: never filled for them; they wait in Do now.
+- Open free-text questions, essays and self-ratings are the person's: never filled for them; they go to the
+  Questions page (see "Questions for the person").
 - Never type a password, a verification code, a card number or a government ID number; never solve a CAPTCHA; never
   create an account. Stop at such a field and tell the person.
-- Never answer for the person about health, criminal record, references or relatives at the company.
+- Never answer for the person about criminal record, references or relatives at the company. Health, family and
+  identity questions: only from the person's own answer in `PERSONAL_RECORD`.
 - Consents: tick only the data-processing consent a form needs to be sent. Optional ones (talent pools, newsletters,
   job alerts, marketing, SMS, AI analysis, extra retention) stay off unless the person's settings say otherwise.
 - Messages and emails: drafts only (the setting `send_mode`); the person sends them.
@@ -79,10 +82,37 @@ A skill cannot choose the folder a session starts in, so a session started anywh
   answers all come from the person's records, and reports after; the daily run does the same on its own. `review`:
   Claude stops at the review page and submits after the person's go-ahead for that job or batch. In both, Claude
   stops only where it cannot act: a CAPTCHA, a password, a sign-up, an emailed code, an ID number, an essay or
-  self-rating, pay below the person's target, or a question the records do not answer; each goes to Do now.
+  self-rating, pay below the person's target, or a question the records do not answer; each goes to Do now, and a
+  question to the Questions page.
   Example: a Greenhouse form with every answer in the master record is sent; one with a motivation essay waits.
 - Pay figures and the home address go only into forms the person approved, never into a CV, letter, shared file or
   the dashboard.
+
+## Questions for the person
+
+What an application needs and the records do not answer is asked once, on the person's Questions page
+(`QUESTIONS_PAGE`: an artifact with a small database), then written into the records, so it is never asked again.
+- Claude adds each question when it meets it, with the job that needs it:
+  - `questions.py add fact "<question>" key=<answer key> job=<id>`: a fact forms ask for; `personal=yes` for
+    health, family or identity. The same key again only adds the job. Example: `key=notice_period`.
+  - `questions.py add job "<question>" job=<id>`: an essay or a motivation answer for one application;
+    `options="apply:Apply,decline:Don't apply"` asks whether to apply to that job (pay below target, a weak fit).
+  - `questions.py add decision "<question>" employer="<name>" category=<category> job=<id>`: allow or exclude, for
+    an employer whose rule is unclear (example: excluded only through an investor-owner's office).
+- Every run: `questions.py build <dir> --page <dir>` (it also adds every employer the rules leave to the person),
+  write each file into the page's `questions` collection and delete the ids it lists. Then save the page's
+  `answers`, run `questions.py record <dir>`, delete the ids it lists (question and answer) and go on with the
+  jobs it names.
+- Where answers go: a fact into the master record's `form_answers`; a private fact into `PERSONAL_RECORD`; a job's
+  answer into that job's prepared answers; a decision through `employer.py decide`; "Don't
+  apply" makes the job `declined`; Allow on an excluded employer makes its jobs `pending` again.
+- Every button question also has **Discuss**, in the middle (Allow · Discuss · Exclude): nothing is recorded, the question stays open, and Claude brings it up
+  with the person in the main session; what they decide there is recorded with `questions.py answer <id> <answer>`.
+- `PERSONAL_RECORD` holds health, family, identity and military-service answers: used only in a form field that asks
+  for one, never in a CV, letter, note or shared file. A private answer stays until the person changes it (the old
+  one goes into its `history`) or asks to erase it: then the fact and its history are deleted, with nothing kept.
+- An answer leaves the Questions page once it is recorded; only the person can read the page's questions and answers.
+- The page holds no pay figure and no address. Example: "the posted pay is well below your target", never the range.
 
 ## Employer rules
 
@@ -93,14 +123,13 @@ person's own filters are extra categories (`"custom": true`). A category counts 
 credible news from established outlets, a court ruling, a fine, a sanctions listing or an official list, each with
 its source link. A tie is direct (the employer, its group or its majority owner) or indirect (a minority investor,
 an investor's other holdings, a partner or a customer).
-- **What happens** is the person's choice per category, in `EMPLOYER_RULES`: direct `never` / `ask` (default) /
-  `apply`; indirect `ask` (default) / `warn` / `apply`; or a whole category allowed. They change any of them by
-  saying so ("never apply to defence companies", "indirect ties are fine there, just warn me"): write it there at
+- **What happens** is the person's choice per category, in `EMPLOYER_RULES`: direct `exclude` / `discuss` (default) /
+  `allow`; indirect `discuss` (default) / `warn` / `allow`; or a whole category allowed. They change any of them by
+  saying so ("exclude defence companies", "indirect ties are fine there, just warn me"): write it there at
   once, with `{date, field, new}` in `changes`.
 - **One list** of the person's employers: `EMPLOYER_CHECKS`, each employer with its findings and the person's
-  decisions (`employer.py decide "<name>" <exclude|apply> [<category>] [--group]`; `--group` also covers the group's
-  units: "Acme" covers "Acme Cloud Services"). No separate name lists: an older `never_apply` / `always_ok` in
-  `EMPLOYER_RULES` moves there with `employer.py migrate-lists`. Every exclusion shows the finding behind it.
+  decisions (`employer.py decide "<name>" <exclude|allow> [<category>] [--group]`; `--group` also covers the group's
+  units: "Acme" covers "Acme Cloud Services"). No separate name lists. Every exclusion shows the finding behind it.
 - **The Israel check, two steps**, for the employer and its parent or majority owner:
   1. Lists: the BDS movement's current targets (bdsmovement.net, "What to boycott"; past successes do not count),
      the UN OHCHR settlement-business database (latest edition), Who Profits, AFSC Investigate.
@@ -113,8 +142,8 @@ an investor's other holdings, a partner or a customer).
   find the parent or majority owner first (company registry, the site's legal notice). Nothing found after both
   steps is recorded as `unknown` with the fact "nothing found: <what was checked>", never `clear`.
 - `employer.py check "<name>"` shows what the shared blacklist and the person's earlier checks know, and the verdict.
-- When a category says ask, tell the person what was found, with the source, and ask: apply, or never? Record it
-  with `employer.py decide "<name>" <exclude|apply> [<category>]`.
+- When a category says discuss, the employer goes to the Questions page ("Allow, or exclude?") with what was found and its
+  source; `questions.py record` writes the answer with `employer.py decide "<name>" <exclude|allow> [<category>]`.
 - A category not checked stays "unknown"; never write "clear" without having looked.
 - Record every finding as found, direct or indirect, whatever the person decides: a decision never turns a finding
   into "clear", and never changes its category or level. The shared list holds findings only (category, level,
@@ -186,24 +215,29 @@ for permission the first time. If its tools do not answer, say so and ask the pe
 
 ## Dashboard
 
-A private page: **Do now** (In progress first: Claude or a session is on it; then sign-ins, answers only the person
-can give, tasks with a deadline), **Calendar** (live from Google Calendar), **Logins**, **Hiring steps** and **All
-applications**, under the total count and the split by outcome.
-- Setup creates it from the Artifact "Dashboard" type (quickstart, intent "other"): upload the five files from
+A private page: **Do now** (In progress first: Claude or a session is on it; then sign-ins, questions only the person
+can answer, with a link to the Questions page, and tasks with a deadline), **Calendar** (live from Google Calendar),
+**Logins**, **Excluded employers**, **Hiring steps** and **All applications**, under the total count and the split by
+outcome.
+- Setup creates it from the Artifact "Dashboard" type (quickstart, intent "other"): upload the six files from
   `export_dashboard.py <out dir>`, write the store documents as in `templates/dashboard/datasets.json` and
   `files/index.html` from `templates/dashboard/index.html`, put its link in `DASHBOARD_URL`, then offer once to pin
   it ("Artifacts > Job applications > Pin"; pin on the person's yes).
-- Refresh after each change: `logins.py sync`, `build_app_folders.py`, export, upload the five files, update each
+- Refresh after each change: `logins.py sync`, `build_app_folders.py`, export, upload the six files, update each
   dataset's `source.url` and `updated`, delete the replaced uploads.
 - Logins: each person's own sites and connectors live in their `LOGINS` file; the Logins tab groups them in this
-  order: Needs you (needs sign-up, expired, needs sign-in, reconnect, blocked), Signed in, Connected, Not signed in,
-  Excluded. `sync` makes a new site row "needs sign-in"; Claude sets `needs-sign-up` (no account yet), `expired` (a
-  sign-in page where a form was) and `excluded` (an employer the rules exclude) with `logins.py set`. Example: a
-  Workday form at Review, then its sign-in page: `expired`.
+  order: Needs you (needs sign-up, expired, needs sign-in, reconnect, blocked), Signed in, Connected, Not signed in.
+  `sync` makes a new site row "needs sign-in" and marks an excluded employer's site `excluded` (not shown there);
+  Claude sets `needs-sign-up` (no account yet) and `expired` (a sign-in page where a form was) with `logins.py set`.
+  Example: a Workday form at Review, then its sign-in page: `expired`.
 - A site no job waits on keeps its last state, with the reason in its note: signed in, or not signed in. Never
   "unknown". Example: a site whose offer closed: `signed-in`, note "no open job: the offer closed".
-- Every employer the person turned down for their rules is an "excluded" row, rebuilt by `sync` with its reason in
-  words and its jobs by role, so the person remembers it.
+- Excluded employers have their own tab, one row each, rebuilt at every export from the person's decisions, findings
+  and tracker (`employerlib.excluded_list`): employer, Excluded or Withdrawn, why (category, by their decision or
+  their rules), what was found, the source, the jobs, since when. Example: "Acme · Defence industry, your rules ·
+  supplies drone parts to a national army (news, 2025) · Source".
+  The tab shows the person's own decisions, which can reveal their views: the dashboard is shared only with people
+  they choose, and Claude says so when they share it.
 - A job's own to-do items: `todo` in the tracker, `[{"kind": "working"|"task"|"click"|"info", "text", "link",
   "due"}]`. `working`: Claude or a session is on it; set when a piece starts, removed when its report is recorded.
 - A to-do's link is the email link; a personal access link (a page that opens without a sign-in) stays in the
@@ -221,7 +255,8 @@ applications**, under the total count and the split by outcome.
 | `build_app_folders.py` | rebuilds the application folders; never deletes what the person or Claude wrote |
 | `fetch_jd.py` | saves a posting's full text as `job-description.md` |
 | `logins.py` | login state: set, sync, show |
-| `export_dashboard.py` | exports the dashboard's files: index, applications, steps, actions, logins |
+| `export_dashboard.py` | exports the dashboard's files: index, applications, steps, actions, logins, excluded |
+| `questions.py` | questions for the person: add, list, build (the Questions page's files), record (answers into the records) |
 | `employer.py` | employer checks: check, record, decide, import-tracker, merge |
 | `usage.py` | usage log (steps and runs) and the weekly usage report (due, report, mark-drafted) |
 | `trackerlib.py`, `employerlib.py` | shared code for the scripts above |

@@ -21,12 +21,15 @@ its brief, say so in one line, and stop, writing no records.
 
 - Runs in the main folder and is titled **Job search coordinator**. It tells the person, at the start of each run,
   that this is their main session (RULES.md, "One main session").
-- **Is the only writer of the shared records**: `TRACKER`, `PIPELINE`, `LOGINS`, `MASTER_RECORD`, `EMPLOYER_RULES`,
-  `EMPLOYER_CHECKS`, `USAGE_LOG`, the application folders (through `build_app_folders.py`), the calendar category
-  and the dashboard. Sub-sessions report; the coordinator records. Why: the files sync through Google Drive, and two
+- **Is the only writer of the shared records**: `TRACKER`, `PIPELINE`, `LOGINS`, `MASTER_RECORD`,
+  `PERSONAL_RECORD`, `QUESTIONS`, `EMPLOYER_RULES`, `EMPLOYER_CHECKS`, `USAGE_LOG`, the application folders (through
+  `build_app_folders.py`), the calendar category, the dashboard and the Questions page. Sub-sessions report; the coordinator records. Why: the files sync through Google Drive, and two
   sessions writing one file lose each other's changes.
 - Each run: "run started", the health check, then the pieces of the day (`/cenk-jobs:schedule` lists the order),
   one sub-session per piece; "run finished" and the short report at the end.
+- Each run, before the pieces: read the Questions page's answers and record them (`questions.py record`, RULES.md
+  "Questions for the person"), so the jobs they free go on in this run; bring up every "Discuss" in the chat. After
+  the pieces: add the run's new questions to the page (`questions.py build`).
 - Holds the person's decisions. A sub-session that needs one asks the coordinator; the coordinator answers from
   `MASTER_RECORD` or asks the person, and records each new fact as a dated fact line. When it forwards the person's
   go-ahead (a submission, an email, a term to accept), it quotes their words in that message, so the sub-session sees
@@ -74,6 +77,7 @@ dashboard refresh.
 ## Ending
 
 - A sub-session ends once its report is recorded; the coordinator archives it when the person agrees.
-- The run ends with a short report: what was sent, what waits on the person (Do now), what is planned next.
+- The run ends with a short report: what was sent, what waits on the person (Do now, and how many questions are
+  open on the Questions page), what is planned next.
 - The scheduled trigger messages the newest session titled "Job search coordinator". If it was archived, the person
   starts a new one with this skill; the records hold everything it needs.

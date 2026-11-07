@@ -22,8 +22,8 @@ when. Both tracker shapes work: {jobs: [...]} and the older {companies: [{name, 
 is its "outcome". Add --env <job-search.env> anywhere to pick the env file.
 
 sync also applies the person's employer-rule categories (EMPLOYER_RULES, see employer.py) to each employer's category
-checks: a "never" category excludes it, an "ask" category sets its verdict to "ask" (nothing is prepared until the
-person decides with employer.py decide), and the checks are written to EMPLOYER_CHECKS.
+checks: an "exclude" category excludes it, a "discuss" category sets its verdict to "discuss" (nothing is
+prepared until the person decides with employer.py decide), and the checks are written to EMPLOYER_CHECKS.
 sync reads workflow journals (rows {type: started, agentId, label} and {type: result, agentId, result}); an agent's
 label is "<kind prefix><company name, maybe cut short>". By default the kinds are the ones workflows/
 screen-and-prepare.js writes (exclusion: excl-judge:, excl-verify:, excl-screen:; prep: prep-jobs:, whose result may
@@ -207,8 +207,8 @@ def sync(journals):
             by_rules, reasons = el.decide(env, name, checks)
             if env.get("EMPLOYER_CHECKS"):
                 el.record(env, name, checks, verdict="exclude" if x.get("verdict") == "exclude" else by_rules)
-            if x.get("verdict") != "exclude" and by_rules in ("exclude", "ask"):
-                # The person's category settings: "never" excludes, "ask" waits for their decision (no preparing).
+            if x.get("verdict") != "exclude" and by_rules in ("exclude", "discuss"):
+                # The person's category settings: "exclude" excludes, "discuss" waits for their decision (no preparing).
                 company["verdict"] = by_rules
                 company["rule_reasons"] = reasons
                 company[ties_key(x)] = x.get(ties_key(x), [])
@@ -221,7 +221,7 @@ def sync(journals):
         if not s and not x:
             continue
         if not s:
-            s = {"verdict": "apply", "hits": []}
+            s = {"verdict": "allow", "hits": []}
         r = newest(done, name, refuters)
         verdict = s["verdict"]
         if verdict == "clear" or (verdict == "incomplete" and name in refute_also):
@@ -232,17 +232,17 @@ def sync(journals):
             verdict, why = overrides[name]
             company["override"] = why
         if x:
-            # Every company without clear exclusion evidence is applied to; its weaker ties stay noted.
+            # Every company without clear exclusion evidence is allowed; its weaker ties stay noted.
             company[ties_key(x)] = x.get(ties_key(x), [])
-            verdict = "clear" if verdict == "clear" else "apply"
+            verdict = "clear" if verdict == "clear" else "allow"
         company["verdict"] = verdict
-        p = newest(done, name, preps) if verdict in ("clear", "apply") else None
+        p = newest(done, name, preps) if verdict in ("clear", "allow") else None
         for pj in (p or {}).get("jobs", []):
             for job in company["jobs"]:
                 if job["id"] == pj.get("id"):
                     job["prep"] = pj
     save(data)
-    queue = [(c["name"], j) for c in data["companies"] if c.get("verdict") in ("clear", "apply")
+    queue = [(c["name"], j) for c in data["companies"] if c.get("verdict") in ("clear", "allow")
              for j in c["jobs"] if "prep" in j and j["status"] == "pending"]
     for name, j in queue:
         p = j["prep"]

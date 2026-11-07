@@ -258,8 +258,8 @@ for company, job in companies(data):
     sent = job.get("status") == "submitted"
     label = "" if sent else open_label(job.get("status", ""))
     verdict = company.get("verdict") or job.get("verdict")
-    # "ask": an employer rule flagged it and the person decides; its jobs stay visible until then.
-    if not sent and not (label and (not verdict or verdict in ("apply", "clear", "ask"))):
+    # "discuss": an employer rule flagged it and the person decides; its jobs stay visible until then.
+    if not sent and not (label and (not verdict or verdict in ("allow", "clear", "discuss"))):
         continue
     # The older tracker keeps what was prepared in "prep"; a flat job row holds those fields itself.
     prep = job.get("prep") or ({} if COMPANY_SHAPE else job)

@@ -6,6 +6,53 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.17.0] - 2026-11-07
+
+### Changed
+
+- The employer side says **allow / discuss / exclude** everywhere, as the Questions page does: a category's setting
+  for a direct tie is `exclude` / `discuss` (the default) / `allow` (was never / ask / apply), for an indirect one
+  `discuss` / `warn` / `allow`; verdicts are exclude / discuss / allow, and a decision is
+  `employer.py decide "<name>" <exclude|allow>`. The screen-and-prepare workflow returns `allow` instead of `apply`.
+- The usage report's `waiting_on_ask` is `waiting_on_discuss`.
+- A rule value the plugin does not know (a typo, an older name such as `never`) counts as `discuss`: the person
+  decides, and nothing is allowed on a setting nobody understood.
+
+### Removed
+
+- The old name lists `never_apply` / `always_ok` and `employer.py migrate-lists`: the person's decisions in
+  `EMPLOYER_CHECKS` are the one list (since 0.14.0).
+
+## [0.16.0] - 2026-11-07
+
+### Added
+
+- The Questions page: an artifact of its own (`templates/questions/index.html`, with a small database) where the
+  person answers what their applications need and the records do not hold. Three groups: employers to allow or
+  exclude (by category, with the finding and its source), facts about them, and questions for one job (whether to
+  apply, or an essay). Every button question has Allow (or Apply) · Discuss · Exclude (or Don't apply); Discuss
+  keeps it open for the chat. Setup creates it and writes `QUESTIONS_PAGE`.
+- `questions.py`: `add` (a fact, a job question, a decision), `build` (the page's files, including every employer
+  the person's rules leave to them), `record` (the page's answers into the records: `form_answers`, the private
+  record, the job's prepared answers, `employer.py decide`, or the job declined) and `answer` (one answer given in
+  the chat). Each question is asked once; the same fact asked by another form only adds the job.
+- `PERSONAL_RECORD` (`career-records/personal.json`): health, family, identity and military-service answers, used
+  only in a form field that asks for one, by the session that fills the form; the screen-and-prepare agents, which
+  read job pages, never get it. Kept until the person changes or erases it. Only the person reads the Questions
+  page's questions and answers.
+- The dashboard's **Excluded employers** tab: the person's one list, one row each, with why (category, by their
+  decision or their rules), what was found, its source, the jobs and since when, filters (Withdrawn, Your decision,
+  Your rules) and a search. Built at each export from their records (`employerlib.excluded_list`, `excluded.json`).
+
+### Changed
+
+- Logins holds only logins: excluded employers left the Logins tab (its "Excluded" group is gone) and `LOGINS` (no
+  more employer rows); an excluded employer's site is marked `excluded` and not shown there.
+- Do now: "Answers" is now "Questions for you", with a link to the Questions page; an employer the rules leave to
+  the person points there ("Allow, or exclude?").
+- RULES: a new section "Questions for the person"; health, family and identity answers only from the person's own
+  answer in `PERSONAL_RECORD`.
+
 ## [0.15.0] - 2026-11-07
 
 ### Added

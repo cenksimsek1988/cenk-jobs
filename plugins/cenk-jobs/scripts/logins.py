@@ -5,9 +5,10 @@ python -I logins.py set <id> <status> "<note>" [key=value]  record a check (keys
 python -I logins.py show                                   one line per login
 Statuses: connected (a connector that answered), signed-in (a site the person is signed in to), needs-sign-up (no
 account yet: the person creates it), expired (the person was signed in and the session ended: a sign-in page where
-a form was), needs-sign-in, needs-reconnect, blocked (a bot check or terms page waiting on the person), excluded (an
-employer the person's rules exclude: no sign-in needed), unknown (older rows only; the dashboard shows it as "not
-signed in"). sync makes new site rows needs-sign-in; Claude sets needs-sign-up, expired and excluded with `set`.
+a form was), needs-sign-in, needs-reconnect, blocked (a bot check or terms page waiting on the person), excluded (the
+site of an employer the person's rules exclude: no sign-in needed; sync sets it, and the employers themselves are in
+the dashboard's Excluded tab, not in this file), unknown (older rows only; the dashboard shows it as "not signed
+in"). sync makes new site rows needs-sign-in; Claude sets needs-sign-up and expired with `set`.
 A site no job waits on keeps its last state, with the reason in its note: signed-in, or needs-sign-in (shown as
 "not signed in"). Example: `set "Acme Jobs" signed-in "no open job: the offer closed, 6 Nov 2026"`.
 The file (LOGINS in job-search.env) is the one place login state lives: the dashboard's Logins tab and its "Do now"
@@ -53,69 +54,6 @@ def save(data):
     os.replace(tmp, PATH)
 
 
-def excluded_employers(tracker):
-    """[(row, reason)] for each employer with a job excluded by the rules or withdrawn on ethics."""
-    import employerlib as el
-    rule_set = el.rules(env)
-    pipeline = el.load_json(env.path("PIPELINE"), {}) if env.get("PIPELINE") else {}
-    labels = {c: s.get("label", c) for c, s in rule_set["categories"].items()}
-    by_company, withdrawn, notes = {}, {}, {}
-    for job in flat_jobs(tracker):
-        p = pipeline.get(job.get("id")) or {}
-        if p.get("same_as"):
-            p = pipeline.get(p["same_as"]) or p
-        if p.get("stage") == "declined" and p.get("why") == "ethics":
-            withdrawn.setdefault(job.get("company", ""), p)
-        if job.get("status") == "excluded" or (p.get("stage") == "declined" and p.get("why") == "ethics"):
-            by_company.setdefault(job.get("company", ""), []).append(job.get("title") or job["id"])
-            notes.setdefault(job.get("company", ""), job.get("outcome") or "")
-
-    def short(text, n=140):
-        text = (text or "").strip()
-        return text[:n].rstrip() + ("..." if len(text) > n else "")
-
-    out = []
-    for company, titles in sorted(by_company.items()):
-        found = el.excluding(env, company, rule_set)
-        checks = el.lookup(env, company)
-        p = withdrawn.get(company, {})
-        parts = []
-        # On the never-apply list: the reason is the finding behind it, so the person sees what the employer does.
-        if found and found[0]["origin"] == "list":
-            flagged = [(c, k) for c, k in checks.items() if k.get("status") == "flagged"]
-            # A group's unit ("Acme Cloud" under "Acme"): the finding may be recorded under the list's own name.
-            for name in [n for n in rule_set.get("never_apply", []) if el.on_never_list(company, [n])]:
-                if not flagged:
-                    checks = el.lookup(env, name)
-                    flagged = [(c, k) for c, k in checks.items() if k.get("status") == "flagged"]
-            if flagged:
-                found = [{"category": c, "origin": "finding", "level": k.get("level", "direct")} for c, k in flagged]
-        for f in found:
-            cat = f["category"] or p.get("category", "")
-            fact = (checks.get(cat, {}).get("fact") or "") if cat else ""
-            if not fact and f["origin"] == "decision" and cat:
-                # A group's unit: the decision and its finding are recorded under the group's own name.
-                own_name, _ = el.find_entry(el.checks_file(env).get("employers", {}), company)
-                if own_name:
-                    fact = el.lookup(env, own_name).get(cat, {}).get("fact") or ""
-            if f["origin"] == "list":
-                names = [n for n in rule_set.get("never_apply", []) if el.on_never_list(company, [n])]
-                parts.append("on your never-apply list" + (f" ({', '.join(names)})" if names else "")
-                             + "; no finding recorded yet: Claude checks it at the next run")
-            elif f["origin"] == "decision":
-                parts.append("your decision" + (f", {labels.get(cat, cat)}" if cat else "")
-                             + (f": {short(fact)}" if fact else (f": {short(p.get('reason'))}" if p.get("reason") else "")))
-            else:
-                parts.append(f"{labels.get(cat, cat)} ({f.get('level', 'direct')})" + (f": {short(fact)}" if fact else ""))
-        # No reason left in the checks (an older screen): the tracker's own note says why.
-        fallback = short(notes.get(company, "").removeprefix("employer excluded: "), 160) or "by your rules when the job was screened"
-        reason = ("Withdrawn" if p else "Excluded") + ": " + ("; ".join(parts) or fallback)
-        reason += f". Jobs: {'; '.join(t[:60] for t in titles[:4])}" + (f" and {len(titles) - 4} more" if len(titles) > 4 else "")
-        out.append(({"id": f"employer: {company}", "name": company, "kind": "employer", "status": "excluded",
-                     "jobs": [], "link": "", "auto": True}, reason))
-    return out
-
-
 if not args or args[0] not in ("sync", "set", "show"):
     sys.exit(__doc__)
 data = load()
@@ -145,18 +83,19 @@ if args[0] == "sync":
         rows[site] = {"id": site, "name": site, "kind": "site", "status": "needs-sign-in", "checked": now,
                       "note": "an application waits on this site's sign-in or account", "jobs": sorted(ids),
                       "link": links.get(site, "")}
-    # Every employer the person turned down for their rules, so they remember it: one "excluded" row each, with the
-    # reason in words. Rebuilt at each sync from the tracker, the pipeline and the person's own employer checks.
-    for rid in [k for k, r in rows.items() if r.get("kind") == "employer" and r.get("auto")]:
+    # Excluded employers are listed in the dashboard's Excluded tab (employerlib.excluded_list), not here: rows of
+    # kind "employer" from older versions go, and a job site of an excluded employer is marked excluded.
+    for rid in [k for k, r in rows.items() if r.get("kind") == "employer"]:
         del rows[rid]
     import employerlib as el
-    for row, reason in excluded_employers(tracker):
-        site = next((r for r in rows.values() if r.get("kind") == "site"
-                     and el.keys(r.get("name", "")) & el.keys(row["name"])), None)
-        if site:
-            site.update(status="excluded", note=reason)
-        else:
-            rows[row["id"]] = dict(row, note=reason, checked=now)
+    pipeline = el.load_json(env.path("PIPELINE"), {}) if env.get("PIPELINE") else {}
+    excluded = el.excluded_list(env, flat_jobs(tracker), pipeline)
+    for site in [r for r in rows.values() if r.get("kind") == "site" and not r.get("jobs")]:
+        hit = next((x for x in excluded if any(el.keys(site.get("name", "")) & el.keys(n) for n in x["names"])), None)
+        note = f"employer excluded: {hit['employer']}, see the Excluded tab" if hit else ""
+        if hit and (site.get("status"), site.get("note")) != ("excluded", note):
+            site.setdefault("history", []).append({k: site[k] for k in ("checked", "status", "note") if k in site})
+            site.update(status="excluded", note=note, checked=now)
     data["logins"] = sorted(rows.values(), key=lambda r: (r.get("kind") != "connector", r["id"]))
     save(data)
     print(f"{sum(1 for r in data['logins'] if r.get('kind') == 'site')} sites, "

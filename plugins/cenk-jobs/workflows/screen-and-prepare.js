@@ -14,7 +14,7 @@
 //   scripts       absolute path of this skill's scripts folder
 //   python        how to run Python, e.g. "python" or "C:/.../python.exe" (run with -I)
 //   searchFile    the search results: {companies: [{name, jobs: [{id, title, url, apply_url, ...}]}]}
-//   companies     [{name, known?, verdict?, ties?, applied_jobs?, recheck?}] - known + verdict "apply" skips the
+//   companies     [{name, known?, verdict?, ties?, applied_jobs?, recheck?}] - known + verdict "allow" skips the
 //                 screen; recheck: one extra question for this employer (e.g. a new product line to check)
 //   outDir        folder for one prepared-jobs JSON file per company
 //   bodiesDir     LETTER_BODIES_DIR; lettersDir: LETTERS_DIR (absolute paths)
@@ -22,13 +22,13 @@
 //   cvs           [{variant, file, use}] - the CV versions: variant name, CV PDF path, which roles it is for
 //   decided       {excluded: [...names], cleared: [...names]} - employers already decided (not re-checked)
 //   person        the person's name, for the prompts
-//   employerRules the person's EMPLOYER_RULES file content (categories with action and indirect; an older never_apply,
-//                 always_ok, trigger); defaults from templates/employer-rules.json when the person has none
+//   employerRules the person's EMPLOYER_RULES file content (categories with action and indirect, trigger);
+//                 defaults from templates/employer-rules.json when the person has none
 //   known         optional {name: result of `employer.py check`} - what the shared blacklist and the person's own
 //                 checks already say, so the agents confirm or update it instead of starting from nothing
 // Agent labels (read back by track.py sync): excl-screen:, excl-verify:, excl-judge:, prep-jobs:, review-jobs:.
-// Verdicts: exclude (a master-record rule or a category set to "never"), ask (a category set to "ask": the person
-// decides before anything is prepared), apply. Every agent also returns one check per category (flagged with fact and
+// Verdicts: exclude (a master-record rule or a category set to "exclude"), discuss (a category set to "discuss": the
+// person decides before anything is prepared), allow. Every agent also returns one check per category (flagged with fact and
 // source, clear, or unknown), which track.py sync writes to EMPLOYER_CHECKS and the usage report can share.
 
 export const meta = {
@@ -49,15 +49,6 @@ const ER = A.employerRules || { categories: {} }
 // The shared categories, then the person's own filters ("custom": true in their rules).
 const CATS = ['israel', 'defence', 'animal_cruelty', 'climate', 'sexism', 'human_rights', 'working_conditions', 'sanctions',
   ...Object.keys(ER.categories || {}).filter(c => (ER.categories[c] || {}).custom)]
-// Name keys as in employerlib.keys: no brackets, punctuation or legal forms ("Acme Arms Ltd" = "Acme Arms").
-const LEGAL = /\b(inc|incorporated|ltd|limited|llc|plc|gmbh|ag|bv|nv|sa|spa|srl|sas|sarl|oy|oyj|ab|as|asa|aps|kg|co|corp|corporation|company|se|group|holding|holdings)\b/g
-const keyOf = n => String(n || '').toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/\./g, '').replace(/[^a-z0-9]+/g, ' ').replace(LEGAL, ' ').replace(/\s+/g, ' ').trim()
-const onList = (list, name) => (list || []).some(n => keyOf(n) === keyOf(name))
-// The name and each part in brackets: "Acme Pay (Example Group)" -> "acme pay", "example".
-const keysOf = n => [n, ...(String(n || '').match(/\([^)]*\)/g) || []).map(s => s.slice(1, -1))].map(keyOf).filter(k => k.length >= 2)
-// A never-apply name matches any of those keys, or one that starts with it as whole words: "Acme" matches
-// "Acme Cloud Services" (and "Nova" also "Nova Path", another company). always_ok stays exact (onList).
-const onNeverList = (list, name) => (list || []).some(n => { const k = keyOf(n); return k.length >= 2 && keysOf(name).some(m => m === k || m.startsWith(k + ' ')) })
 
 const CATEGORY_TEXT = `CATEGORIES (the person's employer-rule settings; check EVERY one for this employer): ${CATS.map(c => {
   const s = (ER.categories || {})[c] || {}
@@ -71,7 +62,7 @@ const RULES = `THE RULES ARE ${WHO.toUpperCase()}'S OWN: read ${MR} (JSON) with 
 Decide by those rules only. verdict "exclude" needs a rule that excludes this employer AND a source you cite that states the fact about the employer itself, its corporate group or its majority owner (not a namesake). Every tie that the rules do not count as an exclusion, or that the rules say ${WHO} decides, goes into ties as one line with its source. If a rule names a list, register or database (sanctions, boycott or settlement lists, for example), check that list directly.
 Already decided (do not re-check): excluded ${((A.decided || {}).excluded || []).join(', ') || 'none'}; cleared earlier: ${((A.decided || {}).cleared || []).join(', ') || 'none'}.
 ${CATEGORY_TEXT}
-verdict: "exclude" only by a master-record rule as above; otherwise "apply" (the script applies the category settings to your checks).`
+verdict: "exclude" only by a master-record rule as above; otherwise "allow" (the script applies the category settings to your checks).`
 
 const FACTS = `${WHO.toUpperCase()}'S FACTS: read ${MR} (JSON): profile (name, contact, citizenship, work authorisation, availability), experience, skills, education (an unfinished degree stays unfinished), languages, preferences.locations and preferences.work_modes (where ${WHO} will work), preferences.pay (PRIVATE: use it only for a salary or rate field, never in a letter), form_answers (answers ${WHO} has given), cv_rules, and every list of things never to claim (such as never_claim) or claims marked "pending" (never used).
 Never invent experience, numbers, skills or answers. Anything the record does not answer truthfully goes into needs. Never answer for ${WHO}: date of birth, ID numbers, references, criminal record, relatives at the company, street address, health; those go into needs.`
@@ -80,24 +71,24 @@ const TOOLS = 'Load tools with ONE ToolSearch call ("select:WebSearch,WebFetch")
 
 const HIT = { type: 'object', properties: { criterion: { type: 'string' }, finding: { type: 'string' }, source_url: { type: 'string' } }, required: ['criterion', 'finding', 'source_url'] }
 const CHECK = { type: 'object', properties: { category: { type: 'string', enum: CATS }, status: { type: 'string', enum: ['flagged', 'clear', 'unknown'] }, level: { type: 'string', enum: ['direct', 'indirect'] }, fact: { type: 'string' }, source_url: { type: 'string' } }, required: ['category', 'status', 'level', 'fact', 'source_url'] }
-const EXCL_SCHEMA = { type: 'object', properties: { verdict: { type: 'string', enum: ['exclude', 'apply'] }, hits: { type: 'array', items: HIT }, ties: { type: 'array', items: { type: 'string' } }, checks: { type: 'array', items: CHECK }, notes: { type: 'string' } }, required: ['verdict', 'hits', 'ties', 'checks', 'notes'] }
+const EXCL_SCHEMA = { type: 'object', properties: { verdict: { type: 'string', enum: ['exclude', 'allow'] }, hits: { type: 'array', items: HIT }, ties: { type: 'array', items: { type: 'string' } }, checks: { type: 'array', items: CHECK }, notes: { type: 'string' } }, required: ['verdict', 'hits', 'ties', 'checks', 'notes'] }
 
-// The person's category settings applied to the checks (the same rule as employerlib.decide): never -> exclude,
-// ask -> ask, warn and apply -> apply with the finding noted. A master-record exclusion always stands.
+// The person's category settings applied to the checks (the same rule as employerlib.decide): exclude -> exclude,
+// discuss -> discuss, warn and allow -> allow with the finding noted. A master-record exclusion always stands.
 function decide(name, result) {
   if (!result) return result
-  if (onNeverList(ER.never_apply, name)) return { ...result, verdict: 'exclude', reasons: ["on the person's never_apply list"] }
   if (result.verdict === 'exclude') return { ...result, reasons: ['a master-record rule'] }
-  if (onList(ER.always_ok, name)) return { ...result, verdict: 'apply', reasons: ["on the person's always_ok list"] }
-  let verdict = 'apply'
+  let verdict = 'allow'
   const reasons = []
   for (const k of result.checks || []) {
     if (k.status !== 'flagged' || !k.source_url) continue
     const s = (ER.categories || {})[k.category] || {}
-    const act = k.level === 'direct' ? (s.action || 'ask') : (s.indirect || 'ask')
+    // A value the rules do not know counts as discuss (as in employerlib.rules): never an allow by mistake.
+    const raw = k.level === 'direct' ? s.action : s.indirect
+    const act = (k.level === 'direct' ? ['exclude', 'discuss', 'allow'] : ['discuss', 'warn', 'allow']).includes(raw) ? raw : 'discuss'
     reasons.push(`${act}: ${s.label || k.category} (${k.level}): ${String(k.fact).slice(0, 160)}`)
-    if (act === 'never') verdict = 'exclude'
-    else if (act === 'ask' && verdict !== 'exclude') verdict = 'ask'
+    if (act === 'exclude') verdict = 'exclude'
+    else if (act === 'discuss' && verdict !== 'exclude') verdict = 'discuss'
   }
   return { ...result, verdict, reasons }
 }
@@ -136,7 +127,7 @@ RETURN the schema: verdict exclude only with an exclude-level hit and its source
 const verifyPrompt = (c, s) => `Independent second check of the employer "${c.name}" under ${WHO}'s rules. Another agent already checked it and returned: ${JSON.stringify(s)}.
 ${RULES}
 YOUR JOB: try to overturn that result.
-- If it says "apply": look for exclude-level evidence it may have missed under each rule: the company, its group and its majority owner, in every list or register a rule names, and in the company's own statements and contracts.
+- If it says "allow": look for exclude-level evidence it may have missed under each rule: the company, its group and its majority owner, in every list or register a rule names, and in the company's own statements and contracts.
 - If it says "exclude": try to refute every hit. Is the source real and reachable, does it actually state the fact, and is it about this employer, its group or its majority owner (not a namesake)?
 ${TOOLS} At most 1 WebSearch query; WebFetch freely.
 RETURN the schema with YOUR verdict after this check (exclude only with a sourced exclude-level hit), the hits that stand, and in ties every weaker tie: the first check's ties that still stand plus any you found (track.py sync keeps only this check's list); notes: what you checked and whether you overturned the first result.`
@@ -173,7 +164,7 @@ No browser, no WebSearch. RETURN the schema: the file, how many jobs you checked
 const results = await pipeline(
   A.companies,
   async c => {
-    if (c.known && c.verdict === 'apply' && !c.recheck) return { c, final: { verdict: 'apply', hits: [], ties: c.ties || [], checks: [], notes: 'screened earlier' }, route: 'known' }
+    if (c.known && c.verdict === 'allow' && !c.recheck) return { c, final: { verdict: 'allow', hits: [], ties: c.ties || [], checks: [], notes: 'screened earlier' }, route: 'known' }
     const s = await agent(screenPrompt(c), { label: label('excl-screen', c.name), phase: 'Screen', schema: EXCL_SCHEMA })
     if (!s) return { c, final: null, route: 'screen-failed' }
     const v = await agent(verifyPrompt(c, s), { label: label('excl-verify', c.name), phase: 'Verify', schema: EXCL_SCHEMA })
@@ -185,7 +176,7 @@ const results = await pipeline(
     return { c, final: decide(c.name, j ? { ...j, checks: (j.checks || []).length ? j.checks : checks } : { ...s, checks }), route: 'judged' }
   },
   async r => {
-    if (!r.final || r.final.verdict !== 'apply') return r
+    if (!r.final || r.final.verdict !== 'allow') return r
     const reply = await agent(prepPrompt(r.c), { label: label('prep-jobs', r.c.name), phase: 'Prepare' })
     return { ...r, prepReply: String(reply || '').slice(0, 300) }
   },

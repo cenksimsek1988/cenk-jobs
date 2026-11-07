@@ -57,7 +57,9 @@ Show the defaults and ask: "Use these defaults? You can change any of them later
 - The search runs every day at 19:00 your local time (`SEARCH_TIME`; `/cenk-jobs:schedule` changes it).
 - Optional consents stay off: newsletters, talent pools, job alerts, marketing, SMS, AI analysis of interviews,
   extra data retention.
-- Open free-text questions, essays and self-ratings are never filled for you: they wait for you in Do now.
+- Open free-text questions, essays and self-ratings are never filled for you: they wait for you on your
+  Questions page, with every other question your records do not answer. Each answer goes into your records, so it
+  is asked once.
 - Emails and messages are drafts; you send them.
 - Applications are sent on their own when every answer comes from your records (`APPLY_MODE=auto`); you hear what
   was sent after each run. Say "ask me before each application" for `APPLY_MODE=review`. Only what Claude cannot
@@ -66,15 +68,16 @@ Show the defaults and ask: "Use these defaults? You can change any of them later
 - Job-search mails Claude has finished get the Gmail label `cenk-jobs/Done` (`GMAIL_DONE_LABEL`); create it once
   the defaults are accepted. Mails waiting on you stay unlabelled.
 - Pay figures and your address go only into forms, never into a CV, letter, shared file or the dashboard.
-- Employer checks, in eight categories, each "warn and ask" for a direct tie and for an indirect one:
+- Employer checks, in eight categories, each "discuss" for a direct tie and for an indirect one (you see the
+  finding and decide: allow or exclude):
   ties to Israel's occupation or military; defence industry; animal cruelty; climate and environmental harm;
   sexism; human rights; working conditions; sanctions.
 - Sanctions: the UN Security Council list, plus the lists of the country or region you live in. Ask which, with
   examples: EU, UK (OFSI), US (OFAC), a national list. Write them into `lists` of the `sanctions` category.
 
 Then say how to change them, with examples:
-- per category, a direct tie: never apply / ask / apply ("never apply to defence companies");
-- per category, an indirect tie (an investor, a partner, a customer): ask / just warn / apply ("indirect ties to
+- per category, a direct tie: exclude / discuss / allow ("exclude defence companies");
+- per category, an indirect tie (an investor, a partner, a customer): discuss / just warn / allow ("indirect ties to
   climate harm are fine, just warn me");
 - a whole category allowed ("animal cruelty checks are not for me").
 
@@ -115,6 +118,13 @@ to delete stale copies elsewhere (to the trash only, on their yes).
 
 Create it without asking (RULES.md, "Dashboard"), put its link in `DASHBOARD_URL`, then: "Your dashboard: <link>.
 Pin it to find it in one click: Artifacts > Job applications > Pin. Shall I pin it for you?" Pin only on a yes.
+
+Then the Questions page, without asking: publish `templates/questions/index.html` as its own artifact with the
+capabilities `{"db": {"rules": [{"path": "questions", "read": "owner", "write": "owner"}, {"path": "answers",
+"read": "owner", "write": "owner"}]}, "user": {}}` (only the person reads or writes it, even when the page is
+shared: answers can be health facts), list its `answers` collection once to check the store answers,
+and put its link in `QUESTIONS_PAGE`. Say: "Your questions page: <link>. What your applications need and your
+records do not hold is asked there once, with a reply box or Allow / Discuss / Exclude buttons."
 
 ## 9. The main session
 

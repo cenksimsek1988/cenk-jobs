@@ -13,7 +13,10 @@ Writes, in <out dir>:
                      session with the person is on it: wait); each points at a job id (app) and/or a login id
                      (login) instead of repeating them.
   logins.json        one row per connector and job site (from LOGINS): status, when checked, how to fix it, and
-                     how many jobs wait on it.
+                     how many jobs wait on it. The site of an excluded employer is left out: it needs no sign-in.
+  excluded.json      the person's one list of excluded employers (employerlib.excluded_list): employer, Excluded or
+                     Withdrawn, by what (their decision or their rules), why (the category), the finding in words,
+                     its source, since when, and the jobs it stopped.
 The calendar is not exported: the dashboard reads Google Calendar live (job-search events carry their own color).
 Sources: the folders, TRACKER, PIPELINE and LOGINS. Pay figures and street addresses never go into these files,
 since anyone who can open the dashboard can read them.
@@ -78,10 +81,10 @@ def employer_view(env):
                 if k.get("status") != "flagged" or s is None:
                     continue
                 level = k.get("level", "direct")
-                act = s.get("action", "ask") if level == "direct" else s.get("indirect", "ask")
+                act = s.get("action", "discuss") if level == "direct" else s.get("indirect", "discuss")
                 item = {"label": s.get("label", cat), "level": level, "fact": k.get("fact", ""),
                         "src": k.get("source_url", "")}
-                (asks if act == "ask" else warns if act == "warn" else []).append(item)
+                (asks if act == "discuss" else warns if act == "warn" else []).append(item)
             memo[company] = (verdict, asks, warns)
         return memo[company]
     return view
@@ -170,7 +173,8 @@ def main():
     login_rows = [{"id": r["id"], "name": r.get("name", r["id"]), "kind": r.get("kind", "site"),
                    "status": r.get("status", "unknown"), "checked": (r.get("checked") or "")[:16].replace("T", " "),
                    "note": short(r.get("note", ""), 160), "fix": short(r.get("fix", ""), 200), "link": r.get("link", ""),
-                   "account": r.get("account", ""), "jobs": len(r.get("jobs", []))} for r in logins]
+                   "account": r.get("account", ""), "jobs": len(r.get("jobs", []))}
+                  for r in logins if r.get("status") != "excluded" and r.get("kind") != "employer"]
     sites = {r["id"] for r in logins}
 
     actions = []
@@ -180,6 +184,10 @@ def main():
     # Every row gets a link: its own, else the job's application page off the job boards.
     job_links = {j["id"]: employer_link(j, login_of(j)) or j.get("apply_url", "") for j in flat_jobs(tracker)}
     view = employer_view(env)
+    import employerlib as el
+    # Findings are public facts about the employer, never the person's pay: plain text, not pay-masked.
+    excluded = [{k: (re.sub(r"\s+", " ", v).strip() if isinstance(v, str) else v) for k, v in x.items() if k != "names"}
+                for x in el.excluded_list(env, flat_jobs(tracker), pipeline)]
     for job in flat_jobs(tracker):
         app = job["id"] if job["id"] in known else ""
         if not open_job(job.get("status")):
@@ -207,22 +215,23 @@ def main():
             actions.append({"key": f"{job['id']}:answer", "app": app, "login": "", "kind": "info",
                             "text": short(job.get("outcome") or (job.get("needs") or [""])[0] or job.get("note", ""), 240),
                             "link": job_links.get(job["id"], ""), "due": ""})
-    # An employer the person's rules leave to them ("ask"): one Answer row with the finding and its source.
+    # An employer the person's rules leave to them ("discuss"): one Question row with the finding and its source.
     asked = set()
     for job in flat_jobs(tracker):
         company = job.get("company", "")
         if job.get("status") in DONE or company in asked or job["id"] in pipeline:
             continue
         verdict, asks, _ = view(company)
-        if verdict != "ask" or not asks:
+        if verdict != "discuss" or not asks:
             continue
         asked.add(company)
         a = asks[0]
         more = f" (and {len(asks) - 1} more finding{'s' if len(asks) > 2 else ''})" if len(asks) > 1 else ""
         actions.append({"key": f"ask:{company}", "app": "", "login": "", "kind": "info",
                         "text": short(f"{company}, {job.get('title', '')}: {a['label']} ({a['level']}): {a['fact']}", 230)
-                                + more + ". Apply, or never? Tell Claude.",
-                        "link": a["src"] or job_links.get(job["id"], ""), "due": ""})
+                                + more + (". Allow, or exclude? Answer on your Questions page." if env.get("QUESTIONS_PAGE")
+                                          else ". Allow, or exclude? Tell Claude."),
+                        "link": env.get("QUESTIONS_PAGE") or a["src"] or job_links.get(job["id"], ""), "due": ""})
     for a in apps:
         _, _, warns = view(a["company"])
         a["warn"] = "; ".join(short(f"{w['label']} ({w['level']}): {w['fact']}", 150) for w in warns[:2])
@@ -258,16 +267,20 @@ def main():
                "n": sum(1 for r in login_rows if r["status"] in OK_LOGIN)},
               {"key": "logins:action", "group": "logins", "label": "need action",
                "n": sum(1 for r in login_rows if r["status"] not in NO_ACTION and (r["kind"] == "connector" or r["jobs"] or r["fix"]))},
+              {"key": "excluded:n", "group": "excluded", "label": "excluded employers", "n": len(excluded)},
               {"key": "meta:generated", "group": "meta", "label": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
                "n": len(apps)},
-              {"key": "meta:run", "group": "meta", "label": run_line(env), "n": 0}]
+              {"key": "meta:run", "group": "meta", "label": run_line(env), "n": 0},
+              # The person's own Questions page (QUESTIONS_PAGE), linked from Do now.
+              {"key": "meta:questions", "group": "meta", "label": env.get("QUESTIONS_PAGE") or "", "n": 0}]
 
     os.makedirs(out_dir, exist_ok=True)
     for fname, rows in (("index.json", index), ("applications.json", apps), ("steps.json", steps),
-                        ("actions.json", actions), ("logins.json", login_rows)):
+                        ("actions.json", actions), ("logins.json", login_rows), ("excluded.json", excluded)):
         with open(os.path.join(out_dir, fname), "w", encoding="utf-8") as fh:
             json.dump(rows, fh, ensure_ascii=False, indent=1)
-    print(f"{len(apps)} applications, {len(steps)} steps, {len(actions)} actions, {len(login_rows)} logins -> {out_dir}")
+    print(f"{len(apps)} applications, {len(steps)} steps, {len(actions)} actions, {len(login_rows)} logins, "
+          f"{len(excluded)} excluded employers -> {out_dir}")
 
 
 if __name__ == "__main__":

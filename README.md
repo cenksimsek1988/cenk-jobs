@@ -106,9 +106,9 @@ defence industry, animal cruelty, climate and environmental harm, sexism, human 
 category counts only with a crime-level problem shown by credible news, a ruling, a fine, a sanctions listing or an
 official list, with its source.
 
-- The default for every category is **warn and ask**: Claude tells you what it found and you decide. You can set any
-  category to **never apply** or **apply**, and say how to treat indirect ties (an investor's other holdings, partners,
-  customers): ask, warn only, or apply. Your settings live in `employer-rules.json` in your folder.
+- The default for every category is **discuss**: Claude shows you what it found and you decide, allow or exclude.
+  You can set any category to **exclude** or **allow**, and say how to treat indirect ties (an investor's other
+  holdings, partners, customers): discuss, warn only, or allow. Your settings live in `employer-rules.json` in your folder.
 - The plugin ships a **shared blacklist** (`plugins/cenk-jobs/data/blacklist.json`): employers with
   sourced findings per category, checked by Claude before each new screen. It grows from users' usage reports.
 
@@ -173,7 +173,7 @@ Main commands (S = this skill's scripts folder, run from your job-search folder 
   python -I S/export_dashboard.py <out dir>          the dashboard's files
   python -I S/track.py sync <journal.jsonl> [...]    merge a screen-and-prepare run into the tracker
   python -I S/employer.py check "<name>" [...]       what is known about an employer, and the verdict by your rules
-  python -I S/employer.py decide "<name>" <exclude|apply> [<category>]
+  python -I S/employer.py decide "<name>" <exclude|allow> [<category>]
   python -I S/usage.py log <step> <ok|failed|stopped> ["<note>"]
   python -I S/usage.py due | report | mark-drafted   the weekly usage report (only with USAGE_SHARING=yes)
   python -I S/usage.py stats                         jobs turned down by your employer rules (for you; sends nothing)

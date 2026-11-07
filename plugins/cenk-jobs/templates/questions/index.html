@@ -1,0 +1,222 @@
+<title>Questions for you</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+<style>
+/* Layout: one reading column; three groups (decisions, facts about the person, one job's writing), each a list of
+   question cards with the answer control on the card itself. */
+:root {
+  --bg: #f6f7f5; --panel: #ffffff; --ink: #1d2422; --muted: #5c6763; --line: #d9dfdb;
+  --accent: #1f5f63; --accent-ink: #ffffff; --exclude: #8a3b2e; --ok: #2f6b3a; --chip: #eaefec;
+  --display: "Newsreader", Georgia, "Times New Roman", serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121615; --panel: #1a201e; --ink: #e6ebe8; --muted: #9aa6a1; --line: #2c3532;
+  --accent: #5fb3b8; --accent-ink: #0d1312; --exclude: #e08a77; --ok: #7cc28a; --chip: #232b29; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121615; --panel: #1a201e; --ink: #e6ebe8; --muted: #9aa6a1; --line: #2c3532;
+  --accent: #5fb3b8; --accent-ink: #0d1312; --exclude: #e08a77; --ok: #7cc28a; --chip: #232b29; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 46rem; margin: 0 auto; padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 28px; }
+h1 { font-family: var(--display); font-weight: 600; font-size: 2rem; line-height: 1.15; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 1.3rem; margin: 0; text-wrap: balance; }
+h3 { font-size: .78rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 6px 0 0; }
+p { margin: 0; }
+.lede { color: var(--muted); max-width: 40rem; }
+.tally { font-family: var(--mono); font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.notice { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 12px 14px; color: var(--muted); }
+section { display: grid; gap: 12px; }
+.list { display: grid; gap: 10px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; }
+.card.done { border-style: dashed; }
+.q { font-weight: 600; }
+.who { font-family: var(--mono); font-size: .82rem; color: var(--muted); }
+.detail { color: var(--ink); }
+.detail a { color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-family: var(--mono); font-size: .75rem; background: var(--chip); border-radius: 999px; padding: 2px 8px; color: var(--muted); }
+.chip.private { color: var(--exclude); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button { font: inherit; font-weight: 500; border-radius: 8px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.apply { border-color: var(--accent); color: var(--accent); }
+button.exclude { border-color: var(--exclude); color: var(--exclude); }
+button.apply[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+button.exclude[aria-pressed="true"] { background: var(--exclude); color: var(--panel); }
+button.discuss[aria-pressed="true"] { background: var(--muted); color: var(--panel); }
+button.save { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button:disabled { opacity: .55; cursor: default; }
+input[type="text"], textarea { font: inherit; width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 10px; background: var(--bg); color: var(--ink); }
+textarea { min-height: 7rem; resize: vertical; }
+.saved { font-size: .85rem; color: var(--ok); }
+.err { font-size: .85rem; color: var(--exclude); }
+@media (prefers-reduced-motion: no-preference) { button { transition: background-color .15s, color .15s; } }
+</style>
+
+<main class="wrap">
+  <header style="display:grid;gap:8px">
+    <h1>Questions for you</h1>
+    <p class="lede">What your job applications need and your records don't hold yet. Each answer goes into your own
+      records, so it is asked once; Claude records it at the next run and the applications waiting on it carry on.</p>
+    <p class="tally" id="tally">Loading the questions…</p>
+  </header>
+  <p class="notice" id="notice" hidden></p>
+
+  <section id="sec-decision" hidden>
+    <h2>Allow, or exclude?</h2>
+    <p class="lede">A finding your rules leave to you, or one where your rule is unclear. Your answer covers the whole employer: Allow, and its jobs go on; Exclude, and it joins your excluded employers. Discuss: Claude brings it up with you in your main session.</p>
+    <div class="list" id="list-decision"></div>
+  </section>
+
+  <section id="sec-fact" hidden>
+    <h2>About you</h2>
+    <p class="lede">Facts forms ask for. Marked private: kept only in your personal record and used only in forms.</p>
+    <div class="list" id="list-fact"></div>
+  </section>
+
+  <section id="sec-job" hidden>
+    <h2>For one job</h2>
+    <p class="lede">For one application: whether to apply, or writing only you can do, such as a motivation answer.</p>
+    <div class="list" id="list-job"></div>
+  </section>
+
+  <p class="notice" id="empty" hidden>No questions are waiting. New ones appear here after each run.</p>
+</main>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const state = { questions: [], answers: {}, loaded: { q: false, a: false } };
+  let db = null;
+
+  function el(tag, cls, text) {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = String(text);
+    return n;
+  }
+
+  function notice(text) { const n = $('notice'); n.textContent = text || ''; n.hidden = !text; }
+
+  async function save(id, answer, status) {
+    if (!db) return;
+    status.className = 'saved'; status.textContent = 'Saving…';
+    try {
+      await db.collection('answers').doc(id).set({ answer: String(answer), at: new Date().toISOString() });
+      status.textContent = 'Saved. Claude records it at the next run.';
+    } catch (e) {
+      status.className = 'err';
+      status.textContent = 'Not saved: ' + ((e && e.message) || 'the page could not reach the store') + '. Try again.';
+    }
+  }
+
+  function card(q) {
+    const ans = state.answers[q.id];
+    const c = el('div', 'card' + (ans ? ' done' : ''));
+    c.id = 'q-' + q.id;
+    if (q.employer || q.role) c.appendChild(el('p', 'who', [q.employer, q.role].filter(Boolean).join(' · ')));
+    c.appendChild(el('p', 'q', q.text || ''));
+    if (q.detail) {
+      const d = el('p', 'detail', q.detail + ' ');
+      if (/^https?:\/\//.test(q.source || '')) {
+        const a = el('a', null, 'Source');
+        a.href = q.source; a.target = '_blank'; a.rel = 'noopener noreferrer';
+        d.appendChild(a);
+      }
+      c.appendChild(d);
+    }
+    const chips = el('div', 'chips');
+    (q.jobs || []).forEach((j) => chips.appendChild(el('span', 'chip', j)));
+    if (q.personal) chips.appendChild(el('span', 'chip private', 'private'));
+    if (chips.childNodes.length) c.appendChild(chips);
+    // Every button question has a middle answer, Discuss: the coordinator brings it up in the chat.
+    const base = Array.isArray(q.options) && q.options.length ? q.options.map((o) => [o.value, o.label])
+      : q.kind === 'decision' ? [['allow', 'Allow'], ['exclude', 'Exclude']] : null;
+    const options = base && !base.some(([v]) => v === 'discuss')
+      ? base.slice(0, -1).concat([['discuss', 'Discuss']], base.slice(-1)) : base;
+    const shown = ans && options ? (options.find(([v]) => v === ans.answer) || [])[1] : '';
+    const status = el('p', ans ? 'saved' : '', !ans ? ''
+      : ans.answer === 'discuss' ? 'Saved: Discuss. Claude brings it up with you in your main session.'
+      : 'Saved: ' + (shown || ans.answer));
+    if (options) {
+      const row = el('div', 'row');
+      options.forEach(([v, label]) => {
+        const b = el('button', v === 'exclude' || v === 'decline' ? 'exclude' : v === 'discuss' ? 'discuss' : 'apply', label);
+        b.type = 'button';
+        b.setAttribute('aria-pressed', String(ans && ans.answer === v));
+        b.addEventListener('click', () => save(q.id, v, status));
+        row.appendChild(b);
+      });
+      c.appendChild(row);
+    } else {
+      const box = q.kind === 'job' ? el('textarea') : el('input');
+      if (q.kind !== 'job') box.type = 'text';
+      box.id = 'a-' + q.id;
+      box.setAttribute('aria-label', q.text || 'Answer');
+      box.placeholder = q.placeholder || (q.kind === 'job' ? 'Your answer, in your words' : 'Your answer');
+      if (ans) box.value = ans.answer;
+      const row = el('div', 'row');
+      const b = el('button', 'save', 'Save');
+      b.type = 'button';
+      b.addEventListener('click', () => { if (box.value.trim()) save(q.id, box.value.trim(), status); });
+      row.appendChild(b);
+      c.appendChild(box);
+      c.appendChild(row);
+    }
+    c.appendChild(status);
+    return c;
+  }
+
+  function render() {
+    if (!state.loaded.q) return;
+    const open = state.questions.filter((q) => q.open !== false);
+    const groups = { decision: [], fact: [], job: [] };
+    open.forEach((q) => (groups[q.kind] || groups.fact).push(q));
+    let answered = 0;
+    open.forEach((q) => { if (state.answers[q.id]) answered += 1; });
+    $('tally').textContent = open.length ? `${open.length} question${open.length === 1 ? '' : 's'} · ${answered} answered` : '';
+    Object.entries(groups).forEach(([kind, qs]) => {
+      const list = $('list-' + kind);
+      list.replaceChildren();
+      qs.sort((a, b) => (a.order || 0) - (b.order || 0) || String(a.category || '').localeCompare(String(b.category || '')));
+      let last = null;
+      qs.forEach((q) => {
+        if (kind === 'decision' && q.category !== last) { list.appendChild(el('h3', null, q.category || 'Other')); last = q.category; }
+        list.appendChild(card(q));
+      });
+      $('sec-' + kind).hidden = !qs.length;
+    });
+    $('empty').hidden = open.length > 0;
+  }
+
+  async function start() {
+    const timer = setTimeout(() => notice('The questions can’t be reached yet. Check your connection; the page keeps trying.'), 10000);
+    try { db = window.claude && (await window.claude.use('db')); } catch (e) { db = null; }
+    if (!db) {
+      clearTimeout(timer);
+      $('tally').textContent = '';
+      notice('Open this page signed in to claude.ai to see and answer your questions.');
+      return;
+    }
+    db.collection('questions').onSnapshot((snap) => {
+      state.questions = snap.docs.map((d) => Object.assign({ id: d.id }, d.data()));
+      state.loaded.q = true;
+      if (!snap.metadata.fromCache) { clearTimeout(timer); notice(''); }
+      render();
+    }, (e) => { clearTimeout(timer); notice('The questions could not be loaded: ' + ((e && e.message) || 'unknown error') + '.'); });
+    db.collection('answers').onSnapshot((snap) => {
+      const map = {};
+      snap.docs.forEach((d) => { map[d.id] = d.data(); });
+      state.answers = map;
+      state.loaded.a = true;
+      render();
+    }, () => {});
+  }
+  start();
+})();
+</script>

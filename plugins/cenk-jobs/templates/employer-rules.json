@@ -1,5 +1,5 @@
 {
-  "_about": "The person's employer rules (EMPLOYER_RULES in job-search.env), copied from the plugin's defaults on the first run. Each category says what happens when an employer is flagged in it. action (a direct tie: the employer, its corporate group or its majority owner): never = do not apply; ask = warn and ask the person before applying (the default); apply = apply and note the finding. indirect (a minority investor, an investor's other holdings, a partner or a customer): ask = ask the person (the default); warn = apply and tell the person; apply = apply and note it. notes: the person's limits as a short fact (for example 'Western countries only'). The person's decisions per employer live in one list, EMPLOYER_CHECKS (employer.py decide), not here. The person changes any value by saying so; Claude writes it here and adds {date, field, new} to changes.",
+  "_about": "The person's employer rules (EMPLOYER_RULES in job-search.env), copied from the plugin's defaults on the first run. Each category says what happens when an employer is flagged in it. action (a direct tie: the employer, its corporate group or its majority owner): exclude = never apply; discuss = show the person the finding and let them decide, allow or exclude (the default); allow = apply and note the finding. indirect (a minority investor, an investor's other holdings, a partner or a customer): discuss = the person decides (the default); warn = allow and tell the person; allow = allow and note it. notes: the person's limits as a short fact (for example 'Western countries only'). The person's decisions per employer live in one list, EMPLOYER_CHECKS (employer.py decide), not here. The person changes any value by saying so; Claude writes it here and adds {date, field, new} to changes.",
   "version": 1,
   "trigger": "A category counts only with a crime-level problem: credible news from established outlets, a court ruling, a regulator's fine, a sanctions listing, or an official or recognised list (UN, NGO databases). Rumours, opinion pieces and unsourced pages do not count; each finding needs its source link.",
   "levels": {
@@ -10,50 +10,50 @@
     "israel": {
       "label": "Ties to Israel's occupation or military",
       "what": "Step 1, lists, for the employer and its parent or majority owner: a current target of the BDS movement (bdsmovement.net, 'What to boycott'; past successes do not count), the UN OHCHR settlement-business database (latest edition), Who Profits, AFSC Investigate. Step 2, from the company's own site, careers page or annual report, each answer with a source link: founded in Israel or headquartered there; its own office, R&D team or subsidiary in Israel; its majority owner (step 1 on the owner); supplying Israel's military or police, or the settlements. A list hit or a yes is a direct tie. Indirect: a reseller or shop selling the brand in Israel, a minority investor's other holdings, customers, a board member's outside seat, a licensee's owner. Nothing found is 'nothing found', never 'clear'.",
-      "action": "ask",
-      "indirect": "ask",
+      "action": "discuss",
+      "indirect": "discuss",
       "notes": ""
     },
     "defence": {
       "label": "Defence industry",
       "what": "producing arms, ammunition or military systems, or a military product line",
-      "action": "ask",
-      "indirect": "ask",
+      "action": "discuss",
+      "indirect": "discuss",
       "notes": ""
     },
     "animal_cruelty": {
       "label": "Animal cruelty",
       "what": "rulings, fines or credible reports of animal cruelty, for example in testing, farming, fur or entertainment",
-      "action": "ask",
-      "indirect": "ask",
+      "action": "discuss",
+      "indirect": "discuss",
       "notes": ""
     },
     "climate": {
       "label": "Climate and environmental harm",
       "what": "rulings, fines or credible reports of serious environmental crime or climate harm, for example illegal pollution, deforestation, or climate claims ruled misleading",
-      "action": "ask",
-      "indirect": "ask",
+      "action": "discuss",
+      "indirect": "discuss",
       "notes": ""
     },
     "sexism": {
       "label": "Sexism",
       "what": "rulings, fines or credible reports of sex discrimination, unequal pay or sexual harassment at the company",
-      "action": "ask",
-      "indirect": "ask",
+      "action": "discuss",
+      "indirect": "discuss",
       "notes": ""
     },
     "human_rights": {
       "label": "Human rights",
       "what": "rulings, sanctions or credible reports of serious human-rights abuses, for example forced labour, surveillance used for repression, or abuses in the supply chain",
-      "action": "ask",
-      "indirect": "ask",
+      "action": "discuss",
+      "indirect": "discuss",
       "notes": ""
     },
     "working_conditions": {
       "label": "Working conditions",
       "what": "rulings, fines or credible reports of serious labour abuses, for example unpaid wages, union busting, unsafe workplaces or exploitative contracts",
-      "action": "ask",
-      "indirect": "ask",
+      "action": "discuss",
+      "indirect": "discuss",
       "notes": ""
     },
     "sanctions": {
@@ -62,8 +62,8 @@
       "lists": [
         "UN Security Council"
       ],
-      "action": "ask",
-      "indirect": "ask",
+      "action": "discuss",
+      "indirect": "discuss",
       "notes": ""
     }
   },

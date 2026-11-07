@@ -7,8 +7,9 @@ A check is {status, level, fact, source_url, checked}:
   status  flagged (a crime-level finding with its source) | clear (checked, nothing found) | unknown (not checked)
   level   direct (the employer, its corporate group or its majority owner) | indirect (a minority investor, an
           investor's other holdings, a partner or a customer)
-What a flagged check does comes from the person's EMPLOYER_RULES: action for a direct tie (never | ask | apply),
-indirect for an indirect one (ask | warn | apply). The defaults are "ask" for both: warn and ask first.
+What a flagged check does comes from the person's EMPLOYER_RULES: action for a direct tie (exclude | discuss |
+allow), indirect for an indirect one (discuss | warn | allow). The default is "discuss" for both: Claude shows the
+finding and the person decides (allow or exclude).
 
 Files:
   data/blacklist.json   in the plugin: the shared list, {employers: [{name, aliases, checks: {category: check}}]},
@@ -32,8 +33,9 @@ CATEGORIES = ("israel", "defence", "animal_cruelty", "climate", "sexism", "human
               "sanctions")
 STATUSES = ("flagged", "clear", "unknown")
 LEVELS = ("direct", "indirect")
-ACTIONS = ("never", "ask", "apply")
-INDIRECT_ACTIONS = ("ask", "warn", "apply")
+ACTIONS = ("exclude", "discuss", "allow")
+INDIRECT_ACTIONS = ("discuss", "warn", "allow")
+DECISIONS = ("exclude", "allow")
 LEGAL = re.compile(r"\b(inc|incorporated|ltd|limited|llc|plc|gmbh|ag|bv|nv|sa|spa|srl|sas|sarl|oy|oyj|ab|as|asa|"
                    r"aps|kg|co|corp|corporation|company|se|group|holding|holdings)\b")
 
@@ -84,6 +86,13 @@ def rules(env):
     # The person's own filters (example: gambling) count like the shared categories, for them only.
     merged["categories"].update({c: s for c, s in own.get("categories", {}).items()
                                  if c not in CATEGORIES and s.get("custom")})
+    # A value the rules do not know (a typo, an older name such as "never") counts as "discuss": the person decides,
+    # and nothing is applied to on a setting nobody understood.
+    for s in merged["categories"].values():
+        if s.get("action", "discuss") not in ACTIONS:
+            s["action"] = "discuss"
+        if s.get("indirect", "discuss") not in INDIRECT_ACTIONS:
+            s["indirect"] = "discuss"
     return merged
 
 
@@ -111,15 +120,14 @@ def find_entry(entries, name):
         if any(wanted & keys(n) for n in names):
             return entry_name, entry
     for entry_name, entry in items:
-        if entry.get("group") and on_never_list(name, [entry_name] + list(entry.get("aliases", []))):
+        if entry.get("group") and covered_by(name, [entry_name] + list(entry.get("aliases", []))):
             return entry_name, entry
     return None, None
 
 
-def on_never_list(name, names):
-    """A never-apply name matches the employer's name, a part of it in brackets, or any of them that starts with it as
-    whole words: "Acme" matches "Acme Cloud Services" (and "Nova" also "Nova Path", another company). always_ok
-    stays exact, so a trusted name never lets a different company through."""
+def covered_by(name, names):
+    """A group's name covers the employer's name, a part of it in brackets, or any of them that starts with it as
+    whole words: "Acme" covers "Acme Cloud Services" (and "Nova" also "Nova Path", another company)."""
     mine = keys(name)
     return any(m == k or m.startswith(k + " ") for n in names for k in keys(n) for m in mine)
 
@@ -132,7 +140,7 @@ def decision_for(env, name):
     if (own or {}).get("decisions"):
         return own["decisions"][-1]
     for entry_name, entry in employers.items():
-        if entry.get("group") and entry.get("decisions") and on_never_list(name, [entry_name] + list(entry.get("aliases", []))):
+        if entry.get("group") and entry.get("decisions") and covered_by(name, [entry_name] + list(entry.get("aliases", []))):
             return entry["decisions"][-1]
     return None
 
@@ -152,13 +160,8 @@ def lookup(env, name):
 
 def excluding(env, name, rule_set=None):
     """What makes the person's rules exclude an employer: [{category, origin, level}], empty when they do not.
-    origin: list (their never_apply list), decision (their answer to an ask), shared (a finding from the shared
-    blacklist) or own (their own check)."""
+    origin: decision (their answer: exclude), shared (a finding from the shared blacklist) or own (their own check)."""
     r = rule_set or rules(env)
-    if on_never_list(name, r.get("never_apply", [])):
-        return [{"category": "", "origin": "list"}]
-    if any(keys(name) & keys(n) for n in r.get("always_ok", [])):
-        return []
     last = decision_for(env, name)
     if last:
         return [{"category": last.get("category", ""), "origin": "decision"}] if last["verdict"] == "exclude" else []
@@ -168,35 +171,119 @@ def excluding(env, name, rule_set=None):
             continue
         setting = r["categories"][cat]
         level = check.get("level", "direct")
-        if (setting.get("action", "ask") if level == "direct" else setting.get("indirect", "ask")) == "never":
+        if (setting.get("action", "discuss") if level == "direct" else setting.get("indirect", "discuss")) == "exclude":
             out.append({"category": cat, "origin": check.get("origin", "own"), "level": level})
     return out
 
 
+def excluded_list(env, jobs, pipeline=None):
+    """The person's one list of excluded employers, one row each, for the dashboard's Excluded tab: every employer
+    their rules or decisions exclude, and every employer of a job the tracker excluded or the person withdrew from on
+    their rules. jobs: the tracker's flat job list; pipeline: PIPELINE's {job id: stage}.
+    Row: {id, employer, how (Excluded|Withdrawn), by, why, fact, source, since, jobs, n, names (every name the
+    employer goes by in the records)}."""
+    global blacklist, checks_file
+    shared, own = blacklist(), checks_file(env)
+    saved = blacklist, checks_file
+    blacklist, checks_file = (lambda: shared), (lambda e: own)  # read each file once, not once per employer
+    try:
+        return _excluded_list(env, jobs, pipeline or {}, own.get("employers", {}))
+    finally:
+        blacklist, checks_file = saved
+
+
+def _excluded_list(env, jobs, pipeline, employers):
+    r = rules(env)
+    labels = {c: s.get("label", c) for c, s in r["categories"].items()}
+    rows = {}
+
+    def row_for(name):
+        entry_name, entry = find_entry(employers, name)
+        key = entry_name or name
+        row = rows.setdefault(key, {"group": bool((entry or {}).get("group")), "jobs": [], "withdrawn": False,
+                                    "note": "", "reason": "", "names": [key]})
+        if name and name not in row["names"]:
+            row["names"].append(name)
+        return row
+
+    for job in jobs:
+        p = pipeline.get(job.get("id")) or {}
+        if p.get("same_as"):
+            p = pipeline.get(p["same_as"]) or p
+        withdrawn = p.get("stage") == "declined" and p.get("why") == "ethics"
+        if job.get("status") != "excluded" and not withdrawn:
+            continue
+        row = row_for(job.get("company", ""))
+        row["jobs"].append(job.get("title") or job["id"])
+        row["withdrawn"] = row["withdrawn"] or withdrawn
+        row["note"] = row["note"] or (job.get("outcome") or "").removeprefix("employer excluded: ")
+        row["reason"] = row["reason"] or (p.get("reason") or "" if withdrawn else "")
+    for name in employers:
+        if excluding(env, name, r):
+            row_for(name)
+
+    def group_check(name, cat):
+        # A group's unit: the finding may be recorded under the group's own name ("Acme" for "Acme Cloud").
+        for entry_name, entry in employers.items():
+            if entry_name != name and entry.get("group") and covered_by(name, [entry_name] + list(entry.get("aliases", []))):
+                if (entry.get("checks", {}).get(cat) or {}).get("fact"):
+                    return entry["checks"][cat]
+        return {}
+
+    out = []
+    for name, row in rows.items():
+        found = excluding(env, name, r)
+        checks = lookup(env, name)
+        flagged = [c for c, k in checks.items() if k.get("status") == "flagged"]
+        last = decision_for(env, name) or {}
+        if found and found[0]["origin"] == "decision":
+            by, wanted, since = "your decision", [found[0]["category"]] if found[0]["category"] else flagged, last.get("date", "")
+        elif found:
+            by, wanted, since = "your rules", [f["category"] for f in found], ""
+        else:
+            by, wanted, since = "when screened", flagged, ""
+        why, facts, sources = [], [], []
+        for cat in wanted:
+            k = checks.get(cat) if (checks.get(cat) or {}).get("fact") else group_check(name, cat) or checks.get(cat) or {}
+            level = k.get("level", "direct")
+            why.append(labels.get(cat, cat) + (" (indirect)" if level == "indirect" else ""))
+            if k.get("fact"):
+                facts.append(k["fact"])
+            if k.get("source_url") and k["source_url"] not in sources:
+                sources.append(k["source_url"])
+            since = since or k.get("checked", "")
+        fact = " · ".join(facts) or row["reason"] or row["note"] or "No finding recorded yet: Claude checks it at the next run."
+        titles = row["jobs"]
+        out.append({"id": name, "employer": name + (" and its group" if row["group"] else ""),
+                    "how": "Withdrawn" if row["withdrawn"] else "Excluded", "by": by,
+                    "why": "; ".join(why) or "by your rules when the job was screened", "fact": fact,
+                    "source": sources[0] if sources else "", "since": since,
+                    "jobs": "; ".join(titles[:5]) + (f" and {len(titles) - 5} more" if len(titles) > 5 else ""),
+                    "n": len(titles), "names": row["names"]})
+    # Withdrawn first (the person had applied), then by name.
+    return sorted(out, key=lambda x: (x["how"] != "Withdrawn", x["employer"].lower()))
+
+
 def decide(env, name, checks, rule_set=None):
-    """(verdict, reasons) from the person's rules: exclude | ask | apply. A 'warn' reason comes with apply."""
+    """(verdict, reasons) from the person's rules: exclude | discuss | allow. A 'warn' reason comes with allow."""
     r = rule_set or rules(env)
-    if on_never_list(name, r.get("never_apply", [])):
-        return "exclude", ["on the person's never_apply list"]
-    if any(keys(name) & keys(n) for n in r.get("always_ok", [])):
-        return "apply", ["on the person's always_ok list"]
     last = decision_for(env, name)
     if last:
         why = f" ({last['category']})" if last.get("category") else ""
         return last["verdict"], [f"the person decided {last['verdict']} on {last['date']}{why}"]
-    verdict, reasons = "apply", []
+    verdict, reasons = "allow", []
     for cat, check in checks.items():
         if check.get("status") != "flagged" or cat not in r["categories"]:
             continue
         setting = r["categories"][cat]
         level = check.get("level", "direct")
-        act = setting.get("action", "ask") if level == "direct" else setting.get("indirect", "ask")
+        act = setting.get("action", "discuss") if level == "direct" else setting.get("indirect", "discuss")
         label = setting.get("label", cat)
         reasons.append(f"{act}: {label} ({level}): {check.get('fact', '')[:160]}")
-        if act == "never":
+        if act == "exclude":
             verdict = "exclude"
-        elif act == "ask" and verdict != "exclude":
-            verdict = "ask"
+        elif act == "discuss" and verdict != "exclude":
+            verdict = "discuss"
     return verdict, reasons
 
 

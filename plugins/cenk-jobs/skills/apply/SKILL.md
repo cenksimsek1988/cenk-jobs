@@ -22,8 +22,10 @@ open free-text questions stay the person's.
 - The CV version the plan chose, and the letter built today: `make_letter_pdf.py --company .. --role .. --body
   <body file> --variant "<CV variant>" --out-dir <letter folder>`. Claude in Chrome `file_upload` reads only files
   this session may read: copy both into the session's scratchpad and upload from there.
-- Every answer from the master record. Stop and ask for anything it does not answer; a question no option of which
-  is true is asked, never ticked.
+- Every answer from the master record; a health, family or identity answer only from `PERSONAL_RECORD`, read by
+  the session that fills the form (never handed to a workflow agent that reads job pages). Anything
+  they do not answer goes to the Questions page with the job that needs it (`questions.py add`, RULES.md "Questions
+  for the person"); a question no option of which is true is asked, never ticked.
 - The home address only in the form's own address fields, never in a file or a message.
 - A form that waits on the person (RULES.md, "Applications"): stop on that page and put the field in Do now.
   Keep-alive while it waits: a second tab on the same site, reloaded every 10 minutes for at most 2 hours; never the
