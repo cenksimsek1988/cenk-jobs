@@ -1,6 +1,6 @@
 ---
 name: setup
-description: "First run of the job search, once: checks the programs and logins, creates the main folder in the person's Google Drive with job-search.env, offers the default settings in one choice, reads their CVs and documents into one master record, builds CV versions, creates and pins the dashboard, and names the main session. Use for \"set up my job search\", \"start using cenk-jobs\", \"first run\", \"iş aramamı kur\", \"configura la ricerca di lavoro\". Not for daily work: search, plan, apply, prepare and schedule do that."
+description: "First run of the job search, once: checks programs and logins, creates the main folder and its settings, reads the person's CVs into one master record, builds CV versions, and creates and pins their two pages. Use for 'set up my job search', 'start using cenk-jobs', 'first run', 'iş aramamı kur'. Not for daily work."
 ---
 
 # Setup: the first run

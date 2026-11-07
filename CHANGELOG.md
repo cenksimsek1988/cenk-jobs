@@ -6,6 +6,25 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.21.0] - 2026-11-07
+
+### Changed
+
+- Do now's Question rows are the Questions page's open questions (from `QUESTIONS`), one each, so the dashboard and
+  the page always agree; a job with an open question there shows no other row from its note. A job waiting on the
+  person for anything else shows its note as a **To do** row (a new kind, with a filter and a header count), not as
+  a Question; a to-do's `"where": "pc"` shows "at your PC" on it too.
+- Without a Questions page (no `QUESTIONS` file yet), employers the rules leave to the person still get a Question
+  row in Do now. A tracker to-do without a kind, or with the older "info", now shows as To do.
+
+## [0.20.1] - 2026-11-07
+
+### Changed
+
+- The seven skill descriptions fit the 350-character budget (one clause on what the skill does, "Use for" with the
+  phrases a person types, one boundary), so all of them together take about 550 tokens of every session's context.
+  Each keeps its main English phrases and one or two in Italian or Turkish.
+
 ## [0.20.0] - 2026-11-07
 
 ### Added

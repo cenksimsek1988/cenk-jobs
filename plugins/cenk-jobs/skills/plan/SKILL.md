@@ -1,6 +1,6 @@
 ---
 name: plan
-description: "Plan the job applications: puts the cleared postings in order by deadline, fit and site, picks the CV version and letter for each, groups them by the sign-in they need, and lists what only the person can do first (sign-ins, answers, essays). Use for \"plan my applications\", \"what should I apply to today?\", \"which CV for this job?\", \"pianifica le candidature\", \"başvurularımı planla\". Never sends: /cenk-jobs:apply does."
+description: "Plan the applications: orders the cleared postings by deadline, fit and site, picks the CV and letter for each, and lists what only the person must do first. Use for 'plan my applications', 'what should I apply to today?', 'which CV for this job?', 'pianifica le candidature', 'başvurularımı planla'. Never sends."
 ---
 
 # Plan: which applications, in which order

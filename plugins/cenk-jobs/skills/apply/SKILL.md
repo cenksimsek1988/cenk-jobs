@@ -1,6 +1,6 @@
 ---
 name: apply
-description: "Apply to planned jobs in the person's own Chrome: fills each form from the master record with the right CV and a letter built today and submits it on its own when every answer comes from their records (APPLY_MODE auto, the default; review mode waits for their go-ahead); then records the application, saves the posting and refreshes the folders and dashboard. Use for \"apply to these jobs\", \"send the applications\", \"fill the Workday form\", \"candidati per me\", \"başvuru yap\", \"Bewerbung abschicken\". Stops only at CAPTCHAs, passwords, sign-ups, codes, ID numbers, essays and answers only the person has."
+description: "Apply to planned jobs in the person's Chrome: fills each form from their records with the right CV and a fresh letter, sends it when every answer is known (APPLY_MODE), then records it. Use for 'apply to these jobs', 'send the applications', 'fill the Workday form', 'candidati per me', 'başvuru yap'. Stops at codes, CAPTCHAs, passwords and essays."
 ---
 
 # Apply: fill, review, send

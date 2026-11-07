@@ -1,6 +1,6 @@
 ---
 name: schedule
-description: "Schedule the daily job-search run: creates, moves or stops the scheduled task that starts the run in the main session every day (19:00 local time by default), and says what each run does. Use for \"schedule my job search\", \"run it every day\", \"change the run time to 8am\", \"stop the daily run\", \"programma la ricerca ogni giorno\", \"her gün çalıştır\". Not the search itself: /cenk-jobs:search."
+description: "Schedule the daily job-search run: creates, moves or stops the scheduled task that starts it in the main session (19:00 local time by default). Use for 'schedule my job search', 'run it every day', 'change the run time to 8am', 'stop the daily run', 'her gün çalıştır'. Not the search itself."
 ---
 
 # Schedule: the daily run

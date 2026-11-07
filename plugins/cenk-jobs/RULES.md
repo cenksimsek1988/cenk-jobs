@@ -253,7 +253,7 @@ for permission the first time. If its tools do not answer, say so and ask the pe
 ## Dashboard
 
 A private page: **Do now** (Urgent first: a step only the person can do that expires; then In progress: Claude or a
-session is on it; then sign-ins, questions only the person can answer, with a link to the Questions page, and tasks
+session is on it; then sign-ins, things to do, the Questions page's open questions (with its link), and tasks
 with a deadline), **Calendar** (live from Google Calendar),
 **Logins**, **Excluded employers**, **Hiring steps** and **All applications**, under the total count and the split by
 outcome.
@@ -278,8 +278,12 @@ outcome.
   supplies drone parts to a national army (news, 2025) · Source".
   The tab shows the person's own decisions, which can reveal their views: the dashboard is shared only with people
   they choose, and Claude says so when they share it.
-- A job's own to-do items: `todo` in the tracker, `[{"kind": "working"|"task"|"click"|"info", "text", "link",
-  "due"}]`. `working`: Claude or a session is on it; set when a piece starts, removed when its report is recorded.
+- A job's own to-do items: `todo` in the tracker, `[{"kind": "urgent"|"working"|"task"|"click"|"todo", "where",
+  "text", "link", "due"}]`; no kind, or an older "info", counts as `todo`. `working`: Claude or a session is on it;
+  set when a piece starts, removed when its report is recorded.
+- Do now's Question rows are the Questions page's open questions (`QUESTIONS`), nothing else; before the page exists,
+  the employers the rules leave to the person. A job that waits on the person without a to-do or a question shows
+  its note as a To do.
 - A to-do's link is the email link; a personal access link (a page that opens without a sign-in) stays in the
   calendar and the person's folder. Pay figures and addresses never go into the exported files.
 

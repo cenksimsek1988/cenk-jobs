@@ -1,6 +1,6 @@
 ---
 name: coordinate
-description: "The main job-search session: owns the records, the dashboard and the person's decisions, runs each day's job search, and starts one sub-session per piece of work (applying on one site, preparing one interview, a search sweep, an essays round), each reporting back to it. Use for \"coordinate my job search\", \"start the job search coordinator\", \"run my job search now\", \"open a session for this job\", or when the daily job-search trigger arrives."
+description: "The main job-search session: owns the records, the dashboard and the person's decisions, runs the daily search and starts one sub-session per piece of work. Use for 'coordinate my job search', 'start the job search coordinator', 'run my job search now', 'open a session for this job', or the daily trigger."
 ---
 
 # Coordinate: the main session

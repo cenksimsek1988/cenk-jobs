@@ -8,8 +8,9 @@ Writes, in <out dir>:
                      the tracker's job id: company, role, stage, applied, where, CV, folder.
   steps.json         one row per hiring step: its job id (app), name, date and details - no company or role, which
                      the page takes from applications.json by the id.
-  actions.json       one row per thing the person can do now: kind click (sign in, open a page), info (answer a
-                     question), task (a test, online tasks, an AI interview, a deadline), urgent (a step only the
+  actions.json       one row per thing the person can do now: kind click (sign in, open a page), info (an open
+                     question on the Questions page, from QUESTIONS), todo (anything else a job waits on the person
+                     for, from its note), task (a test, online tasks, an AI interview, a deadline), urgent (a step only the
                      person can do that expires: an emailed code, a filled form's CAPTCHA, a task due within 24
                      hours; first in the list), or working (Claude or a
                      session with the person is on it: wait); each points at a job id (app) and/or a login id
@@ -68,6 +69,19 @@ def urgent_if_soon(kind, due):
     """A task due today or tomorrow is Urgent (RULES.md, "Urgent steps"), whether a hiring step or a job's own to-do."""
     tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
     return "urgent" if kind == "task" and due and due <= tomorrow else kind
+
+
+def open_questions(path):
+    """The Questions page's open questions from QUESTIONS ({} when the file is missing or unreadable)."""
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            questions = json.load(f).get("questions", {})
+    except ValueError as e:
+        print(f"warning: {path} is not valid JSON ({e}); Do now shows no questions", file=sys.stderr)
+        return {}
+    return {k: q for k, q in questions.items() if q.get("status") == "open"}
 
 
 def employer_view(env):
@@ -196,6 +210,16 @@ def main():
     # Findings are public facts about the employer, never the person's pay: plain text, not pay-masked.
     excluded = [{k: (re.sub(r"\s+", " ", v).strip() if isinstance(v, str) else v) for k, v in x.items() if k != "names"}
                 for x in el.excluded_list(env, flat_jobs(tracker), pipeline)]
+    # The Questions page's open questions (QUESTIONS): Do now's Question rows, one each, so the two never differ; a
+    # job with an open question there shows no other row from its note.
+    qpath = env.path("QUESTIONS") if env.get("QUESTIONS") else os.path.join(env.home, "apply", "questions.json")
+    qs_open = open_questions(qpath)
+    asked_jobs = {j for q in qs_open.values() for j in q.get("jobs", [])}
+    for qid, q in qs_open.items():
+        first = (q.get("jobs") or [""])[0]
+        actions.append({"key": f"q:{qid}", "app": first if first in known else "", "login": "", "kind": "info",
+                        "text": short(q.get("text", ""), 240),
+                        "link": env.get("QUESTIONS_PAGE") or job_links.get(first, ""), "due": ""})
     for job in flat_jobs(tracker):
         app = job["id"] if job["id"] in known else ""
         if not open_job(job.get("status")):
@@ -208,7 +232,9 @@ def main():
         if job.get("todo"):  # the tracker's own list of what the person must do for this job wins
             for i, t in enumerate(job["todo"], 1):
                 actions.append({"key": f"{job['id']}:{i}", "app": app, "login": t.get("login", ""),
-                                "kind": urgent_if_soon(t.get("kind", "info"), t.get("due", "")),
+                                # A to-do is never a Question (those are the page's): no kind, or "info", is To do.
+                                "kind": urgent_if_soon("todo" if t.get("kind", "info") == "info" else t["kind"],
+                                                       t.get("due", "")),
                                 "where": t.get("where", ""), "text": short(t.get("text", ""), 240),
                                 "link": t.get("link") or job_links.get(job["id"], ""), "due": t.get("due", "")})
             continue
@@ -221,13 +247,15 @@ def main():
                             "kind": "click",
                             "text": f"Sign in (or create the account) on {site}, leave the profile empty, then tell Claude",
                             "link": job_links.get(job["id"], ""), "due": ""})
-        else:
-            actions.append({"key": f"{job['id']}:answer", "app": app, "login": "", "kind": "info",
+        elif job["id"] not in asked_jobs:
+            # What the job waits on, from its note: a To do, not a Question (questions live on the Questions page).
+            actions.append({"key": f"{job['id']}:todo", "app": app, "login": "", "kind": "todo",
                             "text": short(job.get("outcome") or (job.get("needs") or [""])[0] or job.get("note", ""), 240),
                             "link": job_links.get(job["id"], ""), "due": ""})
-    # An employer the person's rules leave to them ("discuss"): one Question row with the finding and its source.
+    # Without questions.py's file (no Questions page yet): an employer the person's rules leave to them ("discuss")
+    # gets a Question row here; with it, build already put that employer on the page.
     asked = set()
-    for job in flat_jobs(tracker):
+    for job in [] if os.path.exists(qpath) else flat_jobs(tracker):
         company = job.get("company", "")
         if job.get("status") in DONE or company in asked or job["id"] in pipeline:
             continue
@@ -267,12 +295,12 @@ def main():
                             "link": r.get("link", ""), "due": ""})
     # Urgent first (it expires), then "working" (Claude or a session is on it: the person waits), then by deadline.
     actions.sort(key=lambda a: ({"urgent": 0, "working": 1}.get(a["kind"], 2), a["due"] == "", a["due"],
-                                {"task": 0, "click": 1, "info": 2}.get(a["kind"], 3)))
+                                {"task": 0, "click": 1, "todo": 2, "info": 3}.get(a["kind"], 4)))
 
     index = [{"key": f"stage:{s}", "group": "stage", "label": s, "n": sum(1 for a in apps if a["stage"] == s)}
              for s in STAGES.values()]
     index += [{"key": f"actions:{k}", "group": "actions", "label": k, "n": sum(1 for a in actions if a["kind"] == k)}
-              for k in ("urgent", "working", "task", "click", "info")]
+              for k in ("urgent", "working", "task", "click", "todo", "info")]
     index += [{"key": "logins:ok", "group": "logins", "label": "working",
                "n": sum(1 for r in login_rows if r["status"] in OK_LOGIN)},
               {"key": "logins:action", "group": "logins", "label": "need action",

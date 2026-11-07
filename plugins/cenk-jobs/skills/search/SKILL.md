@@ -1,6 +1,6 @@
 ---
 name: search
-description: "Find and screen job postings only: searches the job boards and company sites under the person's locations, pay and employer rules, checks every employer in the shared blacklist, screens the new ones, and records each posting in the tracker. Use for \"find me jobs\", \"search for jobs\", \"any new postings?\", \"cerca lavoro\", \"iş ara\", \"Jobsuche\", \"buscar trabajo\". Never applies: /cenk-jobs:plan and /cenk-jobs:apply do that."
+description: "Find and screen job postings: searches job boards and company sites under the person's locations, pay and employer rules, checks each employer and records each posting. Use for 'find me jobs', 'search for jobs', 'any new postings?', 'cerca lavoro', 'iş ara', 'Jobsuche'. Never applies."
 ---
 
 # Search: find and screen postings
