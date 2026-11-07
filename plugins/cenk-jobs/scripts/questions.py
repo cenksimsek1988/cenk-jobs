@@ -4,9 +4,10 @@ page (QUESTIONS_PAGE: an artifact with a small database), and each answer writte
 python -I questions.py add fact "<question>" key=<answer key> [job=<id>] [personal=yes] [detail="..."] [placeholder="..."]
     a fact forms ask for; key: the form-answer key it becomes (example: notice_period). personal=yes: a private fact
     (health, family, identity), kept only in PERSONAL_RECORD. The same key again adds the job to the same question.
-python -I questions.py add job "<question>" job=<id> [detail="..."] [options="apply:Apply,decline:Don't apply"]
+python -I questions.py add job "<question>" job=<id> [job=<id> ...] [detail="..."] [options="yes:Yes,no:No"]
     writing only the person can do for one application (a motivation answer, an essay); with options, buttons
-    instead of a reply box (decline: the job becomes declined; apply: it goes on)
+    instead of a reply box: the chosen label becomes each job's form answer, and "decline" (options
+    "apply:Apply,decline:Don't apply") makes the job declined
 python -I questions.py add decision "<question>" employer="<name>" category=<category> [job=<id> ...] [detail="..."]
     [source=<url>]
     allow or exclude for an employer the build does not ask about by itself (example: one excluded through its
@@ -14,19 +15,23 @@ python -I questions.py add decision "<question>" employer="<name>" category=<cat
 python -I questions.py list
     the open questions, one line each
 python -I questions.py build <out dir> [--page <dir>]
-    one file per open question, <out dir>/questions/<id>.json, for the page's "questions" collection; first adds
-    the "Allow, or exclude?" questions from the person's employer rules (an employer whose finding is "discuss", with a job
-    not sent yet). --page <dir>: the page's questions as an ArtifactData list saved there (<dir>/questions/*.json):
-    prints the ids no longer open, to delete on the page.
+    the page's files: <out dir>/questions/<id>.json for each open question and each one done in the last 7 days
+    (with its note), and <out dir>/status/run.json (when Claude last handled the page, and what). First adds the
+    "Allow, or exclude?" questions from the person's employer rules (an employer whose finding is "discuss", with a
+    job not sent yet). --page <dir>: the page's questions as an ArtifactData list saved there (<dir>/questions/*.json):
+    prints the ids to delete on the page (done more than 7 days ago, or dropped).
 python -I questions.py record <answers dir>
     the page's answers, an ArtifactData list of "answers" saved there (<dir>/answers/<id>.json): a decision goes to
     employer.py decide (exclude: its jobs not sent yet become excluded), a fact into the master record's form_answers
-    or PERSONAL_RECORD, a job answer into that job's prepared answers. Prints the jobs that can go on and the ids to
-    delete on the page (the question and its answer). "discuss" (the middle button on every allow-or-exclude and
-    yes-or-no question) records nothing: the question stays open and is printed under "discuss", for Claude to
-    bring up with the person in the chat.
+    or PERSONAL_RECORD, a job answer into that job's prepared answers. Each handled question gets a note saying what
+    happened (example: "Allowed: Acme is cleared by your decision; 1 job goes on.") and stays on the page as done.
+    Prints the jobs that can go on and the answers to delete on the page. "discuss" (the middle button on every
+    allow-or-exclude and yes-or-no question) records nothing: the question stays open with a note, and is printed
+    under "discuss", for Claude to bring up with the person in the chat.
 python -I questions.py answer <id> "<answer>"
     record one answer the person gave in the chat (example: after discussing it), the same way as record
+python -I questions.py note <id> "<text>"
+    a new note on a question, to show how far its job got (example: "Submitted on 8 Nov; confirmation in Gmail.")
 Files: QUESTIONS (default apply/questions.json), PERSONAL_RECORD (default career-records/personal.json),
 MASTER_RECORD, TRACKER, PIPELINE. Add --env <job-search.env> anywhere to pick the env file.
 """
@@ -44,6 +49,7 @@ import jsenv  # noqa: E402
 from trackerlib import flat_jobs, json_indent  # noqa: E402
 
 DONE = ("submitted", "excluded", "skipped", "closed", "declined", "failed")
+KEEP_DONE_DAYS = 7  # a handled question stays on the page this long, with its note
 args = sys.argv[1:]
 env_args = []
 if "--env" in args:
@@ -52,6 +58,8 @@ if "--env" in args:
     del args[i:i + 2]
 env = jsenv.load(env_args[1] if env_args else None, __file__)
 today = datetime.date.today().isoformat()
+# UTC, in the page's own format (Date.toISOString), so the page can compare it with an answer's time.
+now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def path_of(key, default):
@@ -141,9 +149,18 @@ def page_doc(q, jobs):
     doc = {"kind": q["kind"], "text": q["text"], "detail": q.get("detail", ""), "source": q.get("source", ""),
            "employer": q.get("employer", ""), "role": q.get("role", ""),
            "jobs": [job_label(jobs, j) for j in q.get("jobs", [])][:8], "personal": bool(q.get("personal")),
-           "category": q.get("category_label", ""), "placeholder": q.get("placeholder", ""), "open": True,
-           "order": q.get("order", 0), "options": q.get("options", [])}
-    return {k: v for k, v in doc.items() if v not in ("", [], None) or k in ("open", "personal")}
+           "category": q.get("category_label", ""), "placeholder": q.get("placeholder", ""),
+           "open": q["status"] == "open", "done": q["status"] == "answered", "note": q.get("note", ""),
+           "noted_at": q.get("noted_at", ""), "order": q.get("order", 0), "options": q.get("options", [])}
+    return {k: v for k, v in doc.items() if v not in ("", [], None) or k in ("open", "personal", "done")}
+
+
+def recent(q):
+    """A question done within KEEP_DONE_DAYS: it stays on the page with its note."""
+    if q["status"] != "answered" or not q.get("noted_at"):
+        return False
+    noted = datetime.datetime.fromisoformat(q["noted_at"].replace("Z", "+00:00"))
+    return datetime.datetime.now(datetime.timezone.utc) - noted < datetime.timedelta(days=KEEP_DONE_DAYS)
 
 
 def run(script, *argv):
@@ -154,7 +171,7 @@ def run(script, *argv):
     return res.stdout.strip()
 
 
-if not args or args[0] not in ("add", "list", "build", "record", "answer"):
+if not args or args[0] not in ("add", "list", "build", "record", "answer", "note"):
     sys.exit(__doc__)
 data = load(QUESTIONS, {"_about": "Questions for the person, asked once on their Questions page (questions.py). "
                                   "status: open, answered (written into the records) or dropped.",
@@ -209,6 +226,13 @@ elif args[0] == "list":
         if q["status"] == "open":
             print(f"{qid:44} {q['kind']:8} {q['text'][:70]}  [{', '.join(q.get('jobs', []))}]")
 
+elif args[0] == "note":
+    if len(args) < 3 or args[1] not in qs:
+        sys.exit(__doc__ if len(args) < 3 else f"no question {args[1]!r}")
+    qs[args[1]].update(note=args[2], noted_at=now)
+    save(QUESTIONS, data)
+    print(args[1], "-> note set; run build and write its file to the page")
+
 elif args[0] == "build":
     if len(args) < 2:
         sys.exit(__doc__)
@@ -234,18 +258,25 @@ elif args[0] == "build":
             q.update(status="dropped", dropped=today)
     save(QUESTIONS, data)
     os.makedirs(os.path.join(out_dir, "questions"), exist_ok=True)
-    open_ids = []
-    for n, (qid, q) in enumerate(sorted(((k, v) for k, v in qs.items() if v["status"] == "open"),
+    os.makedirs(os.path.join(out_dir, "status"), exist_ok=True)
+    shown, open_ids = [], []
+    for n, (qid, q) in enumerate(sorted(((k, v) for k, v in qs.items() if v["status"] == "open" or recent(v)),
                                         key=lambda kv: (kv[1].get("category_label", ""), kv[1]["asked"], kv[0]))):
         q["order"] = n
         with open(os.path.join(out_dir, "questions", qid + ".json"), "w", encoding="utf-8") as f:
             json.dump(page_doc(q, jobs), f, ensure_ascii=False, indent=1)
-        open_ids.append(qid)
-    print(f"{len(open_ids)} open questions -> {os.path.join(out_dir, 'questions')}")
-    print("open:", " ".join(open_ids))
+        shown.append(qid)
+        if q["status"] == "open":
+            open_ids.append(qid)
+    with open(os.path.join(out_dir, "status", "run.json"), "w", encoding="utf-8") as f:
+        # The dashboard's link too, so the page links back to it.
+        json.dump(dict(data.get("handled") or {"at": "", "summary": ""}, dashboard=env.get("DASHBOARD_URL") or ""), f,
+                  ensure_ascii=False, indent=1)
+    print(f"{len(open_ids)} open and {len(shown) - len(open_ids)} done questions -> {os.path.join(out_dir, 'questions')}")
+    print("on the page:", " ".join(shown))
     if page_dir:
         on_page = [os.path.basename(p)[:-5] for p in glob.glob(os.path.join(page_dir, "questions", "*.json"))]
-        print("delete on the page:", " ".join(sorted(set(on_page) - set(open_ids))) or "none")
+        print("delete on the page:", " ".join(sorted(set(on_page) - set(shown))) or "none")
 
 else:  # record, answer
     if len(args) < (3 if args[0] == "answer" else 2):
@@ -264,6 +295,10 @@ else:  # record, answer
                                "facts": {}})
     changed = {"tracker": False, "master": False, "personal": False}
     go_on, delete, discuss = [], [], []
+    names = labels(tracker)
+
+    def titles(ids):
+        return ", ".join(names.get(j, j) for j in ids) or "no job waiting"
 
     def flush():
         """Write what this run changed so far: before a script rewrites the tracker, before stopping, at the end."""
@@ -299,6 +334,8 @@ else:  # record, answer
             continue
         if answer == "discuss":
             q.setdefault("discuss", today)
+            if not q.get("note", "").startswith("You chose Discuss"):
+                q.update(note="You chose Discuss: Claude brings it up with you in your main session.", noted_at=now)
             discuss.append(f"{qid} ({q.get('employer') or ', '.join(q.get('jobs', []))}: {q['text']})")
             continue
         entry = {"answer": answer, "date": today, "source": source}
@@ -307,6 +344,12 @@ else:  # record, answer
                 print(f"{qid}: skipped (a decision is allow or exclude)")
                 continue
             print(call("employer.py", "decide", q["employer"], answer, q["category"]))
+            waiting = [j for j in q.get("jobs", []) if (jobs.get(j) or {}).get("status") not in DONE or
+                       (answer == "allow" and (jobs.get(j) or {}).get("status") == "excluded")]
+            note = (f"Allowed: {q['employer']} is cleared by your decision; going on: {titles(waiting)}."
+                    if answer == "allow" else
+                    f"Excluded: {q['employer']} is on your Excluded employers list now; "
+                    + (f"not sent and excluded: {titles(waiting)}." if waiting else "its jobs were excluded already."))
             for job_id in q.get("jobs", []):
                 status = (jobs.get(job_id) or {}).get("status")
                 if answer == "exclude" and status not in DONE:
@@ -327,10 +370,23 @@ else:  # record, answer
             store[q["key"]] = dict(entry, question=q["text"])
             changed[key] = True
             go_on += q.get("jobs", [])
+            note = ("Kept in your private record; used only in a form field that asks for it." if q.get("personal")
+                    else f"Saved in your records: \"{answer[:80]}\". Forms take it from there; waiting on it: "
+                         f"{titles(q.get('jobs', []))}.")
         elif q.get("options"):
             if answer not in [o["value"] for o in q["options"]]:
                 print(f"{qid}: skipped (not one of the options)")
                 continue
+            label = next(o["label"] for o in q["options"] if o["value"] == answer)
+            note = ("Not applying: the job is marked declined." if answer == "decline"
+                    else f"{label}: the application goes on; Claude prepares and sends it, and notes here how far it got.")
+            # A Yes/No field's choice is the form's answer too, kept with each job's prepared answers; an
+            # apply-or-decline question is a decision about the job, not a form field.
+            if not any(o["value"] == "decline" for o in q["options"]):
+                for job in [jobs[j] for j in q.get("jobs", []) if j in jobs]:
+                    given = job.setdefault("prep", {}).setdefault("answers", [])
+                    given[:] = [a for a in given if a.get("question") != q["text"]] + [dict(entry, answer=label, question=q["text"])]
+                    changed["tracker"] = True
             for job_id in q.get("jobs", []):
                 if answer == "decline" and (jobs.get(job_id) or {}).get("status") not in DONE:
                     call("track.py", "set", job_id, "declined", f"your answer ({source}): {q['text']} - no, {today}")
@@ -345,12 +401,18 @@ else:  # record, answer
             answers[:] = [a for a in answers if a.get("question") != q["text"]] + [dict(entry, question=q["text"])]
             changed["tracker"] = True
             go_on += q["jobs"]
-        q.update(status="answered", answered=today)
+            note = "Saved with the application's answers; Claude puts it into the form."
+        q.update(status="answered", answered=today, note=note, noted_at=now)
         delete.append(qid)
-        print(f"{qid}: recorded")
+        print(f"{qid}: recorded - {note}")
+    handled = len(delete)
+    if handled or discuss:
+        # Every open question waiting on a talk, not only this run's.
+        talks = sum(1 for x in qs.values() if x["status"] == "open" and x.get("discuss"))
+        data["handled"] = {"at": now, "summary": f"{handled} recorded" + (f", {talks} to discuss" if talks else "")}
     flush()
     # Only jobs still to send: one this round excluded (an "exclude" answer) does not go on.
     go_on = sorted({j for j in go_on if (jobs.get(j) or {}).get("status") not in DONE})
     print("go on with:", " ".join(go_on) or "none")
-    print("delete on the page (questions and answers):", " ".join(delete) or "none")
+    print("delete these answers on the page (their questions stay as done; then run build):", " ".join(delete) or "none")
     print("discuss with the person:", "; ".join(discuss) or "none")

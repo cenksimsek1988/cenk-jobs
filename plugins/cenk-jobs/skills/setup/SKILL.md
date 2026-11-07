@@ -67,7 +67,8 @@ Show the defaults and ask: "Use these defaults? You can change any of them later
   target, answers your records do not hold.
 - Job-search mails Claude has finished get the Gmail label `cenk-jobs/Done` (`GMAIL_DONE_LABEL`); create it once
   the defaults are accepted. Mails waiting on you stay unlabelled.
-- Pay figures and your address go only into forms, never into a CV, letter, shared file or the dashboard.
+- Pay figures go only into forms and onto your own Questions page (only you read it); your address only into
+  forms. Never into a CV, letter, shared file or the dashboard.
 - Employer checks, in eight categories, each "discuss" for a direct tie and for an indirect one (you see the
   finding and decide: allow or exclude):
   ties to Israel's occupation or military; defence industry; animal cruelty; climate and environmental harm;
@@ -116,15 +117,21 @@ to delete stale copies elsewhere (to the trash only, on their yes).
 
 ## 8. The dashboard
 
-Create it without asking (RULES.md, "Dashboard"), put its link in `DASHBOARD_URL`, then: "Your dashboard: <link>.
-Pin it to find it in one click: Artifacts > Job applications > Pin. Shall I pin it for you?" Pin only on a yes.
+Create it without asking (RULES.md, "Dashboard") and put its link in `DASHBOARD_URL`.
 
 Then the Questions page, without asking: publish `templates/questions/index.html` as its own artifact with the
-capabilities `{"db": {"rules": [{"path": "questions", "read": "owner", "write": "owner"}, {"path": "answers",
-"read": "owner", "write": "owner"}]}, "user": {}}` (only the person reads or writes it, even when the page is
-shared: answers can be health facts), list its `answers` collection once to check the store answers,
-and put its link in `QUESTIONS_PAGE`. Say: "Your questions page: <link>. What your applications need and your
-records do not hold is asked there once, with a reply box or Allow / Discuss / Exclude buttons."
+capabilities `{"db": {"rules": [{"path": "questions", "read": "owner", "write": "owner"}, {"path": "answers", "read": "owner", "write": "owner"}, {"path": "status", "read": "owner", "write": "owner"}]}, "user": {}, "comments": {}}` (only the person reads or writes it, even when the page is shared: answers can be
+health facts; `comments` lets its send button reach the main session), list its `answers` collection once to check the store answers,
+and put its link in `QUESTIONS_PAGE`.
+
+Then tell the person, in these words, what the two pages are and how to find them again; a new person has never
+opened an artifact:
+- "Your **dashboard**: <link>. What to do now, your interviews, logins, excluded employers and every application."
+- "Your **Questions page**: <link>. What your applications need and your records don't hold: answer, then press
+  Send my answers to Claude. Each page links to the other."
+- "Both are private pages on claude.ai, only for you. Open them from the links, or later from claude.ai: Artifacts
+  in the left sidebar (or claude.ai/code/artifacts); in a terminal session, `/artifacts`. Shall I pin both, so they
+  are one click away in the sidebar?" Pin only on a yes.
 
 ## 9. The main session
 

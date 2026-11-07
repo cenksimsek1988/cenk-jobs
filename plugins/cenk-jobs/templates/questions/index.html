@@ -3,21 +3,23 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
 <style>
-/* Layout: one reading column; three groups (decisions, facts about the person, one job's writing), each a list of
-   question cards with the answer control on the card itself. */
+/* Layout: one reading column; a send bar under the title; three groups of open questions (employers, facts about the
+   person, one job), each a list of cards with the answer control on the card; then Done, with Claude's note on each. */
 :root {
   --bg: #f6f7f5; --panel: #ffffff; --ink: #1d2422; --muted: #5c6763; --line: #d9dfdb;
-  --accent: #1f5f63; --accent-ink: #ffffff; --exclude: #8a3b2e; --ok: #2f6b3a; --chip: #eaefec;
+  --accent: #1f5f63; --accent-ink: #ffffff; --exclude: #8a3b2e; --ok: #2f6b3a; --chip: #eaefec; --note: #eef4f2;
   --display: "Newsreader", Georgia, "Times New Roman", serif;
   --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #121615; --panel: #1a201e; --ink: #e6ebe8; --muted: #9aa6a1; --line: #2c3532;
-  --accent: #5fb3b8; --accent-ink: #0d1312; --exclude: #e08a77; --ok: #7cc28a; --chip: #232b29; color-scheme: dark } }
+  --accent: #5fb3b8; --accent-ink: #0d1312; --exclude: #e08a77; --ok: #7cc28a; --chip: #232b29; --note: #1f2a28;
+  color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #121615; --panel: #1a201e; --ink: #e6ebe8; --muted: #9aa6a1; --line: #2c3532;
-  --accent: #5fb3b8; --accent-ink: #0d1312; --exclude: #e08a77; --ok: #7cc28a; --chip: #232b29; color-scheme: dark }
+  --accent: #5fb3b8; --accent-ink: #0d1312; --exclude: #e08a77; --ok: #7cc28a; --chip: #232b29; --note: #1f2a28;
+  color-scheme: dark }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
 .wrap { max-width: 46rem; margin: 0 auto; padding-block: 28px 56px;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
@@ -29,14 +31,19 @@ p { margin: 0; }
 .lede { color: var(--muted); max-width: 40rem; }
 .tally { font-family: var(--mono); font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .notice { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 12px 14px; color: var(--muted); }
+.sendbar { display: grid; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.hint { font-size: .88rem; color: var(--muted); }
 section { display: grid; gap: 12px; }
 .list { display: grid; gap: 10px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; }
-.card.done { border-style: dashed; }
+.card.answered { border-style: dashed; }
+.card.handled { background: transparent; }
 .q { font-weight: 600; }
 .who { font-family: var(--mono); font-size: .82rem; color: var(--muted); }
 .detail { color: var(--ink); }
 .detail a { color: var(--accent); }
+.result { background: var(--note); border-radius: 8px; padding: 8px 10px; font-size: .92rem; }
+.result b { font-weight: 600; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { font-family: var(--mono); font-size: .75rem; background: var(--chip); border-radius: 999px; padding: 2px 8px; color: var(--muted); }
 .chip.private { color: var(--exclude); }
@@ -59,17 +66,24 @@ textarea { min-height: 7rem; resize: vertical; }
 </style>
 
 <main class="wrap">
-  <header style="display:grid;gap:8px">
+  <header style="display:grid;gap:10px">
     <h1>Questions for you</h1>
-    <p class="lede">What your job applications need and your records don't hold yet. Each answer goes into your own
-      records, so it is asked once; Claude records it at the next run and the applications waiting on it carry on.</p>
+    <p class="lede">What your job applications need and your records don't hold yet. Answer, then send your answers to
+      Claude: your main job-search session writes each one into your records at once, the applications waiting on it
+      go on, and a note appears under the question. Each is asked once.</p>
     <p class="tally" id="tally">Loading the questions…</p>
+    <p class="tally" id="handled" hidden></p>
+    <p class="hint" id="dash-link" hidden>All your applications, logins and interviews: <a target="_blank" rel="noopener noreferrer">your dashboard</a>.</p>
+    <div class="sendbar" id="sendbar" hidden>
+      <div class="row"><button type="button" class="save" id="send" disabled>Send my answers to Claude</button></div>
+      <p class="hint" id="send-hint" aria-live="polite"></p>
+    </div>
   </header>
   <p class="notice" id="notice" hidden></p>
 
   <section id="sec-decision" hidden>
     <h2>Allow, or exclude?</h2>
-    <p class="lede">A finding your rules leave to you, or one where your rule is unclear. Your answer covers the whole employer: Allow, and its jobs go on; Exclude, and it joins your excluded employers. Discuss: Claude brings it up with you in your main session.</p>
+    <p class="lede">A finding your rules leave to you, or one where your rule is unclear. Your answer covers the whole employer: Allow, and its jobs go on; Exclude, and it joins your excluded employers. Discuss sends the question to Claude, to talk it through in your main session.</p>
     <div class="list" id="list-decision"></div>
   </section>
 
@@ -86,13 +100,21 @@ textarea { min-height: 7rem; resize: vertical; }
   </section>
 
   <p class="notice" id="empty" hidden>No questions are waiting. New ones appear here after each run.</p>
+
+  <section id="sec-done" hidden>
+    <h2>Done</h2>
+    <p class="lede">Handled by Claude in the last 7 days, each with what happened.</p>
+    <div class="list" id="list-done"></div>
+  </section>
 </main>
 
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
-  const state = { questions: [], answers: {}, loaded: { q: false, a: false } };
+  const state = { questions: [], answers: {}, status: null, sentAt: '', loaded: { q: false, a: false } };
   let db = null;
+  let comments = null;
+  let sendState = 'off';
 
   function el(tag, cls, text) {
     const n = document.createElement(tag);
@@ -102,25 +124,128 @@ textarea { min-height: 7rem; resize: vertical; }
   }
 
   function notice(text) { const n = $('notice'); n.textContent = text || ''; n.hidden = !text; }
+  const day = (iso) => (iso ? new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
 
-  async function save(id, answer, status) {
+  // Answers saved after Claude last handled the page: the ones the send button announces.
+  function pending() {
+    const handled = (state.status && state.status.at) || '';
+    const since = state.sentAt > handled ? state.sentAt : handled;
+    return state.questions.filter((q) => q.open !== false && !q.done && state.answers[q.id]
+      && (!since || String(state.answers[q.id].at || '') > since));
+  }
+
+  async function refreshSend() {
+    if (!comments) sendState = 'off';
+    else { try { sendState = await comments.canSendToClaude(); } catch (e) { sendState = 'off'; } }
+    renderSend();
+  }
+
+  function renderSend(message) {
+    if (!state.loaded.q) return;
+    const n = pending().length;
+    const b = $('send');
+    $('sendbar').hidden = false;
+    b.textContent = n ? `Send my ${n} answer${n === 1 ? '' : 's'} to Claude` : 'Send my answers to Claude';
+    b.disabled = !n || sendState !== 'available';
+    $('send-hint').textContent = message || (
+      sendState === 'available' ? (n ? 'Your main session writes them into your records now; a note appears under each.'
+        : 'No new answers since Claude last handled this page.')
+      : sendState === 'no_session' ? 'No Claude session is watching this page right now. Open your main job-search session, or Claude handles your answers at the daily run.'
+      : 'Sending is off in this view: Claude handles your answers at the daily run, or tell Claude in your main session.');
+  }
+
+  async function send(anchorEl, text) {
+    if (!comments || sendState !== 'available') return false;
+    const anchor = await comments.anchorFor(anchorEl);
+    await comments.sendToClaude({ anchor, text });
+    return true;
+  }
+
+  async function sendAll() {
+    const items = pending();
+    if (!items.length) return;
+    const kinds = { decision: 0, fact: 0, job: 0 };
+    items.forEach((q) => { kinds[q.kind] = (kinds[q.kind] || 0) + 1; });
+    // Ids and counts only: a question's text can hold pay figures or an employer's words, and comments are not
+    // covered by the page's owner-only store. Claude reads the questions and answers from that store.
+    const talk = items.filter((q) => state.answers[q.id].answer === 'discuss' && !q.personal).map((q) => q.id);
+    const text = `Questions page: please record my answers (${items.length} new: ${kinds.decision} employer, `
+      + `${kinds.fact} about me, ${kinds.job} for one job).` + (talk.length ? ` To discuss: ${talk.join(', ')}.` : '');
+    $('send').disabled = true;
+    renderSend('Sending…');
+    try {
+      if (!(await send($('sendbar'), text))) { refreshSend(); return; }
+      state.sentAt = new Date().toISOString();
+      renderSend('Sent. Your main session is recording them; notes appear under each question as it goes.');
+    } catch (e) {
+      const code = e && e.code;
+      renderSend(code === 'rate_limited' ? 'Sent a moment ago: wait a little before sending again.'
+        : code === 'claude_unavailable' ? 'No Claude session could take it right now. Claude handles your answers at the daily run, or tell Claude in your main session.'
+        : 'Not sent: ' + ((e && e.message) || 'the page could not reach Claude') + '. Your answers are saved.');
+      refreshSend();
+    }
+  }
+
+  async function save(q, answer, status, card) {
     if (!db) return;
     status.className = 'saved'; status.textContent = 'Saving…';
     try {
-      await db.collection('answers').doc(id).set({ answer: String(answer), at: new Date().toISOString() });
-      status.textContent = 'Saved. Claude records it at the next run.';
+      await db.collection('answers').doc(q.id).set({ answer: String(answer), at: new Date().toISOString() });
     } catch (e) {
       status.className = 'err';
       status.textContent = 'Not saved: ' + ((e && e.message) || 'the page could not reach the store') + '. Try again.';
+      return;
     }
+    if (answer !== 'discuss') { status.textContent = 'Saved. Send your answers to Claude when you are done.'; return; }
+    try {
+      // The question's id only (see sendAll); it is counted as sent, so the batch does not list it again.
+      const sent = !q.personal && await send(card, `Questions page: please discuss question ${q.id}.`);
+      if (sent) state.sentAt = new Date().toISOString();
+      status.textContent = sent ? 'Sent to Claude: talk it through in your main session.'
+        : 'Saved: Discuss. Claude brings it up in your main session at the next run.';
+    } catch (e) {
+      status.textContent = 'Saved: Discuss. It could not be sent now; Claude brings it up at the next run.';
+    }
+  }
+
+  // Clearing deletes the saved answer, so nothing is sent or recorded for the question.
+  async function clear(q, status) {
+    if (!db) return;
+    status.className = 'saved'; status.textContent = 'Clearing…';
+    try {
+      await db.collection('answers').doc(q.id).delete();
+      status.textContent = 'Cleared: nothing is recorded for this question.';
+    } catch (e) {
+      status.className = 'err';
+      status.textContent = 'Not cleared: ' + ((e && e.message) || 'the page could not reach the store') + '. Try again.';
+    }
+  }
+
+  function header(c, q) {
+    if (q.employer || q.role) c.appendChild(el('p', 'who', [q.employer, q.role].filter(Boolean).join(' · ')));
+    c.appendChild(el('p', 'q', q.text || ''));
+  }
+
+  function noteOf(q) {
+    if (!q.note) return null;
+    const r = el('p', 'result');
+    r.appendChild(el('b', null, (q.done ? 'Done' : 'Claude') + (q.noted_at ? ', ' + day(q.noted_at) : '') + ': '));
+    r.appendChild(document.createTextNode(q.note));
+    return r;
+  }
+
+  function chipsOf(q) {
+    const chips = el('div', 'chips');
+    (q.jobs || []).forEach((j) => chips.appendChild(el('span', 'chip', j)));
+    if (q.personal) chips.appendChild(el('span', 'chip private', 'private'));
+    return chips.childNodes.length ? chips : null;
   }
 
   function card(q) {
     const ans = state.answers[q.id];
-    const c = el('div', 'card' + (ans ? ' done' : ''));
+    const c = el('div', 'card' + (ans ? ' answered' : ''));
     c.id = 'q-' + q.id;
-    if (q.employer || q.role) c.appendChild(el('p', 'who', [q.employer, q.role].filter(Boolean).join(' · ')));
-    c.appendChild(el('p', 'q', q.text || ''));
+    header(c, q);
     if (q.detail) {
       const d = el('p', 'detail', q.detail + ' ');
       if (/^https?:\/\//.test(q.source || '')) {
@@ -130,26 +255,27 @@ textarea { min-height: 7rem; resize: vertical; }
       }
       c.appendChild(d);
     }
-    const chips = el('div', 'chips');
-    (q.jobs || []).forEach((j) => chips.appendChild(el('span', 'chip', j)));
-    if (q.personal) chips.appendChild(el('span', 'chip private', 'private'));
-    if (chips.childNodes.length) c.appendChild(chips);
-    // Every button question has a middle answer, Discuss: the coordinator brings it up in the chat.
+    const chips = chipsOf(q);
+    if (chips) c.appendChild(chips);
+    const note = noteOf(q);
+    if (note) c.appendChild(note);
+    // Every button question has a middle answer, Discuss: it goes to Claude at once.
     const base = Array.isArray(q.options) && q.options.length ? q.options.map((o) => [o.value, o.label])
       : q.kind === 'decision' ? [['allow', 'Allow'], ['exclude', 'Exclude']] : null;
     const options = base && !base.some(([v]) => v === 'discuss')
       ? base.slice(0, -1).concat([['discuss', 'Discuss']], base.slice(-1)) : base;
     const shown = ans && options ? (options.find(([v]) => v === ans.answer) || [])[1] : '';
     const status = el('p', ans ? 'saved' : '', !ans ? ''
-      : ans.answer === 'discuss' ? 'Saved: Discuss. Claude brings it up with you in your main session.'
-      : 'Saved: ' + (shown || ans.answer));
+      : 'Saved: ' + (shown || ans.answer) + (options ? '. Press it again to clear.' : ''));
     if (options) {
       const row = el('div', 'row');
       options.forEach(([v, label]) => {
         const b = el('button', v === 'exclude' || v === 'decline' ? 'exclude' : v === 'discuss' ? 'discuss' : 'apply', label);
         b.type = 'button';
-        b.setAttribute('aria-pressed', String(ans && ans.answer === v));
-        b.addEventListener('click', () => save(q.id, v, status));
+        const chosen = !!(ans && ans.answer === v);
+        b.setAttribute('aria-pressed', String(chosen));
+        // The chosen button again clears the answer; another one replaces it.
+        b.addEventListener('click', () => (chosen ? clear(q, status) : save(q, v, status, c)));
         row.appendChild(b);
       });
       c.appendChild(row);
@@ -163,8 +289,14 @@ textarea { min-height: 7rem; resize: vertical; }
       const row = el('div', 'row');
       const b = el('button', 'save', 'Save');
       b.type = 'button';
-      b.addEventListener('click', () => { if (box.value.trim()) save(q.id, box.value.trim(), status); });
+      b.addEventListener('click', () => { if (box.value.trim()) save(q, box.value.trim(), status, c); });
       row.appendChild(b);
+      if (ans) {
+        const x = el('button', null, 'Clear');
+        x.type = 'button';
+        x.addEventListener('click', () => clear(q, status));
+        row.appendChild(x);
+      }
       c.appendChild(box);
       c.appendChild(row);
     }
@@ -172,14 +304,33 @@ textarea { min-height: 7rem; resize: vertical; }
     return c;
   }
 
+  function doneCard(q) {
+    const c = el('div', 'card handled');
+    header(c, q);
+    const chips = chipsOf(q);
+    if (chips) c.appendChild(chips);
+    const note = noteOf(q) || el('p', 'result', 'Done.');
+    c.appendChild(note);
+    return c;
+  }
+
   function render() {
     if (!state.loaded.q) return;
-    const open = state.questions.filter((q) => q.open !== false);
+    const open = state.questions.filter((q) => q.open !== false && !q.done);
+    const done = state.questions.filter((q) => q.done)
+      .sort((a, b) => String(b.noted_at || '').localeCompare(String(a.noted_at || '')));
     const groups = { decision: [], fact: [], job: [] };
     open.forEach((q) => (groups[q.kind] || groups.fact).push(q));
     let answered = 0;
     open.forEach((q) => { if (state.answers[q.id]) answered += 1; });
-    $('tally').textContent = open.length ? `${open.length} question${open.length === 1 ? '' : 's'} · ${answered} answered` : '';
+    $('tally').textContent = open.length ? `${open.length} open question${open.length === 1 ? '' : 's'} · ${answered} answered`
+      + (done.length ? ` · ${done.length} done` : '') : (done.length ? `${done.length} done` : '');
+    const s = state.status;
+    $('handled').hidden = !(s && s.at);
+    if (s && s.at) $('handled').textContent = `Last handled by Claude: ${day(s.at)}` + (s.summary ? ' · ' + s.summary : '');
+    const dash = s && /^https:\/\/claude\.ai\//.test(s.dashboard || '') ? s.dashboard : '';
+    $('dash-link').hidden = !dash;
+    if (dash) $('dash-link').querySelector('a').href = dash;
     Object.entries(groups).forEach(([kind, qs]) => {
       const list = $('list-' + kind);
       list.replaceChildren();
@@ -191,7 +342,10 @@ textarea { min-height: 7rem; resize: vertical; }
       });
       $('sec-' + kind).hidden = !qs.length;
     });
+    $('list-done').replaceChildren(...done.map(doneCard));
+    $('sec-done').hidden = !done.length;
     $('empty').hidden = open.length > 0;
+    renderSend();
   }
 
   async function start() {
@@ -216,6 +370,13 @@ textarea { min-height: 7rem; resize: vertical; }
       state.loaded.a = true;
       render();
     }, () => {});
+    db.collection('status').doc('run').onSnapshot((d) => { state.status = d.exists ? d.data() : null; render(); },
+      (e) => notice('When Claude last handled this page could not be loaded: ' + ((e && e.message) || 'unknown error') + '.'));
+    try { comments = window.claude && (await window.claude.use('comments')); } catch (e) { comments = null; }
+    $('send').addEventListener('click', sendAll);
+    refreshSend();
+    // Whether a Claude session watches the page is learned after load, so check again when the person comes back.
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshSend(); });
   }
   start();
 })();

@@ -75,9 +75,16 @@ Then start a new session and say **"set up my job search"** (or type `/cenk-jobs
    reads them into your master record, helps you find skills you never wrote down, and offers to delete old copies;
 4. builds your CV versions and asks which job sites need an account (you create the accounts; Claude never types
    passwords);
-5. creates your private dashboard: what you can do now (sign-ins, answers, tasks such as online tests or AI
-   interviews), your interviews and deadlines (live from Google Calendar, where job-search events get their own
-   color), which logins work and which need you, every hiring step and every application.
+5. creates your two private pages on claude.ai and gives you their links:
+   - the **dashboard**: what you can do now (sign-ins, clicks, tasks such as online tests or AI interviews), your
+     interviews and deadlines (live from Google Calendar, where job-search events get their own color), which logins
+     work and which need you, the employers you excluded and why, every hiring step and every application;
+   - the **Questions page**: what your applications need and your records don't hold. Answer there, press **Send my
+     answers to Claude**, and a note under each question shows what happened. Each is asked once.
+
+   Find them again any time: claude.ai, **Artifacts** in the left sidebar (or claude.ai/code/artifacts), or
+   `/artifacts` in a terminal session. Pin them there for one click; each page links to the other, and every daily
+   report ends with both links.
 
 Every later session starts with the same health check. Say "check my applications", "apply to new jobs" or
 "prepare my interview with ...".

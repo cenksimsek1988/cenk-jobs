@@ -54,6 +54,7 @@
     <h1>Job applications</h1>
     <p><b data-draw="h-working" data-source="index" data-field="n" data-where="key=actions:working">—</b> in progress (Claude or a session with you is on it: wait). You can do <b data-draw="h-todo" data-source="index" data-field="n" data-where="key=actions:click">—</b> sign-ins and answer <b data-draw="h-info" data-source="index" data-field="n" data-where="key=actions:info">—</b> questions now, with <b data-draw="h-task" data-source="index" data-field="n" data-where="key=actions:task">—</b> tasks on a deadline. Built from your job-search folder on <b data-draw="h-generated" data-source="index" data-field="label" data-where="key=meta:generated">—</b>.</p>
     <p class="ja-run"><b data-draw="h-run" data-source="index" data-field="label" data-where="key=meta:run">—</b></p>
+    <p data-draw="h-questions" data-source="index" data-field="label" data-where="key=meta:questions" hidden>Questions waiting on you: <a target="_blank" rel="noopener noreferrer">open your Questions page</a>.</p>
   </header>
 
   <section class="ja-tiles" aria-label="Headline counts">
@@ -96,7 +97,7 @@
     </div>
     <div class="ja-scroll">
       <table data-source="do_now" data-row-key="key">
-        <thead><tr><th data-field="due">Due</th><th data-field="kind">Kind</th><th data-field="text">What to do</th><th data-field="for">For</th><th data-field="link">Link</th></tr></thead>
+        <thead><tr><th data-field="kind">Kind</th><th data-field="text">What to do</th><th data-field="for">For</th><th data-field="link">Link</th></tr></thead>
         <tbody data-draw="do-rows"></tbody>
       </table>
     </div>
@@ -220,7 +221,7 @@ dash.calc('do_now', {
     return actions.map((x) => {
       const a = app.get(x.app);
       const l = login.get(x.login);
-      return {key: x.key, due: x.due, kind: x.kind, text: x.text, link: x.link || (l ? l.link : ''),
+      return {key: x.key, due: x.due, kind: x.kind, text: x.text, link: x.link || (l ? l.link : ''), login: x.login || '',
               for: a ? a.company + ' – ' + a.role : l ? l.name : ''};
     });
   },
@@ -276,13 +277,15 @@ dash.draw('h-generated', indexValue('meta:generated', 'label'));
 // Is a run going? Started and finished rows from the usage log, and the next scheduled run.
 dash.draw('h-run', indexValue('meta:run', 'label'));
 // The person's own Questions page (an artifact of its own, QUESTIONS_PAGE in job-search.env); hidden until set.
-dash.draw('q-link', (el) => {
+const questionsLink = (el) => {
   const d = dash.data('index');
   const row = d.status === 'ok' ? d.data.find((r) => r.key === 'meta:questions') : null;
   const url = row && /^https:\/\/claude\.ai\//.test(row.label) ? row.label : '';
   el.hidden = !url;
   if (url) el.querySelector('a').href = url;
-});
+};
+dash.draw('q-link', questionsLink);
+dash.draw('h-questions', questionsLink);
 
 // One whole split into its outcomes: a tall segmented bar, parts side by side in a fixed order and fixed colors.
 const SPLIT = ['Moving forward', 'Waiting for reply', 'Not sent', 'Rejected', 'Closed', 'Declined'];
@@ -354,7 +357,11 @@ dash.draw('do-rows', (tbody) => {
   d.data.filter((r) => window.jaState.kind === 'all' || r.kind === window.jaState.kind).forEach((r) => {
     const tr = document.createElement('tr');
     tr.dataset.key = r.key;
-    cell(tr, r.due, 'ja-when'); pill(tr, KIND[r.kind] || r.kind, PILL[r.kind]); cell(tr, r.text); cell(tr, r.for); link(tr, r.link, 'Open');
+    // A click that is not a login (a filled form waiting on a CAPTCHA, say) is "Click", never "Sign in".
+    const label = r.kind === 'click' ? (r.login ? 'Sign in' : 'Click') : (KIND[r.kind] || r.kind);
+    // No Due column: only tasks have one, and their text says it; one that does not gets it added.
+    const text = r.due && !String(r.text).includes(r.due) ? `${r.text} · due ${r.due}` : r.text;
+    pill(tr, label, PILL[r.kind]); cell(tr, text); cell(tr, r.for); link(tr, r.link, 'Open');
     tbody.appendChild(tr);
   });
 });

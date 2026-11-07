@@ -207,7 +207,8 @@ def main():
             site = login_of(job)
             if site in sites:
                 continue  # one action per login, not per job: the login's row says how many jobs wait on it
-            actions.append({"key": f"{job['id']}:signin", "app": app, "login": site if site in sites else "",
+            # The site's name, even with no row in LOGINS yet: the dashboard labels it a sign-in, not a plain click.
+            actions.append({"key": f"{job['id']}:signin", "app": app, "login": site,
                             "kind": "click",
                             "text": f"Sign in (or create the account) on {site}, leave the profile empty, then tell Claude",
                             "link": job_links.get(job["id"], ""), "due": ""})

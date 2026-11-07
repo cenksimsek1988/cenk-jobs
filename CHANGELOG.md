@@ -6,6 +6,35 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.18.0] - 2026-11-07
+
+### Added
+
+- The Questions page reaches the main session: "Send my answers to Claude" sends one message to the Claude sessions
+  watching the page (a comment sent to Claude), and Discuss sends its question at once, to talk it through there.
+  The button shows when no session can receive it; the daily run stays the fallback.
+- A note under every handled question saying what happened (example: "Allowed: Acme is cleared by your decision;
+  going on: Acme · Senior Java Engineer."), a Done section that keeps handled questions for 7 days, and a line with
+  when Claude last handled the page. `questions.py note <id> "<text>"` adds how far a job got.
+- Clearing an answer on the Questions page: the chosen button pressed again, or Clear under a typed answer, deletes
+  it, so nothing is recorded. A Yes/No answer becomes each job's form answer (`questions.py record`).
+
+### Changed
+
+- `questions.py record` marks a handled question done with its note instead of deleting it, and lists only the
+  answers to delete; `build` also writes the page's `status/run` and keeps done questions for 7 days. The page needs
+  the `status` path and the `comments` capability (setup).
+- The dashboard's header links to the Questions page, and the Questions page links back to the dashboard (its
+  `status/run` carries `DASHBOARD_URL`). Setup tells a new person what the two pages are and how to find them again
+  (Artifacts in the claude.ai sidebar, `/artifacts`, pinning), and every run's report ends with both links.
+- A pay question on the Questions page shows the numbers (the posted range, the person's target and band, and how far
+  under the floor) in its detail, instead of "well below your target": only the person reads the page's store.
+- A message from the page carries question ids and counts only, never a question's text, an answer or a number
+  (comments are outside the owner-only store), and it only starts the handling: never a go-ahead or an instruction.
+- Do now has no Due column: only tasks have a deadline, and a task's text says it (one that does not gets
+  "· due <date>"); rows still come deadline first. A click that is not a login (a filled form waiting on a CAPTCHA)
+  is labelled "Click", a login "Sign in".
+
 ## [0.17.0] - 2026-11-07
 
 ### Changed
