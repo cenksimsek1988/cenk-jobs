@@ -37,6 +37,8 @@ STEP = re.compile(r"^\d+\.\s+\*\*(.+?)\*\*\s*-\s*(.+)$")
 LINK = re.compile(r"\[([^\]]*)\]\((?:<[^>]*>|[^)]*)\)")
 TASKLIKE = re.compile(r"(?i)task|test|assessment|assignment|questionnaire|ai interview|video interview|form|challenge")
 OK_LOGIN = ("connected", "signed-in")
+# An excluded employer (by the person's rules) needs no sign-in, so it is never in Do now.
+NO_ACTION = OK_LOGIN + ("excluded",)
 
 
 def open_job(status):
@@ -52,6 +54,37 @@ def plain(text):
 def short(text, n=220):
     text = no_pay(plain(text))
     return text if len(text) <= n else text[:n].rsplit(" ", 1)[0] + "…"
+
+
+DONE = ("submitted", "excluded", "skipped", "closed", "declined", "failed")
+
+
+def employer_view(env):
+    """A function: company -> (verdict, asks, warns), each finding {label, level, fact, src}, from the person's rules,
+    their own checks and the shared blacklist (read once)."""
+    import employerlib as el
+    rule_set = el.rules(env)
+    shared, own = el.blacklist(), el.checks_file(env)
+    el.blacklist, el.checks_file = (lambda: shared), (lambda e: own)
+    memo = {}
+
+    def view(company):
+        if company not in memo:
+            checks = el.lookup(env, company)
+            verdict, _ = el.decide(env, company, checks, rule_set)
+            asks, warns = [], []
+            for cat, k in checks.items():
+                s = rule_set["categories"].get(cat)
+                if k.get("status") != "flagged" or s is None:
+                    continue
+                level = k.get("level", "direct")
+                act = s.get("action", "ask") if level == "direct" else s.get("indirect", "ask")
+                item = {"label": s.get("label", cat), "level": level, "fact": k.get("fact", ""),
+                        "src": k.get("source_url", "")}
+                (asks if act == "ask" else warns if act == "warn" else []).append(item)
+            memo[company] = (verdict, asks, warns)
+        return memo[company]
+    return view
 
 
 def run_line(env):
@@ -146,6 +179,7 @@ def main():
     pipeline = json.load(open(pipeline_path, encoding="utf-8")) if pipeline_path and os.path.isfile(pipeline_path) else {}
     # Every row gets a link: its own, else the job's application page off the job boards.
     job_links = {j["id"]: employer_link(j, login_of(j)) or j.get("apply_url", "") for j in flat_jobs(tracker)}
+    view = employer_view(env)
     for job in flat_jobs(tracker):
         app = job["id"] if job["id"] in known else ""
         if not open_job(job.get("status")):
@@ -173,6 +207,25 @@ def main():
             actions.append({"key": f"{job['id']}:answer", "app": app, "login": "", "kind": "info",
                             "text": short(job.get("outcome") or (job.get("needs") or [""])[0] or job.get("note", ""), 240),
                             "link": job_links.get(job["id"], ""), "due": ""})
+    # An employer the person's rules leave to them ("ask"): one Answer row with the finding and its source.
+    asked = set()
+    for job in flat_jobs(tracker):
+        company = job.get("company", "")
+        if job.get("status") in DONE or company in asked or job["id"] in pipeline:
+            continue
+        verdict, asks, _ = view(company)
+        if verdict != "ask" or not asks:
+            continue
+        asked.add(company)
+        a = asks[0]
+        more = f" (and {len(asks) - 1} more finding{'s' if len(asks) > 2 else ''})" if len(asks) > 1 else ""
+        actions.append({"key": f"ask:{company}", "app": "", "login": "", "kind": "info",
+                        "text": short(f"{company}, {job.get('title', '')}: {a['label']} ({a['level']}): {a['fact']}", 230)
+                                + more + ". Apply, or never? Tell Claude.",
+                        "link": a["src"] or job_links.get(job["id"], ""), "due": ""})
+    for a in apps:
+        _, _, warns = view(a["company"])
+        a["warn"] = "; ".join(short(f"{w['label']} ({w['level']}): {w['fact']}", 150) for w in warns[:2])
     for s in steps:
         if s["upcoming"] == "yes" and (s["due"] or TASKLIKE.search(s["step"])):
             # A step's email link (PIPELINE "mail"), never its own page: that may be a personal access link.
@@ -184,8 +237,9 @@ def main():
                             "text": s["step"] + (f" - due {s['due']}" if s["due"] else ""),
                             "link": mail or job_links.get(s["app"], ""), "due": s["due"] or s["date"]})
     for r in logins:
-        if r.get("status") not in OK_LOGIN and (r.get("kind") == "connector" or r.get("jobs") or r.get("fix")):
-            verb = {"needs-reconnect": "Reconnect", "blocked": "Clear the check on"}.get(r.get("status"), "Sign in to")
+        if r.get("status") not in NO_ACTION and (r.get("kind") == "connector" or r.get("jobs") or r.get("fix")):
+            verb = {"needs-reconnect": "Reconnect", "blocked": "Clear the check on", "needs-sign-up": "Create an account on",
+                    "expired": "Sign in again to"}.get(r.get("status"), "Sign in to")
             waiting = len(r.get("jobs", []))
             actions.append({"key": f"login:{r['id']}", "app": "", "login": r["id"], "kind": "click",
                             "text": f"{verb} {r.get('name', r['id'])}"
@@ -203,7 +257,7 @@ def main():
     index += [{"key": "logins:ok", "group": "logins", "label": "working",
                "n": sum(1 for r in login_rows if r["status"] in OK_LOGIN)},
               {"key": "logins:action", "group": "logins", "label": "need action",
-               "n": sum(1 for r in login_rows if r["status"] not in OK_LOGIN and (r["kind"] == "connector" or r["jobs"] or r["fix"]))},
+               "n": sum(1 for r in login_rows if r["status"] not in NO_ACTION and (r["kind"] == "connector" or r["jobs"] or r["fix"]))},
               {"key": "meta:generated", "group": "meta", "label": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
                "n": len(apps)},
               {"key": "meta:run", "group": "meta", "label": run_line(env), "n": 0}]

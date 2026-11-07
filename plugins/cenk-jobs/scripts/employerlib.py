@@ -101,12 +101,17 @@ def checks_file(env):
 
 
 def find_entry(entries, name):
-    """The entry of a {name: entry} dict or [{name, aliases}] list that matches the name, else None."""
+    """The entry of a {name: entry} dict or [{name, aliases}] list that matches the name, else None. An exact match
+    wins; then an entry marked "group": true matches every name that starts with its own (its units: "Acme" covers
+    "Acme Cloud Services")."""
     wanted = keys(name)
-    items = entries.items() if isinstance(entries, dict) else [(e.get("name", ""), e) for e in entries]
+    items = list(entries.items()) if isinstance(entries, dict) else [(e.get("name", ""), e) for e in entries]
     for entry_name, entry in items:
         names = [entry_name] + list(entry.get("aliases", []))
         if any(wanted & keys(n) for n in names):
+            return entry_name, entry
+    for entry_name, entry in items:
+        if entry.get("group") and on_never_list(name, [entry_name] + list(entry.get("aliases", []))):
             return entry_name, entry
     return None, None
 
@@ -117,6 +122,19 @@ def on_never_list(name, names):
     stays exact, so a trusted name never lets a different company through."""
     mine = keys(name)
     return any(m == k or m.startswith(k + " ") for n in names for k in keys(n) for m in mine)
+
+
+def decision_for(env, name):
+    """The person's last decision for an employer: its own entry's, else that of a group entry covering it ("Acme",
+    "group": true, covers "Acme Cloud" even when that has an entry of its own)."""
+    employers = checks_file(env).get("employers", {})
+    _, own = find_entry(employers, name)
+    if (own or {}).get("decisions"):
+        return own["decisions"][-1]
+    for entry_name, entry in employers.items():
+        if entry.get("group") and entry.get("decisions") and on_never_list(name, [entry_name] + list(entry.get("aliases", []))):
+            return entry["decisions"][-1]
+    return None
 
 
 def lookup(env, name):
@@ -141,9 +159,8 @@ def excluding(env, name, rule_set=None):
         return [{"category": "", "origin": "list"}]
     if any(keys(name) & keys(n) for n in r.get("always_ok", [])):
         return []
-    _, own = find_entry(checks_file(env).get("employers", {}), name)
-    if (own or {}).get("decisions"):
-        last = own["decisions"][-1]
+    last = decision_for(env, name)
+    if last:
         return [{"category": last.get("category", ""), "origin": "decision"}] if last["verdict"] == "exclude" else []
     out = []
     for cat, check in lookup(env, name).items():
@@ -163,9 +180,8 @@ def decide(env, name, checks, rule_set=None):
         return "exclude", ["on the person's never_apply list"]
     if any(keys(name) & keys(n) for n in r.get("always_ok", [])):
         return "apply", ["on the person's always_ok list"]
-    _, own = find_entry(checks_file(env).get("employers", {}), name)
-    if (own or {}).get("decisions"):
-        last = own["decisions"][-1]
+    last = decision_for(env, name)
+    if last:
         why = f" ({last['category']})" if last.get("category") else ""
         return last["verdict"], [f"the person decided {last['verdict']} on {last['date']}{why}"]
     verdict, reasons = "apply", []
@@ -184,8 +200,9 @@ def decide(env, name, checks, rule_set=None):
     return verdict, reasons
 
 
-def record(env, name, checks=None, verdict=None, decided=False, category=None):
-    """Write checks (and a verdict, or with decided=True the person's decision) for an employer into EMPLOYER_CHECKS."""
+def record(env, name, checks=None, verdict=None, decided=False, category=None, group=False):
+    """Write checks (and a verdict, or with decided=True the person's decision) for an employer into EMPLOYER_CHECKS.
+    group=True: the entry also covers every name that starts with its own (the group's units)."""
     path = env_path(env, "EMPLOYER_CHECKS")
     if not path:
         raise SystemExit("EMPLOYER_CHECKS is not set in job-search.env")
@@ -205,6 +222,8 @@ def record(env, name, checks=None, verdict=None, decided=False, category=None):
     if verdict:
         entry["verdict"] = verdict
         entry["verdict_date"] = today()
+    if group:
+        entry["group"] = True
     if decided:
         decision = {"date": today(), "verdict": verdict}
         if category:

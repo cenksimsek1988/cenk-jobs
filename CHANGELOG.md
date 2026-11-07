@@ -6,6 +6,58 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.15.0] - 2026-11-07
+
+### Added
+
+- The setting `APPLY_MODE`: `auto` (the default for everyone) or `review`. In auto mode Claude fills and submits
+  every application whose answers all come from the person's records, and reports after; the daily run applies on
+  its own. In review mode it stops at the review page and waits for the person's go-ahead, as before. Setup offers
+  it among the defaults; the env template has `APPLY_MODE=auto`.
+
+### Changed
+
+- Do now holds only what Claude cannot do: a CAPTCHA, a password, a sign-up, an emailed code, an ID number, an
+  essay or self-rating, pay below the person's target, or a question the records do not answer. Before, every
+  application waited for a go-ahead.
+- The apply and coordinate skills, the setup defaults, the README and the plugin's descriptions follow the setting.
+  Emails stay drafts the person sends (`send_mode`), and optional consents stay off.
+- Logins: no more "unknown". A new state `excluded` is for an employer the person's rules exclude (no sign-in needed,
+  never in Do now); a site no job waits on keeps its last state with the reason in its note, and a needs-sign-in
+  row nobody waits on shows as "not signed in". The Logins tab's groups: Needs you, Signed in, Connected, Not
+  signed in, Excluded. The health check counts only logins something waits on.
+- `logins.py sync` lists every employer the person turned down for their rules (a job excluded, or a withdrawal on
+  ethics) as an `excluded` row, rebuilt from their own tracker, pipeline and checks at each sync, so they remember it:
+  the reason in words (the finding behind it: what the employer does, its category and level, or their decision)
+  and the jobs by role. Example: "Excluded: your decision, Defence industry: Acme builds armoured vehicles. Jobs:
+  Team Lead".
+- One list of the person's employers: `EMPLOYER_CHECKS`, with findings and decisions. The `never_apply` and
+  `always_ok` name lists are gone from the rules template; `employer.py migrate-lists` moves an older one into
+  decisions (each with the category of its finding), and `employer.py decide ... --group` lets one decision cover a
+  group's units ("Acme" covers "Acme Cloud Services", even when that has an entry of its own). The verdicts stay the
+  same.
+- Do now has one Answer row per employer the person's rules leave to them ("ask"): the finding, its category and
+  level, its source link, and "Apply, or never?". Before, an ask reached the person only in the chat.
+- The Applications tab marks every application whose employer has a "warn" finding: a "warning" pill beside its
+  stage and the reason in words in its status column.
+
+## [0.14.0] - 2026-11-07
+
+### Added
+
+- Two login states: `needs-sign-up` (no account yet; the person creates it) and `expired` (the person was signed in
+  and the session ended). Claude sets them with `logins.py set`; Do now says "Create an account on" and "Sign in
+  again to".
+
+### Changed
+
+- The dashboard's Logins tab shows the person's logins in groups, in a fixed order: Needs you (needs sign-up,
+  expired, needs sign-in, reconnect, blocked), Signed in, Connected, Unknown, each with its count, and within a group
+  the sites with the most waiting applications first. Each state has a label, not only a color. Before, the rows
+  were sorted only "needs something" before "OK", so the states mixed.
+- Do now marks "Answer" rows like the others (before: an unmarked pill). An existing dashboard gets both by updating
+  its `files/index.html` from the template.
+
 ## [0.13.1] - 2026-11-07
 
 ### Changed

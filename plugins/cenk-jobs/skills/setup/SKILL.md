@@ -58,7 +58,11 @@ Show the defaults and ask: "Use these defaults? You can change any of them later
 - Optional consents stay off: newsletters, talent pools, job alerts, marketing, SMS, AI analysis of interviews,
   extra data retention.
 - Open free-text questions, essays and self-ratings are never filled for you: they wait for you in Do now.
-- Emails and messages are drafts; you send them. Applications are sent only after your go-ahead.
+- Emails and messages are drafts; you send them.
+- Applications are sent on their own when every answer comes from your records (`APPLY_MODE=auto`); you hear what
+  was sent after each run. Say "ask me before each application" for `APPLY_MODE=review`. Only what Claude cannot
+  do waits for you in Do now: CAPTCHAs, passwords, sign-ups, emailed codes, ID numbers, essays, pay below your
+  target, answers your records do not hold.
 - Job-search mails Claude has finished get the Gmail label `cenk-jobs/Done` (`GMAIL_DONE_LABEL`); create it once
   the defaults are accepted. Mails waiting on you stay unlabelled.
 - Pay figures and your address go only into forms, never into a CV, letter, shared file or the dashboard.

@@ -25,7 +25,8 @@
 #dash-root .ja-pill.forward, #dash-root .ja-pill.ok { color: var(--color-ok); border-color: var(--color-ok); }
 #dash-root .ja-pill.notsent, #dash-root .ja-pill.warn, #dash-root .ja-pill.task { color: var(--color-warn); border-color: var(--color-warn); }
 #dash-root .ja-pill.bad { color: var(--color-bad); border-color: var(--color-bad); }
-#dash-root .ja-pill.rejected { color: var(--color-fg-muted); }
+#dash-root .ja-pill.rejected, #dash-root .ja-pill.muted { color: var(--color-fg-muted); }
+#dash-root tr.ja-group td { padding-top: var(--cds-pad-md); font-weight: var(--cds-font-weight-medium); color: var(--color-fg); border-bottom: 1px solid var(--color-fg-muted); }
 #dash-root .ja-tools { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); align-items: center; margin-bottom: var(--cds-gap-sm); }
 #dash-root .ja-chip { font: inherit; font-size: var(--cds-font-size-caption); padding: var(--cds-pad-xs) var(--cds-pad-sm); border-radius: 999px; border: 1px solid var(--color-border-line); background: var(--color-bg); color: var(--color-fg); cursor: pointer; }
 #dash-root .ja-chip[aria-pressed="true"] { background: var(--color-fg); color: var(--color-bg); }
@@ -220,8 +221,25 @@ window.jaState = {kind: 'all', stage: 'all', q: ''};
 const KIND = {working: 'In progress', task: 'Task', click: 'Sign-in / click', info: 'Answer'};
 const PILL = {'Moving forward': 'forward', 'Waiting for reply': '', 'Not sent': 'notsent', 'Rejected': 'rejected',
               'Closed': 'notsent', 'Declined': 'notsent',
-              connected: 'ok', 'signed-in': 'ok', 'needs-sign-in': 'warn', 'needs-reconnect': 'bad', blocked: 'bad', unknown: '',
-              task: 'task', click: 'warn', info: '', working: 'forward'};
+              connected: 'ok', 'signed-in': 'ok', 'needs-sign-up': 'warn', expired: 'warn', 'needs-sign-in': 'warn',
+              'needs-reconnect': 'bad', blocked: 'bad', unknown: 'muted', 'not-signed-in': 'muted', excluded: 'rejected',
+              task: 'task', click: 'warn', info: 'warn', working: 'forward'};
+// The Logins tab in groups, in this order; each state with its label, so state is never told by color alone.
+// A site nobody waits on is "Not signed in", not "Needs you"; an employer the person's rules exclude is "Excluded".
+const LOGIN_GROUPS = [
+  {name: 'Needs you', states: ['needs-sign-up', 'expired', 'needs-sign-in', 'needs-reconnect', 'blocked']},
+  {name: 'Signed in', states: ['signed-in']},
+  {name: 'Connected', states: ['connected']},
+  {name: 'Not signed in', states: ['not-signed-in']},
+  {name: 'Excluded', states: ['excluded']}];
+const LOGIN_LABEL = {'needs-sign-up': 'needs sign-up', expired: 'expired', 'needs-sign-in': 'needs sign-in',
+                     'needs-reconnect': 'reconnect', blocked: 'blocked', 'signed-in': 'signed in', connected: 'connected',
+                     'not-signed-in': 'not signed in', excluded: 'excluded'};
+const loginState = (r) => {
+  const waits = r.kind === 'connector' || (r.jobs || 0) > 0;
+  if (r.status === 'unknown' || (r.status === 'needs-sign-in' && !waits)) return 'not-signed-in';
+  return r.status;
+};
 const STAGE_ORDER = {'Moving forward': 0, 'Waiting for reply': 1, 'Not sent': 2, 'Rejected': 3, 'Closed': 4, 'Declined': 5};
 
 const indexValue = (key, field) => (el) => {
@@ -329,12 +347,28 @@ dash.draw('login-rows', (tbody) => {
   const d = dash.data('logins');
   tbody.replaceChildren();
   if (d.status !== 'ok') return;
-  d.data.slice().sort((x, y) => (PILL[x.status] === 'ok') - (PILL[y.status] === 'ok') || x.name.localeCompare(y.name)).forEach((r) => {
-    const tr = document.createElement('tr');
-    tr.dataset.key = r.id;
-    cell(tr, r.name); cell(tr, r.kind); pill(tr, r.status, PILL[r.status]); cell(tr, r.jobs ? String(r.jobs) : '', 'ja-when');
-    cell(tr, r.checked, 'ja-wide ja-when'); cell(tr, r.fix || r.note, 'ja-wide ja-muted'); link(tr, r.link, 'Open');
-    tbody.appendChild(tr);
+  const known = new Set(LOGIN_GROUPS.flatMap((g) => g.states));
+  const state = (r) => (known.has(loginState(r)) ? loginState(r) : 'not-signed-in');
+  LOGIN_GROUPS.forEach((g) => {
+    const rows = d.data.filter((r) => g.states.includes(state(r)))
+      .sort((x, y) => g.states.indexOf(state(x)) - g.states.indexOf(state(y)) || (y.jobs || 0) - (x.jobs || 0)
+        || x.name.localeCompare(y.name));
+    if (!rows.length) return;
+    const head = document.createElement('tr');
+    head.className = 'ja-group';
+    const td = document.createElement('td');
+    td.colSpan = 7;
+    td.textContent = `${g.name} · ${rows.length}`;
+    head.appendChild(td);
+    tbody.appendChild(head);
+    rows.forEach((r) => {
+      const tr = document.createElement('tr');
+      tr.dataset.key = r.id;
+      cell(tr, r.name); cell(tr, r.kind); pill(tr, LOGIN_LABEL[state(r)], PILL[state(r)]);
+      cell(tr, r.jobs ? String(r.jobs) : '', 'ja-when');
+      cell(tr, r.checked, 'ja-wide ja-when'); cell(tr, r.fix || r.note, 'ja-wide ja-muted'); link(tr, r.link, 'Open');
+      tbody.appendChild(tr);
+    });
   });
 });
 
@@ -362,8 +396,20 @@ dash.draw('app-rows', (tbody) => {
     .forEach((r) => {
       const tr = document.createElement('tr');
       tr.dataset.key = r.id;
-      cell(tr, r.company); cell(tr, r.role); pill(tr, r.stage, PILL[r.stage]); cell(tr, r.applied, 'ja-when');
-      cell(tr, r.status, 'ja-wide ja-muted'); cell(tr, r.cv, 'ja-wide'); cell(tr, r.folder, 'ja-wide ja-muted');
+      cell(tr, r.company); cell(tr, r.role);
+      // A "warn" finding (the person's rules say: just warn me) shows as a marked pill beside the stage, with the
+      // reason in words in the status column, so it is seen without hovering.
+      const stage = pill(tr, r.stage, PILL[r.stage]);
+      if (r.warn) {
+        const w = document.createElement('span');
+        w.className = 'ja-pill warn';
+        w.textContent = 'warning';
+        w.title = r.warn;
+        stage.append(' ', w);
+      }
+      cell(tr, r.applied, 'ja-when');
+      cell(tr, r.warn ? `Warning: ${r.warn}${r.status ? ' · ' + r.status : ''}` : r.status, 'ja-wide ja-muted');
+      cell(tr, r.cv, 'ja-wide'); cell(tr, r.folder, 'ja-wide ja-muted');
       tbody.appendChild(tr);
     });
 });

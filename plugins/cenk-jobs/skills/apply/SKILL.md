@@ -1,6 +1,6 @@
 ---
 name: apply
-description: "Apply to planned jobs in the person's own Chrome: fills each form from the master record with the right CV and a letter built today, stops at the review page, and submits only after the person's go-ahead; then records the application, saves the posting and refreshes the folders and dashboard. Use for \"apply to these jobs\", \"send the applications\", \"fill the Workday form\", \"candidati per me\", \"başvuru yap\", \"Bewerbung abschicken\". Never sends without the go-ahead."
+description: "Apply to planned jobs in the person's own Chrome: fills each form from the master record with the right CV and a letter built today and submits it on its own when every answer comes from their records (APPLY_MODE auto, the default; review mode waits for their go-ahead); then records the application, saves the posting and refreshes the folders and dashboard. Use for \"apply to these jobs\", \"send the applications\", \"fill the Workday form\", \"candidati per me\", \"başvuru yap\", \"Bewerbung abschicken\". Stops only at CAPTCHAs, passwords, sign-ups, codes, ID numbers, essays and answers only the person has."
 ---
 
 # Apply: fill, review, send
@@ -25,13 +25,15 @@ open free-text questions stay the person's.
 - Every answer from the master record. Stop and ask for anything it does not answer; a question no option of which
   is true is asked, never ticked.
 - The home address only in the form's own address fields, never in a file or a message.
-- Stop at the review page, or the last page before submit. Keep-alive while it waits: a second tab on the same site,
-  reloaded every 10 minutes for at most 2 hours; never the form's own tab.
+- A form that waits on the person (RULES.md, "Applications"): stop on that page and put the field in Do now.
+  Keep-alive while it waits: a second tab on the same site, reloaded every 10 minutes for at most 2 hours; never the
+  form's own tab.
 
 ## Sending
 
-- Submitting is the person's decision: show what was filled and get their go-ahead for that job or batch. If the
-  permission check refuses a submit click, stop and ask; never work around it.
+- `APPLY_MODE=auto` (the default): submit every form whose answers all come from the person's records, then report.
+- `APPLY_MODE=review`: stop at the review page; submit after the person's go-ahead for that job or batch.
+- If the permission check refuses a submit click, stop and ask; never work around it.
 - After each submission: `track.py set <id> submitted "<what was sent>" cv=<path> letter=<path>`, `fetch_jd.py
   <id>` while the posting is live, `build_app_folders.py`, and the dashboard refresh.
 

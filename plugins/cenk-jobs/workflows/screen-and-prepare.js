@@ -22,7 +22,7 @@
 //   cvs           [{variant, file, use}] - the CV versions: variant name, CV PDF path, which roles it is for
 //   decided       {excluded: [...names], cleared: [...names]} - employers already decided (not re-checked)
 //   person        the person's name, for the prompts
-//   employerRules the person's EMPLOYER_RULES file content (categories with action and indirect, never_apply,
+//   employerRules the person's EMPLOYER_RULES file content (categories with action and indirect; an older never_apply,
 //                 always_ok, trigger); defaults from templates/employer-rules.json when the person has none
 //   known         optional {name: result of `employer.py check`} - what the shared blacklist and the person's own
 //                 checks already say, so the agents confirm or update it instead of starting from nothing

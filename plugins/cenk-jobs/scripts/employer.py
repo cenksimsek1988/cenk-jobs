@@ -5,9 +5,12 @@ python -I employer.py check "<name>" ["<name>" ...]     what is known per catego
                                                         apply. Run it before screening a new employer.
 python -I employer.py record "<name>" <category> <flagged|clear|unknown> [level=direct|indirect] [fact="..."]
                              [source=<url>]              write one category result (a flagged one needs source=)
-python -I employer.py decide "<name>" <exclude|apply> [<category>]
+python -I employer.py decide "<name>" <exclude|apply> [<category>] [--group]
                                                         the person's answer to an "ask": the value and the date,
-                                                        with the category it was about (no quote)
+                                                        with the category it was about (no quote); --group: the
+                                                        decision covers the group's units too ("Acme": "Acme Cloud")
+python -I employer.py migrate-lists                     move an older never_apply / always_ok list from
+                                                        EMPLOYER_RULES into EMPLOYER_CHECKS as decisions (one list)
 python -I employer.py import-tracker                    fill EMPLOYER_CHECKS from an older {companies: [...]} tracker's
                                                         screening verdicts, hits and ties (adds, never overwrites)
 python -I employer.py merge <report.json> [...] [--only-excluded] [--only-flagged] [--only-hits]
@@ -38,7 +41,9 @@ if "--env" in args:
     i = args.index("--env")
     env_arg = args[i + 1]
     del args[i:i + 2]
-if not args or args[0] not in ("check", "record", "decide", "import-tracker", "merge"):
+group_flag = "--group" in args
+args = [a for a in args if a != "--group"]
+if not args or args[0] not in ("check", "record", "decide", "import-tracker", "merge", "migrate-lists"):
     sys.exit(__doc__)
 cmd = args[0]
 
@@ -156,7 +161,7 @@ elif cmd == "decide":
     category = args[3] if len(args) > 3 else None
     if category and category not in el.categories(env):
         sys.exit(f"category must be one of {', '.join(el.categories(env))}")
-    el.record(env, args[1], verdict=args[2], decided=True, category=category)
+    el.record(env, args[1], verdict=args[2], decided=True, category=category, group=group_flag)
     # An older {companies: [...]} tracker keeps a verdict per company: the person's decision replaces an "ask" there.
     path = env.path("TRACKER")
     tracker = el.load_json(path, {})
@@ -169,6 +174,23 @@ elif cmd == "decide":
             os.replace(path + ".tmp", path)
             break
     print(args[1], "->", args[2])
+elif cmd == "migrate-lists":
+    # One list for the person's employers: their decisions in EMPLOYER_CHECKS, each with the category of its finding.
+    path = el.env_path(env, "EMPLOYER_RULES")
+    rules = el.load_json(path, {})
+    for key, verdict in (("never_apply", "exclude"), ("always_ok", "apply")):
+        names = list(rules.get(key) or [])
+        for name in names:
+            flagged = [c for c, k in el.lookup(env, name).items() if k.get("status") == "flagged"]
+            cat = "israel" if "israel" in flagged else (flagged[0] if flagged else None)
+            el.record(env, name, verdict=verdict, decided=True, category=cat, group=(key == "never_apply"))
+            print(f"{name} -> {verdict}" + (f" ({cat})" if cat else " (no finding recorded yet)"))
+        if names:
+            rules.setdefault("changes", []).append({"date": el.today(), "field": key, "new": [],
+                                                    "moved_to": "EMPLOYER_CHECKS decisions"})
+            rules[key] = []
+    el.save_json(path, rules)
+    print("done:", path)
 elif cmd == "import-tracker":
     tracker = el.load_json(env.path("TRACKER"), {})
     if "companies" not in tracker:

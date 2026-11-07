@@ -1,7 +1,7 @@
 # cenk-jobs: your job search with Claude
 
 **For anyone looking for a job** who wants Claude to do the legwork: find and screen job postings, write CVs and
-cover letters from your own facts, fill application forms in your own Chrome (you approve each submission), track
+cover letters from your own facts, fill and send application forms in your own Chrome whenever your records answer every question (or after your go-ahead, in review mode), track
 every application, put interviews and deadlines in Google Calendar, and prepare you for each interview. It works for
 any field: developers, architects, designers, engineers.
 
@@ -15,7 +15,7 @@ installs on its own). Skills:
 | `cenk-jobs:coordinate` | your main session, every day: "run my job search now", "open a session for this job" |
 | `cenk-jobs:search` | finding and screening postings only: "find me jobs" |
 | `cenk-jobs:plan` | putting the applications in order, with the CV and letter for each: "what should I apply to today?" |
-| `cenk-jobs:apply` | filling and sending applications after your go-ahead: "apply to these jobs" |
+| `cenk-jobs:apply` | filling and sending applications, on their own or after your go-ahead (`APPLY_MODE`): "apply to these jobs" |
 | `cenk-jobs:prepare` | interviews and hiring steps: "prepare my interview", "let's practise" |
 | `cenk-jobs:schedule` | the daily run: "run it every day at 19:00", "stop the daily run" |
 
@@ -83,7 +83,7 @@ Every later session starts with the same health check. Say "check my application
 "prepare my interview with ...".
 
 **Daily run:** with your OK, Claude sets up a scheduled task that runs your job search every day at **19:00 your
-local time** (emails, calendar, a fresh search, applications ready for your go-ahead). Ask for another time whenever
+local time** (emails, calendar, a fresh search, applications sent). Ask for another time whenever
 you like.
 
 For bigger days, say **"start the job search coordinator"** (or `/cenk-jobs:coordinate`) in a session opened in your
@@ -95,7 +95,7 @@ anything is sent.
 
 - It applies only with true facts from your record, and asks before anything it doesn't know.
 - It never creates accounts, types passwords, verification codes or ID numbers, solves CAPTCHAs, or sends an email
-  or message without your go-ahead. You approve submissions.
+  or message without your go-ahead. Applications go out on their own (`APPLY_MODE=auto`) unless you choose review mode.
 - It ticks only the data-processing consent a form needs; optional consents (talent pools, marketing) stay off.
 - Your pay expectations stay private: never in a CV, letter or the dashboard.
 

@@ -6,7 +6,7 @@ description: "The main job-search session: owns the records, the dashboard and t
 # Coordinate: the main session
 
 Read `../../RULES.md` first: its rules (honesty, consents, never an ID number, password, verification code or
-CAPTCHA, the person's go-ahead before anything is sent) hold in every session, the coordinator's and its
+CAPTCHA, `APPLY_MODE` for applications, drafts for emails) hold in every session, the coordinator's and its
 sub-sessions'. The work itself follows the other skills: `search`, `plan`, `apply`, `prepare`, `schedule`. A person
 who has not set up yet starts with `/cenk-jobs:setup`.
 
@@ -42,12 +42,13 @@ must end with.
 
 If the app will not start a session (a turn that another session or a trigger started), propose the piece as a
 card the person starts with one click. When a sign-in would expire before then, run the piece as a background
-helper (subagent) inside the coordinator session, with the same brief and report: it fills to the review page and
-stops, and the go-ahead is forwarded to it by message.
+helper (subagent) inside the coordinator session, with the same brief and report: it submits by `APPLY_MODE` (in
+review mode it stops at the review page and the go-ahead is forwarded to it by message). At most two helpers use
+Chrome at once, each only in tabs it opened.
 
 | Piece | What the sub-session does | Example name |
 |---|---|---|
-| Apply on one site | `/cenk-jobs:apply` for one site's jobs: fills to each review page, reports, submits only after the forwarded go-ahead. One session per site; never two on the same site. | `apply-workday-acme` |
+| Apply on one site | `/cenk-jobs:apply` for one site's jobs: fills each form and submits by `APPLY_MODE` (review: after the forwarded go-ahead), reports. One session per site; never two on the same site. | `apply-workday-acme` |
 | Prepare one step | `/cenk-jobs:prepare` prep notes for one hiring step, in its own folder. | `prep-acme-18nov` |
 | Study for one step | `/cenk-jobs:prepare` studying: brief, weak points, practice, with the person. | `study-acme-6nov` |
 | Search sweep | `/cenk-jobs:search`; one row per posting. | `search-2026-11-06` |

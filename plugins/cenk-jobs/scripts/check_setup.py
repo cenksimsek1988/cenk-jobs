@@ -132,7 +132,9 @@ load_json(env.path("PIPELINE"), "Hiring stages")
 if env.get("LOGINS"):
     logins = load_json(env.path("LOGINS"), "Logins (connectors and job-site sign-ins)")
     if logins is not None:
-        waiting = [r["id"] for r in logins.get("logins", []) if r.get("status") not in ("connected", "signed-in")]
+        # Only logins something waits on: a connector, or a site with a job or a fix; an excluded employer never.
+        waiting = [r["id"] for r in logins.get("logins", []) if r.get("status") not in ("connected", "signed-in", "excluded")
+                   and (r.get("kind") == "connector" or r.get("jobs") or r.get("fix"))]
         report("WARN" if waiting else "OK", "Logins needing the person", ", ".join(waiting[:8]) + (" ..." if len(waiting) > 8 else ""))
 # The dashboard always exists: a run that finds no link creates it (RULES.md, "Dashboard").
 report("OK" if env.get("DASHBOARD_URL") else "FAIL", "Dashboard",

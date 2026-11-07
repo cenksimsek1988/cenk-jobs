@@ -75,6 +75,12 @@ A skill cannot choose the folder a session starts in, so a session started anywh
 - Consents: tick only the data-processing consent a form needs to be sent. Optional ones (talent pools, newsletters,
   job alerts, marketing, SMS, AI analysis, extra retention) stay off unless the person's settings say otherwise.
 - Messages and emails: drafts only (the setting `send_mode`); the person sends them.
+- Applications: the setting `APPLY_MODE`. `auto` (the default): Claude fills and submits every application whose
+  answers all come from the person's records, and reports after; the daily run does the same on its own. `review`:
+  Claude stops at the review page and submits after the person's go-ahead for that job or batch. In both, Claude
+  stops only where it cannot act: a CAPTCHA, a password, a sign-up, an emailed code, an ID number, an essay or
+  self-rating, pay below the person's target, or a question the records do not answer; each goes to Do now.
+  Example: a Greenhouse form with every answer in the master record is sent; one with a motivation essay waits.
 - Pay figures and the home address go only into forms the person approved, never into a CV, letter, shared file or
   the dashboard.
 
@@ -90,8 +96,11 @@ an investor's other holdings, a partner or a customer).
 - **What happens** is the person's choice per category, in `EMPLOYER_RULES`: direct `never` / `ask` (default) /
   `apply`; indirect `ask` (default) / `warn` / `apply`; or a whole category allowed. They change any of them by
   saying so ("never apply to defence companies", "indirect ties are fine there, just warn me"): write it there at
-  once, with `{date, field, new}` in `changes`. Their own lists: `never_apply` (a name also catches the names that
-  start with it: "Acme" catches "Acme Cloud Services") and `always_ok` (exact names only).
+  once, with `{date, field, new}` in `changes`.
+- **One list** of the person's employers: `EMPLOYER_CHECKS`, each employer with its findings and the person's
+  decisions (`employer.py decide "<name>" <exclude|apply> [<category>] [--group]`; `--group` also covers the group's
+  units: "Acme" covers "Acme Cloud Services"). No separate name lists: an older `never_apply` / `always_ok` in
+  `EMPLOYER_RULES` moves there with `employer.py migrate-lists`. Every exclusion shows the finding behind it.
 - **The Israel check, two steps**, for the employer and its parent or majority owner:
   1. Lists: the BDS movement's current targets (bdsmovement.net, "What to boycott"; past successes do not count),
      the UN OHCHR settlement-business database (latest edition), Who Profits, AFSC Investigate.
@@ -186,6 +195,15 @@ applications**, under the total count and the split by outcome.
   it ("Artifacts > Job applications > Pin"; pin on the person's yes).
 - Refresh after each change: `logins.py sync`, `build_app_folders.py`, export, upload the five files, update each
   dataset's `source.url` and `updated`, delete the replaced uploads.
+- Logins: each person's own sites and connectors live in their `LOGINS` file; the Logins tab groups them in this
+  order: Needs you (needs sign-up, expired, needs sign-in, reconnect, blocked), Signed in, Connected, Not signed in,
+  Excluded. `sync` makes a new site row "needs sign-in"; Claude sets `needs-sign-up` (no account yet), `expired` (a
+  sign-in page where a form was) and `excluded` (an employer the rules exclude) with `logins.py set`. Example: a
+  Workday form at Review, then its sign-in page: `expired`.
+- A site no job waits on keeps its last state, with the reason in its note: signed in, or not signed in. Never
+  "unknown". Example: a site whose offer closed: `signed-in`, note "no open job: the offer closed".
+- Every employer the person turned down for their rules is an "excluded" row, rebuilt by `sync` with its reason in
+  words and its jobs by role, so the person remembers it.
 - A job's own to-do items: `todo` in the tracker, `[{"kind": "working"|"task"|"click"|"info", "text", "link",
   "due"}]`. `working`: Claude or a session is on it; set when a piece starts, removed when its report is recorded.
 - A to-do's link is the email link; a personal access link (a page that opens without a sign-in) stays in the
