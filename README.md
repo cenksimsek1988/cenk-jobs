@@ -82,9 +82,10 @@ Then start a new session and say **"set up my job search"** (or type `/cenk-jobs
    - the **Questions page**: what your applications need and your records don't hold. Answer there, press **Send my
      answers to Claude**, and a note under each question shows what happened. Each is asked once.
 
-   Find them again any time: claude.ai, **Artifacts** in the left sidebar (or claude.ai/code/artifacts), or
-   `/artifacts` in a terminal session. Pin them there for one click; each page links to the other, and every daily
-   report ends with both links.
+   They are named **cenk-jobs · Job applications** and **cenk-jobs · Questions for you** and pinned to your
+   claude.ai sidebar (one of the defaults setup offers). Find them again any time there, under **Artifacts**
+   (claude.ai/code/artifacts), or with `/artifacts` in a terminal session; each page links to the other, and every
+   daily report ends with both links.
 
 Every later session starts with the same health check. Say "check my applications", "apply to new jobs" or
 "prepare my interview with ...".

@@ -67,6 +67,8 @@ Show the defaults and ask: "Use these defaults? You can change any of them later
   target, answers your records do not hold.
 - Job-search mails Claude has finished get the Gmail label `cenk-jobs/Done` (`GMAIL_DONE_LABEL`); create it once
   the defaults are accepted. Mails waiting on you stay unlabelled.
+- Your two private pages, "cenk-jobs · Job applications" (the dashboard) and "cenk-jobs · Questions for you", are
+  pinned to your claude.ai sidebar, so each is one click away.
 - Pay figures go only into forms and onto your own Questions page (only you read it); your address only into
   forms. Never into a CV, letter, shared file or the dashboard.
 - Employer checks, in eight categories, each "discuss" for a direct tie and for an indirect one (you see the
@@ -129,9 +131,11 @@ opened an artifact:
 - "Your **dashboard**: <link>. What to do now, your interviews, logins, excluded employers and every application."
 - "Your **Questions page**: <link>. What your applications need and your records don't hold: answer, then press
   Send my answers to Claude. Each page links to the other."
-- "Both are private pages on claude.ai, only for you. Open them from the links, or later from claude.ai: Artifacts
-  in the left sidebar (or claude.ai/code/artifacts); in a terminal session, `/artifacts`. Shall I pin both, so they
-  are one click away in the sidebar?" Pin only on a yes.
+- "Both are private pages on claude.ai, only for you, pinned in your sidebar as cenk-jobs · Job applications and
+  cenk-jobs · Questions for you. Or open them from the links, from Artifacts in the left sidebar
+  (claude.ai/code/artifacts), or `/artifacts` in a terminal session."
+Pin both when they are created (`pin: true` on the publish) when the person accepted the defaults; if they turned
+that one down, leave them unpinned and say how to pin one later (the page's menu, Pin).
 
 ## 9. The main session
 

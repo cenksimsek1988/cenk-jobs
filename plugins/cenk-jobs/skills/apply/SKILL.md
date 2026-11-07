@@ -27,7 +27,9 @@ open free-text questions stay the person's.
   they do not answer goes to the Questions page with the job that needs it (`questions.py add`, RULES.md "Questions
   for the person"); a question no option of which is true is asked, never ticked.
 - The home address only in the form's own address fields, never in a file or a message.
-- A form that waits on the person (RULES.md, "Applications"): stop on that page and put the field in Do now.
+- A form that waits on the person (RULES.md, "Applications"): stop on that page and put the field in Do now. If
+  the step expires (an emailed or SMS code, a CAPTCHA, a Submit waiting for their yes, a sign-in page), send one
+  notification at once (RULES.md, "Urgent steps") and keep the tab open.
   Keep-alive while it waits: a second tab on the same site, reloaded every 10 minutes for at most 2 hours; never the
   form's own tab.
 

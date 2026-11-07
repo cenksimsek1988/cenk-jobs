@@ -9,7 +9,9 @@ Writes, in <out dir>:
   steps.json         one row per hiring step: its job id (app), name, date and details - no company or role, which
                      the page takes from applications.json by the id.
   actions.json       one row per thing the person can do now: kind click (sign in, open a page), info (answer a
-                     question), task (a test, online tasks, an AI interview, a deadline), or working (Claude or a
+                     question), task (a test, online tasks, an AI interview, a deadline), urgent (a step only the
+                     person can do that expires: an emailed code, a filled form's CAPTCHA, a task due within 24
+                     hours; first in the list), or working (Claude or a
                      session with the person is on it: wait); each points at a job id (app) and/or a login id
                      (login) instead of repeating them.
   logins.json        one row per connector and job site (from LOGINS): status, when checked, how to fix it, and
@@ -60,6 +62,12 @@ def short(text, n=220):
 
 
 DONE = ("submitted", "excluded", "skipped", "closed", "declined", "failed")
+
+
+def urgent_if_soon(kind, due):
+    """A task due today or tomorrow is Urgent (RULES.md, "Urgent steps"), whether a hiring step or a job's own to-do."""
+    tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
+    return "urgent" if kind == "task" and due and due <= tomorrow else kind
 
 
 def employer_view(env):
@@ -200,7 +208,8 @@ def main():
         if job.get("todo"):  # the tracker's own list of what the person must do for this job wins
             for i, t in enumerate(job["todo"], 1):
                 actions.append({"key": f"{job['id']}:{i}", "app": app, "login": t.get("login", ""),
-                                "kind": t.get("kind", "info"), "text": short(t.get("text", ""), 240),
+                                "kind": urgent_if_soon(t.get("kind", "info"), t.get("due", "")),
+                                "text": short(t.get("text", ""), 240),
                                 "link": t.get("link") or job_links.get(job["id"], ""), "due": t.get("due", "")})
             continue
         if job["status"] == "account-needed":
@@ -243,7 +252,7 @@ def main():
             p = (pipeline.get(p["same_as"]) or p) if p.get("same_as") else p
             p_steps = p.get("steps") or []
             mail = p_steps[s["n"] - 1].get("mail", "") if len(p_steps) >= s["n"] else ""
-            actions.append({"key": f"{s['key']}:do", "app": s["app"], "login": "", "kind": "task",
+            actions.append({"key": f"{s['key']}:do", "app": s["app"], "login": "", "kind": urgent_if_soon("task", s["due"]),
                             "text": s["step"] + (f" - due {s['due']}" if s["due"] else ""),
                             "link": mail or job_links.get(s["app"], ""), "due": s["due"] or s["date"]})
     for r in logins:
@@ -256,14 +265,14 @@ def main():
                                     + (f" ({waiting} application{'s wait' if waiting > 1 else ' waits'} on it), then tell Claude" if waiting else "")
                                     + (f": {short(r.get('fix', ''), 160)}" if r.get("fix") else ""),
                             "link": r.get("link", ""), "due": ""})
-    # "working": Claude or a session with the person is on it, so the person waits; those rows come first.
-    actions.sort(key=lambda a: (a["kind"] != "working", a["due"] == "", a["due"],
+    # Urgent first (it expires), then "working" (Claude or a session is on it: the person waits), then by deadline.
+    actions.sort(key=lambda a: ({"urgent": 0, "working": 1}.get(a["kind"], 2), a["due"] == "", a["due"],
                                 {"task": 0, "click": 1, "info": 2}.get(a["kind"], 3)))
 
     index = [{"key": f"stage:{s}", "group": "stage", "label": s, "n": sum(1 for a in apps if a["stage"] == s)}
              for s in STAGES.values()]
     index += [{"key": f"actions:{k}", "group": "actions", "label": k, "n": sum(1 for a in actions if a["kind"] == k)}
-              for k in ("working", "task", "click", "info")]
+              for k in ("urgent", "working", "task", "click", "info")]
     index += [{"key": "logins:ok", "group": "logins", "label": "working",
                "n": sum(1 for r in login_rows if r["status"] in OK_LOGIN)},
               {"key": "logins:action", "group": "logins", "label": "need action",

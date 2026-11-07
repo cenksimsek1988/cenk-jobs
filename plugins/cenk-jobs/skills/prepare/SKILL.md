@@ -15,7 +15,8 @@ prep waits.
 2. Book slots by the person's scheduling rules (the master record's `preferences`); a reply to a recruiter is a
    draft the person sends.
 3. Each step and deadline into the calendar (RULES.md, "Calendar"), with its own link and the email link; the same
-   two into the step's `link` and `mail` in `PIPELINE`. Rejections, closed posts and declines into `PIPELINE` as
+   two into the step's `link` and `mail` in `PIPELINE`. A step due within 24 hours: one notification at once
+   (RULES.md, "Urgent steps"). Rejections, closed posts and declines into `PIPELINE` as
    their outcome.
 4. Each message whose action is done gets the label `GMAIL_DONE_LABEL` (RULES.md, "Mail"). A reply waiting as a
    draft gets it on the run that finds the person's sent reply.

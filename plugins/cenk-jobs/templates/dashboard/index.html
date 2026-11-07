@@ -52,9 +52,9 @@
 <div class="ja">
   <header class="ja-head">
     <h1>Job applications</h1>
-    <p><b data-draw="h-working" data-source="index" data-field="n" data-where="key=actions:working">—</b> in progress (Claude or a session with you is on it: wait). You can do <b data-draw="h-todo" data-source="index" data-field="n" data-where="key=actions:click">—</b> sign-ins and answer <b data-draw="h-info" data-source="index" data-field="n" data-where="key=actions:info">—</b> questions now, with <b data-draw="h-task" data-source="index" data-field="n" data-where="key=actions:task">—</b> tasks on a deadline. Built from your job-search folder on <b data-draw="h-generated" data-source="index" data-field="label" data-where="key=meta:generated">—</b>.</p>
+    <p><b data-draw="h-urgent" data-source="index" data-field="n" data-where="key=actions:urgent">—</b> urgent (do it now: it expires). <b data-draw="h-working" data-source="index" data-field="n" data-where="key=actions:working">—</b> in progress (Claude or a session with you is on it: wait). You can do <b data-draw="h-todo" data-source="index" data-field="n" data-where="key=actions:click">—</b> sign-ins and answer <b data-draw="h-info" data-source="index" data-field="n" data-where="key=actions:info">—</b> questions now, with <b data-draw="h-task" data-source="index" data-field="n" data-where="key=actions:task">—</b> tasks on a deadline. Built from your job-search folder on <b data-draw="h-generated" data-source="index" data-field="label" data-where="key=meta:generated">—</b>.</p>
     <p class="ja-run"><b data-draw="h-run" data-source="index" data-field="label" data-where="key=meta:run">—</b></p>
-    <p data-draw="h-questions" data-source="index" data-field="label" data-where="key=meta:questions" hidden>Questions waiting on you: <a target="_blank" rel="noopener noreferrer">open your Questions page</a>.</p>
+    <p data-draw="h-questions" data-source="index" data-field="label" data-where="key=meta:questions"></p>
   </header>
 
   <section class="ja-tiles" aria-label="Headline counts">
@@ -86,10 +86,11 @@
 
   <section class="ja-card ja-page" id="do-now">
     <h2>Do now</h2>
-    <p class="ja-note">In progress first: Claude, or a session with you, is on it, so wait for it. Then everything waiting on you, deadlines first: sign-ins to click, questions only you can answer, and tasks such as online tests or AI interviews. When one is done, tell Claude.</p>
-    <p class="ja-note" data-draw="q-link" data-source="index" data-field="label" data-where="key=meta:questions" hidden>Answer the questions on <a target="_blank" rel="noopener noreferrer">your Questions page</a>: a reply box, or buttons such as Allow / Discuss / Exclude. Claude records your answers at the next run, so each is asked once.</p>
+    <p class="ja-note">Urgent first: do it now, it expires (a code, a CAPTCHA, a deadline within 24 hours). Then in progress: Claude, or a session with you, is on it, so wait for it. Then everything waiting on you, deadlines first: sign-ins to click, questions only you can answer, and tasks such as online tests or AI interviews. When one is done, tell Claude.</p>
+    <p class="ja-note" data-draw="q-link" data-source="index" data-field="label" data-where="key=meta:questions"></p>
     <div class="ja-tools">
       <button type="button" class="ja-chip ja-kind" data-kind="all" aria-pressed="true">All</button>
+      <button type="button" class="ja-chip ja-kind" data-kind="urgent" aria-pressed="false">Urgent</button>
       <button type="button" class="ja-chip ja-kind" data-kind="working" aria-pressed="false">In progress</button>
       <button type="button" class="ja-chip ja-kind" data-kind="task" aria-pressed="false">Tasks</button>
       <button type="button" class="ja-chip ja-kind" data-kind="click" aria-pressed="false">Sign-ins and clicks</button>
@@ -240,12 +241,12 @@ dash.calc('steps_view', {
 });
 
 window.jaState = {kind: 'all', stage: 'all', q: '', how: 'all', xq: ''};
-const KIND = {working: 'In progress', task: 'Task', click: 'Sign-in / click', info: 'Question'};
+const KIND = {urgent: 'Urgent', working: 'In progress', task: 'Task', click: 'Sign-in / click', info: 'Question'};
 const PILL = {'Moving forward': 'forward', 'Waiting for reply': '', 'Not sent': 'notsent', 'Rejected': 'rejected',
               'Closed': 'notsent', 'Declined': 'notsent',
               connected: 'ok', 'signed-in': 'ok', 'needs-sign-up': 'warn', expired: 'warn', 'needs-sign-in': 'warn',
               'needs-reconnect': 'bad', blocked: 'bad', unknown: 'muted', 'not-signed-in': 'muted', excluded: 'rejected',
-              task: 'task', click: 'warn', info: 'warn', working: 'forward'};
+              task: 'task', click: 'warn', info: 'warn', working: 'forward', urgent: 'bad'};
 // The Logins tab in groups, in this order; each state with its label, so state is never told by color alone.
 // A site nobody waits on is "Not signed in", not "Needs you". Excluded employers are in their own tab.
 const LOGIN_GROUPS = [
@@ -268,7 +269,7 @@ const indexValue = (key, field) => (el) => {
   const row = d.status === 'ok' ? d.data.find((r) => r.key === key) : null;
   el.textContent = row ? String(row[field]) : '—';
 };
-[['h-working', 'actions:working'], ['t-working', 'actions:working'],
+[['h-urgent', 'actions:urgent'], ['h-working', 'actions:working'], ['t-working', 'actions:working'],
  ['h-todo', 'actions:click'], ['h-info', 'actions:info'], ['h-task', 'actions:task'], ['t-forward', 'stage:Moving forward'],
  ['t-waiting', 'stage:Waiting for reply'], ['t-notsent', 'stage:Not sent'], ['t-rejected', 'stage:Rejected'],
  ['t-closed', 'stage:Closed'], ['t-declined', 'stage:Declined'],
@@ -276,16 +277,21 @@ const indexValue = (key, field) => (el) => {
 dash.draw('h-generated', indexValue('meta:generated', 'label'));
 // Is a run going? Started and finished rows from the usage log, and the next scheduled run.
 dash.draw('h-run', indexValue('meta:run', 'label'));
-// The person's own Questions page (an artifact of its own, QUESTIONS_PAGE in job-search.env); hidden until set.
-const questionsLink = (el) => {
+// The person's own Questions page (an artifact of its own, QUESTIONS_PAGE in job-search.env). The element starts
+// visible and empty, never `hidden`: the dashboard draws only what is shown, so a hidden one would never appear.
+const questionsLink = (before, label, after) => (el) => {
   const d = dash.data('index');
   const row = d.status === 'ok' ? d.data.find((r) => r.key === 'meta:questions') : null;
   const url = row && /^https:\/\/claude\.ai\//.test(row.label) ? row.label : '';
-  el.hidden = !url;
-  if (url) el.querySelector('a').href = url;
+  el.replaceChildren();
+  if (!url) return;
+  const a = document.createElement('a');
+  a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = label;
+  el.append(before, a, after);
 };
-dash.draw('q-link', questionsLink);
-dash.draw('h-questions', questionsLink);
+dash.draw('q-link', questionsLink('Answer the questions on ', 'your Questions page',
+  ': a reply box, or buttons such as Allow / Discuss / Exclude; then press Send my answers to Claude. Each is asked once.'));
+dash.draw('h-questions', questionsLink('Questions waiting on you: ', 'open your Questions page', '.'));
 
 // One whole split into its outcomes: a tall segmented bar, parts side by side in a fixed order and fixed colors.
 const SPLIT = ['Moving forward', 'Waiting for reply', 'Not sent', 'Rejected', 'Closed', 'Declined'];

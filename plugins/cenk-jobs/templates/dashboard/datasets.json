@@ -1,6 +1,6 @@
 {
   "_about": "The store documents of the job-search dashboard (Artifact 'Dashboard' type). Write them in one batch. Each file dataset's source.url is the url the asset upload of that file returned; dates are the export time. The tree: index (root, tiles) -> applications (keyed by job id) <- steps, actions (point at job ids) -> logins (actions point at login ids); excluded stands alone. Each section's data loads only when its tab is open.",
-  "dash/meta": {"title": "<Name>'s job search"},
+  "dash/meta": {"title": "cenk-jobs · Job applications"},
   "dash/params": {"from": "<today>T00:00:00", "to": "<today + 60 days>T00:00:00"},
   "datasets/index": {"title": "Headline counts", "description": "The root of the job-search files: one row per headline count and the export time.", "source": {"kind": "file", "name": "index.json", "url": "/_blob/<id>"}, "updated": {"at": "<ISO time>", "by": "Claude (export_dashboard.py)"}, "schedule": "Daily, after the morning job-search run", "staleAfterHours": 48},
   "datasets/applications": {"title": "Applications from your folder", "description": "One row per application folder, keyed by the tracker's job id; other files point at it by that id.", "source": {"kind": "file", "name": "applications.json", "url": "/_blob/<id>"}, "updated": {"at": "<ISO time>", "by": "Claude (export_dashboard.py)"}, "schedule": "Daily, after the morning job-search run", "staleAfterHours": 48},

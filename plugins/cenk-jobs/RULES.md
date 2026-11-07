@@ -88,6 +88,20 @@ A skill cannot choose the folder a session starts in, so a session started anywh
 - Pay figures go only into forms the person approved and onto their own Questions page (only they read it); the
   home address only into forms. Never into a CV, letter, shared file or the dashboard.
 
+## Urgent steps
+
+A step only the person can do that expires gets one notification at once (the session's notification tool: the
+desktop, and the phone when Remote Control is on) and an Urgent row at the top of Do now until it is done.
+- Urgent: a code sent by email or SMS; a CAPTCHA or Submit on a form already filled in; a sign-in page waiting; a
+  Submit the permission check left for the person's yes; a test, task or deadline due within 24 hours.
+- The message, under 200 characters: company, what to do, where, how long it stays valid. Example: "Acme: type the
+  emailed code into the open Greenhouse tab in Chrome; valid about 10 min."
+- One notification per step, from the session that hit it (a sub-session sends its own; the coordinator does not
+  repeat it). Never for what can wait, never twice for the same step.
+- The Urgent row: a `todo` on the job with `"kind": "urgent"`; the coordinator removes it once the step is done or
+  expired. A step due within 24 hours is Urgent on its own (`export_dashboard.py`).
+- The daily run: deadlines today or tomorrow get one notification at the end of the run, all in one message.
+
 ## Questions for the person
 
 What an application needs and the records do not answer is asked once, on the person's Questions page
@@ -228,14 +242,17 @@ for permission the first time. If its tools do not answer, say so and ask the pe
 
 ## Dashboard
 
-A private page: **Do now** (In progress first: Claude or a session is on it; then sign-ins, questions only the person
-can answer, with a link to the Questions page, and tasks with a deadline), **Calendar** (live from Google Calendar),
+A private page: **Do now** (Urgent first: a step only the person can do that expires; then In progress: Claude or a
+session is on it; then sign-ins, questions only the person can answer, with a link to the Questions page, and tasks
+with a deadline), **Calendar** (live from Google Calendar),
 **Logins**, **Excluded employers**, **Hiring steps** and **All applications**, under the total count and the split by
 outcome.
 - Setup creates it from the Artifact "Dashboard" type (quickstart, intent "other"): upload the six files from
   `export_dashboard.py <out dir>`, write the store documents as in `templates/dashboard/datasets.json` and
-  `files/index.html` from `templates/dashboard/index.html`, put its link in `DASHBOARD_URL`, then offer once to pin
-  it ("Artifacts > Job applications > Pin"; pin on the person's yes).
+  `files/index.html` from `templates/dashboard/index.html`, and put its link in `DASHBOARD_URL`. Its name is
+  "cenk-jobs · Job applications" (`dash/meta`), the Questions page's "cenk-jobs · Questions for you": the plugin's
+  name, so a page is never just "Dashboard". Both are pinned to the claude.ai sidebar, one of the defaults setup
+  offers.
 - Refresh after each change: `logins.py sync`, `build_app_folders.py`, export, upload the six files, update each
   dataset's `source.url` and `updated`, delete the replaced uploads.
 - Logins: each person's own sites and connectors live in their `LOGINS` file; the Logins tab groups them in this

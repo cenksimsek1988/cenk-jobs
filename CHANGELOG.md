@@ -6,6 +6,31 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.19.0] - 2026-11-07
+
+### Added
+
+- Urgent steps: a step only the person can do that expires (an emailed or SMS code, a CAPTCHA or Submit on a filled
+  form, a sign-in page waiting, a Submit left for their yes, a deadline within 24 hours) gets one notification at
+  once, on the desktop and on the phone when Remote Control is on, from the session that hit it. Example: "Acme:
+  type the emailed code into the open Greenhouse tab in Chrome; valid about 10 min." Never twice, never for what
+  can wait; the daily run sends one for deadlines today or tomorrow.
+- Do now's Urgent kind (red, first in the list, with its own filter and a count in the header): a job's `todo` with
+  `"kind": "urgent"`, and every task due within 24 hours.
+
+## [0.18.1] - 2026-11-07
+
+### Changed
+
+- Both pages carry the plugin's name: "cenk-jobs · Job applications" (the dashboard, `dash/meta`) and "cenk-jobs ·
+  Questions for you", never a generic "Dashboard". Setup pins both to the claude.ai sidebar as one of its defaults
+  (no separate question); a person who turns it down gets them unpinned, with how to pin one later.
+
+### Fixed
+
+- The dashboard's links to the Questions page (in the header and in Do now) now show: they started `hidden`, and the
+  dashboard draws only what is shown, so they never appeared. They start visible and empty instead.
+
 ## [0.18.0] - 2026-11-07
 
 ### Added
