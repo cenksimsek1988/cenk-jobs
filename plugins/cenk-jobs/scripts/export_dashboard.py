@@ -209,7 +209,7 @@ def main():
             for i, t in enumerate(job["todo"], 1):
                 actions.append({"key": f"{job['id']}:{i}", "app": app, "login": t.get("login", ""),
                                 "kind": urgent_if_soon(t.get("kind", "info"), t.get("due", "")),
-                                "text": short(t.get("text", ""), 240),
+                                "where": t.get("where", ""), "text": short(t.get("text", ""), 240),
                                 "link": t.get("link") or job_links.get(job["id"], ""), "due": t.get("due", "")})
             continue
         if job["status"] == "account-needed":

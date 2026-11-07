@@ -222,7 +222,7 @@ dash.calc('do_now', {
     return actions.map((x) => {
       const a = app.get(x.app);
       const l = login.get(x.login);
-      return {key: x.key, due: x.due, kind: x.kind, text: x.text, link: x.link || (l ? l.link : ''), login: x.login || '',
+      return {key: x.key, due: x.due, kind: x.kind, where: x.where || '', text: x.text, link: x.link || (l ? l.link : ''), login: x.login || '',
               for: a ? a.company + ' – ' + a.role : l ? l.name : ''};
     });
   },
@@ -364,7 +364,9 @@ dash.draw('do-rows', (tbody) => {
     const tr = document.createElement('tr');
     tr.dataset.key = r.key;
     // A click that is not a login (a filled form waiting on a CAPTCHA, say) is "Click", never "Sign in".
-    const label = r.kind === 'click' ? (r.login ? 'Sign in' : 'Click') : (KIND[r.kind] || r.kind);
+    // An Urgent row says where it can be done: at the PC (in the Chrome form) or from the phone.
+    const where = r.kind === 'urgent' ? ({pc: ' · at your PC', phone: ' · from your phone'}[r.where] || '') : '';
+    const label = (r.kind === 'click' ? (r.login ? 'Sign in' : 'Click') : (KIND[r.kind] || r.kind)) + where;
     // No Due column: only tasks have one, and their text says it; one that does not gets it added.
     const text = r.due && !String(r.text).includes(r.due) ? `${r.text} · due ${r.due}` : r.text;
     pill(tr, label, PILL[r.kind]); cell(tr, text); cell(tr, r.for); link(tr, r.link, 'Open');

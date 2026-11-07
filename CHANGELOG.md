@@ -6,6 +6,18 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.20.0] - 2026-11-07
+
+### Added
+
+- Urgent steps say where they can be done: each notification starts with "From your phone:" (a Questions-page
+  answer, a yes in a session through Remote Control) or "At your PC:" (a code, a CAPTCHA or a sign-in in the
+  Chrome form), and Do now's Urgent rows carry the same tag (a to-do's `"where": "pc"` or `"phone"`).
+- A code is started only when the person is at the PC: a form that sends a one-time code on Submit (example:
+  Greenhouse's emailed security code) is filled and left open, and Submit waits for "I'm at my PC", so the code
+  arrives while the person is there. On "I'm at my PC" the coordinator has every waiting PC step go on, one at a
+  time.
+
 ## [0.19.0] - 2026-11-07
 
 ### Added
