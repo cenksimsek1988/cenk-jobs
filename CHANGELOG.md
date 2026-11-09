@@ -6,6 +6,13 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.21.1] - 2026-11-10
+
+### Fixed
+
+- Do now shows every job's own to-dos, whatever the job's status. A sent job's items (an interview reminder, a
+  withdrawal to send) were dropped before; only "working" rows showed.
+
 ## [0.21.0] - 2026-11-07
 
 ### Changed

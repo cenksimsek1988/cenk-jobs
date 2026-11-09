@@ -222,14 +222,11 @@ def main():
                         "link": env.get("QUESTIONS_PAGE") or job_links.get(first, ""), "due": ""})
     for job in flat_jobs(tracker):
         app = job["id"] if job["id"] in known else ""
-        if not open_job(job.get("status")):
-            # In progress shows whatever the job's status: a posting still being screened is "found".
-            for i, t in enumerate(t for t in job.get("todo") or [] if t.get("kind") == "working"):
-                actions.append({"key": f"{job['id']}:w{i}", "app": app, "login": "", "kind": "working",
-                                "text": short(t.get("text", ""), 240),
-                                "link": t.get("link") or job_links.get(job["id"], ""), "due": t.get("due", "")})
+        # The tracker's own list of what the person must do for this job wins, whatever the job's status: a sent job
+        # still has its interview reminders or a withdrawal to send, and a posting being screened is "found".
+        if not open_job(job.get("status")) and not job.get("todo"):
             continue
-        if job.get("todo"):  # the tracker's own list of what the person must do for this job wins
+        if job.get("todo"):
             for i, t in enumerate(job["todo"], 1):
                 actions.append({"key": f"{job['id']}:{i}", "app": app, "login": t.get("login", ""),
                                 # A to-do is never a Question (those are the page's): no kind, or "info", is To do.
