@@ -128,7 +128,7 @@ def asks(tracker, pipeline):
         if company in out:
             out[company]["jobs"].append(job["id"])
             continue
-        checks = el.lookup(env, company)
+        checks = el.lookup(env, company, facts="flagged")
         if el.decide(env, company, checks, rule_set)[0] != "discuss":
             continue
         found = []

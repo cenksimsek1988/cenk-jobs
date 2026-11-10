@@ -6,6 +6,37 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.24.0] - 2026-11-10
+
+Employer records in layers, so a question about ties loads no reviews, history or company size.
+
+### Added
+
+- `EMPLOYERS_DIR` (default `employers` beside `EMPLOYER_CHECKS`): `names.json` (every lookup key of every saved name and
+  alias, and the pairs known to be different employers) and one folder per employer with `checks.json`,
+  `environment.json` and `history.json`. `EMPLOYER_CHECKS` stays the summary: verdict, decisions, a status per category
+  and links. An entry without links keeps working inline.
+- `employer.py split [--apply]`: a dry run with counts and bytes; `--apply` backs the file up, writes the details,
+  proves every entry's merged view equal to the original, and only then replaces the summary.
+- `employer.py alias "<saved>" "<other>"` and `alias --not "<a>" "<b>"`.
+- `employer.py check` returns `match` (exact, group, possible, none) and `possible`; a possible match with no exact or
+  group match is "discuss", reason "possible match: Examplia Internet GmbH (exclude)". `--full` adds environment and history.
+- `record` keeps the replaced check as a history item with `until`.
+- `tests/run.sh`: 27 checks for keys, matching, alias, split, record on a split file and a refused details path.
+- On a copy of real records: the summary about a quarter of its size, `check` output about 30% smaller, dashboard and
+  application folders unchanged.
+
+### Changed
+
+- `employer.py check` prints `has_environment` instead of `environment`; `--full` prints the finding.
+- `save_json` writes LF line ends.
+- `search` and `setup` skills and the `applier` agent say how a browser page is read: `find`, `read_page` or `get_page_text`.
+
+### Fixed
+
+- A short name now finds its saved full name as a possible match: `check "Examplia"` is "discuss" against "Examplia Internet GmbH", no longer "allow".
+- `keys("A Co")` is "a co", no longer empty: a name that would reduce below 2 characters keeps its legal form.
+
 ## [0.23.0] - 2026-11-10
 
 Less context per session and per agent. Measured 4-10 Nov 2026: a main session starts at 84k context, a default

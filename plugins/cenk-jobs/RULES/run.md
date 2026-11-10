@@ -71,7 +71,7 @@ outcome.
 | `career_view.py` | one part of the master record: screen (rules and decisions), facts (what a letter or form may use) |
 | `searches.py` | saved searches: add, list, due, done, seen (is a posting new) |
 | `questions.py` | questions for the person: add, list, build (the Questions page's files), record (answers into the records) |
-| `employer.py` | employer checks: check, record, environment, decide, repair-clear, import-tracker, merge |
+| `employer.py` | employer checks: check (`--full`), record, environment, decide, alias (`--not`), split (`--apply`), repair-clear, import-tracker, merge |
 | `usage.py` | usage log (steps and runs) and the weekly usage report (due, report, mark-drafted) |
 | `trackerlib.py`, `employerlib.py` | shared code for the scripts above |
 | `workflows/screen-and-prepare.js` | Workflow: screens a batch of employers and prepares the cleared jobs; never submits |

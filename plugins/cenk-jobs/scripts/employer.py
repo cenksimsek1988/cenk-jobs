@@ -1,8 +1,21 @@
 """Employer checks: the shared blacklist, the person's own results and their rules (see employerlib.py).
 
-python -I employer.py check "<name>" ["<name>" ...]     what is known per category (shared list and own results),
+python -I employer.py check "<name>" ["<name>" ...] [--full]
+                                                        what is known per category (shared list and own results),
                                                         what the person's rules say, and the verdict: exclude |
                                                         discuss | allow. Run it before screening a new employer.
+                                                        match: exact | group | possible | none; possible: the saved
+                                                        employers the name may be (a possible match is "discuss"
+                                                        until alias or alias --not settles it). Opens only that
+                                                        employer's checks.json; --full adds environment and history.
+python -I employer.py alias "<saved name>" "<other name>"   the other name finds the saved employer from now on
+                                                        (its keys go into names.json); refused when one of its
+                                                        keys already points to another employer
+python -I employer.py alias --not "<a>" "<b>"           a and b are different employers: never offered again
+python -I employer.py split [--apply]                   move each employer's checks, history and environment into
+                                                        EMPLOYERS_DIR/<name>/ files and write names.json; a dry run
+                                                        (counts and bytes) without --apply; with it, a backup first,
+                                                        every entry proved equal, and only then the summary replaced
 python -I employer.py record "<name>" <category> <flagged|clear|unknown> [level=direct|indirect] [fact="..."]
                              [source=<url>]              write one category result (a flagged one needs source=)
 python -I employer.py environment "<name>" reviews=<n> [rating=<x>] [scale=5] [complaints="a; b"] [source=<url>]
@@ -27,12 +40,13 @@ python -I employer.py merge --from-checks [--into <blacklist.json>]
                                                         decisions) into the shared list
 Categories: israel, defence, animal_cruelty, climate, sexism, human_rights, working_conditions, sanctions, and the
 person's own filters ("custom": true in their EMPLOYER_RULES).
+The summary file EMPLOYER_CHECKS keeps per employer the verdict, decisions and a status per category; the facts sit
+in the employer's detail files (employerlib.py describes the layout). EMPLOYERS_DIR (job-search.env) is their folder.
 Add --env <job-search.env> anywhere to pick the env file (merge needs none).
 """
 import json
 import os
 import re
-import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -50,8 +64,13 @@ group_flag = "--group" in args
 args = [a for a in args if a != "--group"]
 apply_flag = "--apply" in args
 args = [a for a in args if a != "--apply"]
+full_flag = "--full" in args
+args = [a for a in args if a != "--full"]
+not_flag = "--not" in args
+args = [a for a in args if a != "--not"]
 IMPORTED_UNKNOWN = "imported from an older tracker: no fact or source recorded"
-if not args or args[0] not in ("check", "record", "environment", "decide", "repair-clear", "import-tracker", "merge"):
+if not args or args[0] not in ("check", "record", "environment", "decide", "repair-clear", "import-tracker", "merge",
+                               "alias", "split"):
     sys.exit(__doc__)
 cmd = args[0]
 
@@ -141,11 +160,10 @@ if cmd == "merge":
 
         def unnamed(check):
             return dict(check, fact=person.sub("the person", check.get("fact", ""))) if person else check
-        own = el.checks_file(dev_env).get("employers", {})
         rest.append({"employers": [{"name": name, "verdict": entry.get("verdict"),
                                     "checks": {c: unnamed(k) for c, k in entry.get("checks", {}).items()},
                                     "environment": entry.get("environment")}
-                                   for name, entry in own.items()]})
+                                   for name, entry in el.merged_entries(dev_env)]})
     if not rest:
         sys.exit("merge needs at least one report file, or --from-checks")
     merge(rest, into, "--only-excluded" in args, "--only-flagged" in args, "--only-hits" in args)
@@ -154,14 +172,33 @@ if cmd == "merge":
 env = jsenv.load(env_arg, __file__)
 if cmd == "check":
     rule_set = el.rules(env)
-    out = []
-    for name in args[1:]:
-        checks = el.lookup(env, name)
-        verdict, reasons = el.decide(env, name, checks, rule_set)
-        out.append({"name": name, "verdict": verdict, "reasons": reasons, "checks": checks,
-                    "unknown": [c for c in rule_set["categories"] if checks.get(c, {}).get("status", "unknown") == "unknown"],
-                    "environment": el.environment_of(env, name)})
+    employers = el.checks_file(env).get("employers", {})  # the summary, read once for every name
+    out = [el.check_view(env, name, rule_set, full_flag, employers) for name in args[1:]]
     print(json.dumps(out, ensure_ascii=False, indent=1))
+elif cmd == "alias":
+    if len(args) != 3:
+        sys.exit(__doc__)
+    if not_flag:
+        n = el.not_same(env, args[1], args[2])
+        print(f"{args[1]} and {args[2]} are different employers: {n} key pair(s) recorded in names.json")
+    else:
+        name, added = el.alias(env, args[1], args[2])
+        print(f"{args[2]} now finds {name} (keys: {', '.join(added)})")
+elif cmd == "split":
+    path = env.path("EMPLOYER_CHECKS")
+    data = el.load_json(path, {"employers": {}})
+    summaries, files, names, pairs, st = el.plan_split(env, data)
+    if not st["moved"]:
+        print(f"nothing to split: {st['entries']} entries, none with checks or an environment left in the summary")
+        sys.exit(0)
+    print(f"{st['moved']} of {st['entries']} entries to split into {st['files']} files "
+          f"({st['detail_bytes']} bytes); {os.path.basename(path)} {st['before_bytes']} -> {st['after_bytes']} bytes; "
+          f"names.json {st['keys']} keys ({st['collisions']} shared by two entries, first entry wins)")
+    if not apply_flag:
+        print("dry run: nothing written; add --apply to split")
+        sys.exit(0)
+    backup = el.apply_split(env, path, data, (summaries, files, names, pairs, st))
+    print(f"split; every entry proved equal to its original; backup {backup}")
 elif cmd == "record":
     if len(args) < 4:
         sys.exit(__doc__)
@@ -216,19 +253,22 @@ elif cmd == "decide":
 elif cmd == "repair-clear":
     path = env.path("EMPLOYER_CHECKS")
     data = el.load_json(path, {"employers": {}})
-    counts, employers = {}, set()
-    for name, entry in data.get("employers", {}).items():
+    counts, employers, changed = {}, set(), {}
+    for name, summary in data.get("employers", {}).items():
+        # a split entry whose status map shows no clear israel or defence check needs no detail file opened
+        if summary.get("details") and not any((summary.get("status") or {}).get(c) == "clear" for c in ("israel", "defence")):
+            continue
+        entry = el.expand_entry(env, summary, ("checks", "environment", "history"))
         for cat in ("israel", "defence"):  # the only categories the older import-tracker wrote as "clear"
             check = (entry.get("checks") or {}).get(cat) or {}
             if check.get("status") == "clear" and not check.get("fact") and not check.get("source_url"):
                 counts[cat] = counts.get(cat, 0) + 1
                 employers.add(name)
-                if apply_flag:
-                    check.update(status="unknown", fact="no fact or source was recorded for this check")
+                check.update(status="unknown", fact="no fact or source was recorded for this check")
+                changed[name] = entry
     print(f"{len(employers)} employers;", ", ".join(f"{c}: {n}" for c, n in sorted(counts.items())) or "nothing to repair")
     if apply_flag and employers:
-        shutil.copy2(path, f"{path}.before-repair-{el.today()}.json")
-        el.save_json(path, data)
+        el.apply_repair(env, path, data, changed)
         print("written, with a backup beside it")
 elif cmd == "import-tracker":
     tracker = el.load_json(env.path("TRACKER"), {})
@@ -266,8 +306,8 @@ elif cmd == "import-tracker":
                           "basis": basis}
         for cat in ("israel", "defence"):  # the earlier screening kept no fact or source for these: nobody can tell
             found.setdefault(cat, {"status": "unknown", "fact": IMPORTED_UNKNOWN})
-        _, own = el.find_entry(have, company["name"])
-        new = {c: k for c, k in found.items() if c not in (own or {}).get("checks", {})}
+        _, own = el.find_own(env, company["name"], have)
+        new = {c: k for c, k in found.items() if c not in el.entry_checks(env, own or {})}
         if new:
             el.record(env, company["name"], new, verdict="exclude" if verdict == "exclude" else "allow")
             imported += 1

@@ -401,9 +401,14 @@ def collapse(tracker, path):
     return out
 
 
+WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
+
+
 def _file_name(text, used):
     """A file-safe name, unique ignoring case (Windows folders do not tell "A1" from "a1")."""
-    base = re.sub(r"[^A-Za-z0-9._-]+", "-", text).strip("-.")[:60] or "x"
+    base = re.sub(r"[^A-Za-z0-9._-]+", "-", text).strip("-.")[:60].strip("-.") or "x"  # cut, then strip: no trailing "."
+    if base.split(".")[0].upper() in WINDOWS_RESERVED:  # a folder "NUL" cannot be written on Windows
+        base += "-x"
     name = base
     n = 0
     while name.lower() in used:  # the same text twice gives the same hash: count on until the name is free
@@ -411,6 +416,9 @@ def _file_name(text, used):
         n += 1
     used.add(name.lower())
     return name
+
+
+file_name = _file_name  # the one safe-name helper; employerlib names an employer's folder with it
 
 
 def split_tracker(tracker, taken=()):

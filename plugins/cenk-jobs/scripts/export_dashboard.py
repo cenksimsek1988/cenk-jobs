@@ -95,7 +95,7 @@ def employer_view(env):
 
     def view(company):
         if company not in memo:
-            checks = el.lookup(env, company)
+            checks = el.lookup(env, company, facts="flagged")
             verdict, _ = el.decide(env, company, checks, rule_set)
             asks, warns = [], []
             for cat, k in checks.items():

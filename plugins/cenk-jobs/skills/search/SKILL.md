@@ -20,13 +20,18 @@ tracker, and nothing is prepared or sent.
    - Connectors: Indeed `search_jobs` and `get_job_details`; Develop21 `develop21_execute_job_search` (`list` with
      `brief`, `check` to drop rows already seen).
    - A job board's public JSON (the addresses in `workflows/screen-and-prepare.js`), or `fetch_jd.py`.
-   - A browser last, only for a search nothing else covers; never a screenshot (RULES.md, "Claude in Chrome").
+   - A browser last, only for a search nothing else covers. Read each page with `find`, `read_page` or `get_page_text`; never a screenshot
+     (RULES.md, "Claude in Chrome").
    After each: `searches.py done <id> found=<n>`.
 3. Check each employer: `employer.py check "<name>" ...`. "exclude": record the job as `excluded` with its category.
    An "allow" employer whose `unknown` lists israel or defence goes to the screen too: in step 4, without `known`.
    "discuss": the employer goes to the Questions page with what was found and its source (`questions.py`, RULES.md
-   "Questions for the person"); its jobs wait for the answer. Not excluded and `environment` is null: look up its
+   "Questions for the person"); its jobs wait for the answer. Not excluded and `has_environment` is false: look up its
    employee reviews once (RULES.md, "Employer rules").
+   `match` "possible" is "discuss" until Claude settles it: after the company register or the site's legal notice,
+   `employer.py alias "<saved name>" "<name>"` (same employer) or `alias --not "<saved name>" "<name>"` (different);
+   unsure: the job waits (`track.py set <id> needs-person`) and the main session asks the person in the chat, since
+   `questions.py add decision` needs a category. Example: "Examplia" against the saved "Examplia Internet GmbH".
 4. Screen the rest with `workflows/screen-and-prepare.js` (Workflow tool): pass the search file, `known` (the checks
    from step 3), `employerRules` (the rules file's content), the master record and its two parts (`career_view.py screen --out <outDir>/screen.json` as `screenRecord`, `career_view.py facts --out
    <outDir>/facts.json` as `factsRecord`; both are deleted after `track.py sync`). It checks every category, is the

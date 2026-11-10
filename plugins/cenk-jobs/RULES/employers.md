@@ -29,7 +29,15 @@ an investor's other holdings, a partner or a customer).
   investor's other holdings, customers, a board member's outside seat, a licensee's owner. For a small or new brand,
   find the parent or majority owner first (company registry, the site's legal notice). Nothing found after both
   steps is recorded as `unknown` with the fact "nothing found: <what was checked>", never `clear`.
-- `employer.py check "<name>"` shows what the shared blacklist and the person's earlier checks know, and the verdict.
+- **Records, top-down:** `names.json` (every lookup key of every saved name and alias, one entry each) refers to the
+  summary `EMPLOYER_CHECKS` (verdict, decisions, a status per category, links), which refers to files per employer and
+  scope in `EMPLOYERS_DIR/<name>/`: `checks.json`, `environment.json`, `history.json`. A question about ties opens only
+  `checks.json`. Only `employerlib.py` knows this; `employer.py split --apply` moves an older file into it.
+- `employer.py check "<name>"` shows what the shared blacklist and the person's earlier checks know, and the verdict;
+  `--full` adds `environment` and `history`. `match`: exact, group (a group entry covers it), possible or none.
+- A possible match (a saved name with all of its words, or 85% alike: "Examplia" and "Examplia Internet GmbH") is "discuss",
+  never an allow. Settle it once: `employer.py alias "<saved name>" "<name>"` (the same employer; refused when a key
+  belongs to another) or `employer.py alias --not "<saved name>" "<name>"` (different; never offered again).
 - When a category says discuss, the employer goes to the Questions page ("Allow, or exclude?") with what was found and its
   source; `questions.py record` writes the answer with `employer.py decide "<name>" <exclude|allow> [<category>]`.
 - A category not checked stays "unknown"; never write "clear" without having looked.
@@ -38,8 +46,8 @@ an investor's other holdings, a partner or a customer).
   fact, source); decisions and settings stay in the person's own files. The shared blacklist keeps every sourced finding, so each person's own rules decide. The plugin's
   developer merges their own findings with `employer.py merge --from-checks`; everyone else's reach it through the
   weekly usage report, with their yes.
-- Working environment: what employee reviews say, apart from the categories. `employer.py check` shows the saved
-  `environment`. When it is null and the employer is not excluded: one WebSearch (`"<name>" reviews glassdoor`;
+- Working environment: what employee reviews say, apart from the categories. `employer.py check` says in
+  `has_environment` whether one is saved (`--full` shows it). When it is false and the employer is not excluded: one WebSearch (`"<name>" reviews glassdoor`;
   Glassdoor blocks WebFetch, so read the rating from the search result; Kununu or Indeed when Glassdoor has nothing),
   then `employer.py environment "<name>" reviews=120 rating=3.8 complaints="long hours; high turnover" source=<url>`.
   Nothing found: `reviews=0`, saved too, so nobody searches again.

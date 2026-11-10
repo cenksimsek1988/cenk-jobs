@@ -49,6 +49,7 @@ import sys
 
 sys.path.insert(0, os.environ["SCRIPTS"])
 import trackerlib as tl  # noqa: E402
+import employerlib as el  # noqa: E402
 
 
 def load(path):
@@ -90,6 +91,8 @@ if cmd == "flat":  # q.py flat <original> <split tracker>: the same rows, but fo
     one = [{k: v for k, v in r.items() if k not in drop} for r in tl.flat_jobs(load(sys.argv[2]))]
     two = [{k: v for k, v in r.items() if k not in drop} for r in tl.flat_jobs(load(sys.argv[3]))]
     sys.exit(0 if one and one == two else 1)
+if cmd == "lookupkeys":  # q.py lookupkeys "<name>" a,b: the lookup keys of the name are exactly these
+    sys.exit(0 if sorted(el.keys(sys.argv[2])) == sorted(sys.argv[3].split(",")) else 1)
 if cmd == "keys":  # q.py keys <file> a,b,c: the top-level keys are exactly these
     sys.exit(0 if sorted(load(sys.argv[2])) == sorted(sys.argv[3].split(",")) else 1)
 if cmd == "nostatus":  # q.py nostatus <file> <path to checks> <status>: no check has this status
@@ -343,6 +346,153 @@ employer repair-clear --apply >"$T/repair2.out" 2>&1
 check "repair-clear --apply: the clear without a fact becomes unknown" q "$H/apply/employer-checks.json" employers.Delta\ Inc.checks.israel.status eq unknown
 check "repair-clear --apply: a sourced clear stays" q "$H/apply/employer-checks.json" employers.Delta\ Inc.checks.defence.status eq clear
 check "repair-clear --apply: leaves a backup of the file as it was" sh -c 'cmp -s "$1" "$(ls "$2"/apply/employer-checks.json.before-repair-*.json | head -n 1)"' _ "$T/checks-before.json" "$H"
+
+# --- employers: names, possible matches, alias, and the split into detail files -------------------------------------------
+# mkemployers <dir>: a home with three made-up employers; "Examplia Internet GmbH" is excluded and has a history and a review.
+mkemployers() {
+    cp -R "$T/old" "$1"
+    cat >"$1/apply/employer-checks.json" <<'EOF'
+{"_about": "made up", "employers": {
+ "Examplia Internet GmbH": {"checks": {
+    "israel": {"status": "flagged", "level": "direct", "fact": "Examplia Internet supplies an army", "source_url": "https://example.com/n1",
+               "checked": "2026-11-01", "history": [{"status": "clear", "fact": "nothing found", "checked": "2026-10-01", "until": "2026-11-01"}]},
+    "defence": {"status": "clear", "fact": "annual report lists no arms", "source_url": "https://example.com/r", "checked": "2026-11-01"}},
+  "verdict": "exclude", "verdict_date": "2026-11-01", "decisions": [{"date": "2026-11-02", "verdict": "exclude", "category": "israel"}],
+  "environment": {"rating": 3.5, "scale": 5, "reviews": 40, "source_url": "https://example.com/rev", "checked": "2026-11-01"}},
+ "A Co": {"checks": {}, "verdict": "allow", "verdict_date": "2026-11-01"},
+ "Acme Corp": {"checks": {"climate": {"status": "clear", "fact": "no finding", "source_url": "https://example.com/a", "checked": "2026-11-01"}},
+               "verdict": "allow", "verdict_date": "2026-11-01"}}}
+EOF
+}
+check "keys: a name that would reduce below 2 characters keeps its legal form" q lookupkeys "A Co" "a co"
+check "keys: legal forms are still dropped" q lookupkeys "Examplia Internet GmbH" "examplia internet"
+
+mkemployers "$T/emp"
+use "$T/emp"
+employer check "A Co" >"$T/c-aco.json" 2>&1
+check "check: a one-letter name matches itself exactly" sh -c '"$1" -I "$2/q.py" "$3" 0.match eq exact && "$1" -I "$2/q.py" "$3" 0.verdict eq allow' _ "$PY" "$T" "$T/c-aco.json"
+employer check "Examplia" >"$T/c-examplia.json" 2>&1
+check "check: a short name is a possible match of the saved full name, and never an allow" sh -c '
+    "$1" -I "$2/q.py" "$3" 0.match eq possible && "$1" -I "$2/q.py" "$3" 0.verdict eq discuss &&
+    "$1" -I "$2/q.py" "$3" "0.possible.0.name" eq "Examplia Internet GmbH" && "$1" -I "$2/q.py" "$3" "0.possible.0.verdict" eq exclude &&
+    "$1" -I "$2/q.py" "$3" 0.reasons.0 eq "possible match: Examplia Internet GmbH (exclude)"' _ "$PY" "$T" "$T/c-examplia.json"
+employer check "Zeta Works" >"$T/c-zeta.json" 2>&1
+check "check: an unrelated name has match none and verdict allow" sh -c '"$1" -I "$2/q.py" "$3" 0.match eq none && "$1" -I "$2/q.py" "$3" 0.verdict eq allow && "$1" -I "$2/q.py" "$3" 0.possible len 0' _ "$PY" "$T" "$T/c-zeta.json"
+
+cp -R "$T/emp" "$T/emp-alias"
+use "$T/emp-alias"
+employer alias "Examplia Internet GmbH" "Examplia" >/dev/null 2>&1
+employer check "Examplia" >"$T/c-examplia2.json" 2>&1
+check "alias: the short name is then an exact match and excluded" sh -c '"$1" -I "$2/q.py" "$3" 0.match eq exact && "$1" -I "$2/q.py" "$3" 0.verdict eq exclude && "$1" -I "$2/q.py" "$3" 0.matched eq "Examplia Internet GmbH"' _ "$PY" "$T" "$T/c-examplia2.json"
+check "alias: names.json maps the new key to the saved entry" q "$H/apply/employers/names.json" names.examplia eq "Examplia Internet GmbH"
+cp "$H/apply/employers/names.json" "$T/names-before.json"
+check "alias: a key that points to another employer is refused and nothing changes" sh -c '
+    ! "$1" -I "$2/employer.py" alias "A Co" "Examplia" --env "$3" >"$4" 2>&1 && grep -q "already points to" "$4" && cmp -s "$5" "$6/apply/employers/names.json"' \
+    _ "$PY" "$S" "$ENVF" "$T/alias-refused.out" "$T/names-before.json" "$H"
+
+cp -R "$T/emp" "$T/emp-not"
+use "$T/emp-not"
+employer alias --not "Examplia" "Examplia Internet GmbH" >/dev/null 2>&1
+employer check "Examplia" >"$T/c-examplia3.json" 2>&1
+check "alias --not: the pair is never offered again" sh -c '"$1" -I "$2/q.py" "$3" 0.match eq none && "$1" -I "$2/q.py" "$3" 0.verdict eq allow' _ "$PY" "$T" "$T/c-examplia3.json"
+
+cp -R "$T/emp" "$T/emp-split"
+use "$T/emp-split"
+employer check "Examplia Internet GmbH" "Acme Corp" "A Co" >"$T/before-split.json" 2>&1
+cp "$H/apply/employer-checks.json" "$T/emp-original.json"
+employer split >"$T/esplit-dry.out" 2>&1
+check "employer split dry run: prints counts and bytes" grep -q "bytes" "$T/esplit-dry.out"
+check "employer split dry run: changes nothing" sh -c 'cmp -s "$1" "$2/apply/employer-checks.json" && [ ! -d "$2/apply/employers" ] && [ -z "$(ls "$2"/apply/*.before-split-* 2>/dev/null)" ]' _ "$T/emp-original.json" "$H"
+check "employer split --apply: exits 0" employer split --apply
+check "employer split --apply: a backup of the file as it was, and names.json" sh -c '
+    cmp -s "$1" "$(ls "$2"/apply/employer-checks.json.before-split-*.json | head -n 1)" && [ -f "$2/apply/employers/names.json" ]' _ "$T/emp-original.json" "$H"
+check "employer split --apply: one folder per employer with something to hold, a file per scope" sh -c '
+    d="$1/apply/employers/Examplia-Internet-GmbH"; [ -f "$d/checks.json" ] && [ -f "$d/history.json" ] && [ -f "$d/environment.json" ] &&
+    [ -f "$1/apply/employers/Acme-Corp/checks.json" ] && [ ! -f "$1/apply/employers/Acme-Corp/history.json" ] && [ ! -d "$1/apply/employers/A-Co" ]' _ "$H"
+check "employer split --apply: the summary holds status and links, no facts" sh -c '
+    f="$2/apply/employer-checks.json"; "$1" -I "$3/q.py" "$f" "employers.Examplia Internet GmbH.status.israel" eq "flagged direct" &&
+    "$1" -I "$3/q.py" "$f" "employers.Examplia Internet GmbH.status.defence" eq clear &&
+    "$1" -I "$3/q.py" "$f" "employers.Examplia Internet GmbH.details.checks" eq employers/Examplia-Internet-GmbH/checks.json &&
+    "$1" -I "$3/q.py" "$f" "employers.Examplia Internet GmbH.checks" absent && "$1" -I "$3/q.py" "$f" "employers.Examplia Internet GmbH.environment" absent &&
+    "$1" -I "$3/q.py" "$f" "employers.A Co.details" absent && "$1" -I "$3/q.py" "$f" "employers.Examplia Internet GmbH.decisions.0.category" eq israel &&
+    ! grep -q "supplies an army" "$f"' _ "$PY" "$H" "$T"
+check "employer split --apply: checks.json holds no history, history.json holds it" sh -c '
+    d="$2/apply/employers/Examplia-Internet-GmbH"; "$1" -I "$3/q.py" "$d/checks.json" israel.history absent &&
+    "$1" -I "$3/q.py" "$d/history.json" israel.0.until eq 2026-11-01' _ "$PY" "$H" "$T"
+cp "$H/apply/employer-checks.json" "$T/emp-split1.json"
+employer split --apply >"$T/esplit-twice.out" 2>&1
+check "employer split twice: says there is nothing to split, changes nothing, no second backup" sh -c '
+    grep -q "nothing to split" "$1" && cmp -s "$2" "$3/apply/employer-checks.json" && [ "$(ls "$3"/apply/employer-checks.json.before-split-* | wc -l)" -eq 1 ]' _ "$T/esplit-twice.out" "$T/emp-split1.json" "$H"
+employer check "Examplia Internet GmbH" "Acme Corp" "A Co" >"$T/after-split.json" 2>&1
+check "check after the split: the same verdict, facts and match as before" cmp -s "$T/before-split.json" "$T/after-split.json"
+mv "$H/apply/employers/Examplia-Internet-GmbH/history.json" "$T/history.hidden"
+employer check "Examplia Internet GmbH" >"$T/after-nohist.json" 2>&1
+check "check after the split: works with history.json removed, and never opens it" sh -c '"$1" -I "$2/q.py" "$3" 0.verdict eq exclude && "$1" -I "$2/q.py" "$3" 0.checks.israel.fact eq "Examplia Internet supplies an army"' _ "$PY" "$T" "$T/after-nohist.json"
+mv "$T/history.hidden" "$H/apply/employers/Examplia-Internet-GmbH/history.json"
+employer check "Examplia Internet GmbH" --full >"$T/after-full.json" 2>&1
+check "check --full: adds the environment and the history" sh -c '"$1" -I "$2/q.py" "$3" 0.environment.reviews eq 40 && "$1" -I "$2/q.py" "$3" 0.checks.israel.history.0.until eq 2026-11-01' _ "$PY" "$T" "$T/after-full.json"
+check "check: without --full no environment and no history" sh -c '"$1" -I "$2/q.py" "$3" 0.environment absent && "$1" -I "$2/q.py" "$3" 0.checks.israel.history absent && "$1" -I "$2/q.py" "$3" 0.has_environment eq True' _ "$PY" "$T" "$T/after-split.json"
+
+employer record "Examplia Internet GmbH" defence flagged level=direct fact="Examplia Internet also builds drones" source=https://example.com/n2 >/dev/null 2>&1
+check "record on a split file: the check goes into checks.json and the status into the summary" sh -c '
+    d="$2/apply/employers/Examplia-Internet-GmbH"; "$1" -I "$3/q.py" "$d/checks.json" defence.status eq flagged &&
+    "$1" -I "$3/q.py" "$d/checks.json" defence.fact eq "Examplia Internet also builds drones" &&
+    "$1" -I "$3/q.py" "$2/apply/employer-checks.json" "employers.Examplia Internet GmbH.status.defence" eq "flagged direct" &&
+    "$1" -I "$3/q.py" "$2/apply/employer-checks.json" "employers.Examplia Internet GmbH.checks" absent' _ "$PY" "$H" "$T"
+check "record on a split file: the replaced check goes into history.json" q "$H/apply/employers/Examplia-Internet-GmbH/history.json" defence.0.status eq clear
+employer record "Orion Ltd" israel clear fact="no tie found" source=https://example.com/o >/dev/null 2>&1
+check "record on a split file: a new employer gets its folder and its keys in names.json" sh -c '
+    [ -f "$2/apply/employers/Orion-Ltd/checks.json" ] && "$1" -I "$3/q.py" "$2/apply/employers/names.json" names.orion eq "Orion Ltd"' _ "$PY" "$H" "$T"
+
+cp -R "$T/emp" "$T/emp-inline"
+use "$T/emp-inline"
+employer record "Acme Corp" defence clear fact="no arms" source=https://example.com/b >/dev/null 2>&1
+check "an unsplit file still works: record keeps the checks inline and makes no folder" sh -c '
+    "$1" -I "$3/q.py" "$2/apply/employer-checks.json" "employers.Acme Corp.checks.defence.status" eq clear &&
+    "$1" -I "$3/q.py" "$2/apply/employer-checks.json" "employers.Acme Corp.details" absent && [ ! -d "$2/apply/employers" ]' _ "$PY" "$H" "$T"
+
+cp -R "$T/emp-split" "$T/emp-bad"
+use "$T/emp-bad"
+echo '{"israel": {"status": "clear", "fact": "OUTSIDE-FILE-READ"}}' >"$H/apply/outside.json"
+sed 's#"checks": "employers/Examplia-Internet-GmbH/checks.json"#"checks": "../outside.json"#' "$H/apply/employer-checks.json" >"$H/apply/edited.json" && mv "$H/apply/edited.json" "$H/apply/employer-checks.json"
+check "a details path outside employers/ is refused, and the file is never read" sh -c '
+    ! "$1" -I "$2/employer.py" check "Examplia Internet GmbH" --env "$3" >"$4" 2>&1 && grep -q "not an employer detail file path" "$4" && ! grep -q OUTSIDE-FILE-READ "$4"' _ "$PY" "$S" "$ENVF" "$T/bad.out"
+echo '{"israel": {"status": "clear", "fact": "OUTSIDE-FILE-READ"}}' >"$H/apply/checks.json"
+sed 's#"checks": "../outside.json"#"checks": "employers/../checks.json"#' "$H/apply/employer-checks.json" >"$H/apply/edited.json" && mv "$H/apply/edited.json" "$H/apply/employer-checks.json"
+check "a details path through a '..' folder is refused too" sh -c '! "$1" -I "$2/employer.py" check "Examplia Internet GmbH" --env "$3" >"$4" 2>&1 && ! grep -q OUTSIDE-FILE-READ "$4"' _ "$PY" "$S" "$ENVF" "$T/bad2.out"
+
+cp -R "$T/emp-split" "$T/emp-partial"
+use "$T/emp-partial"
+"$PY" -I -c 'import json, sys
+p = sys.argv[1]
+d = json.load(open(p, encoding="utf-8"))
+d["employers"]["Zephyr Ltd"] = {"checks": {"israel": {"status": "clear", "fact": "no tie", "source_url": "https://example.com/z", "checked": "2026-11-01"}}, "verdict": "allow"}
+json.dump(d, open(p, "w", encoding="utf-8"))' "$H/apply/employer-checks.json"
+check "employer split on a partly split file: exits 0, moves the new entry, keeps the old one" sh -c '
+    "$1" -I "$2/employer.py" split --apply --env "$3" >/dev/null 2>&1 && [ -f "$4/apply/employers/Zephyr-Ltd/checks.json" ] &&
+    "$1" -I "$5/q.py" "$4/apply/employer-checks.json" "employers.Examplia Internet GmbH.details.checks" eq employers/Examplia-Internet-GmbH/checks.json &&
+    "$1" -I "$5/q.py" "$4/apply/employer-checks.json" "employers.Zephyr Ltd.checks" absent' _ "$PY" "$S" "$ENVF" "$H" "$T"
+
+use "$T/emp"
+check "alias with a bracketed name writes only the whole-name keys" sh -c '
+    "$1" -I "$2/employer.py" alias "Acme Corp" "Acme Mobile (Examplia)" --env "$3" >/dev/null 2>&1 &&
+    "$1" -I "$4/q.py" "$5/apply/employers/names.json" "names.acme mobile" eq "Acme Corp" && "$1" -I "$4/q.py" "$5/apply/employers/names.json" names.examplia absent' _ "$PY" "$S" "$ENVF" "$T" "$H"
+employer check "Examplia" >"$T/c-ex-after.json" 2>&1
+check "alias with a bracketed name: the bracket part is still only a possible match of the other employer" q "$T/c-ex-after.json" 0.match eq possible
+use "$T/emp-alias"
+rm -f "$H/apply/employers/names.json"
+check "alias refuses a key that is a possible match of another employer, and writes nothing" sh -c '
+    ! "$1" -I "$2/employer.py" alias "Acme Corp" "Examplia" --env "$3" >"$4" 2>&1 && grep -q "settle .Examplia Internet GmbH. first" "$4" && [ ! -e "$5/apply/employers/names.json" ]' _ "$PY" "$S" "$ENVF" "$T/alias-near.out" "$H"
+
+cp -R "$T/emp-split" "$T/emp-names"
+use "$T/emp-names"
+L=Examplia-Worldwide-Consulting-And-Software-Development-Services-Europe
+employer record "$L Alpha" israel clear fact="no tie" source=https://example.com/l1 >/dev/null 2>&1
+employer record "$L Beta" israel clear fact="no tie" source=https://example.com/l2 >/dev/null 2>&1
+employer record "NUL" israel clear fact="no tie" source=https://example.com/n >/dev/null 2>&1
+check "two long names that differ only after the cut get two folders" sh -c '[ "$(ls "$1/apply/employers" | grep -c "^Examplia-Worldwide")" -eq 2 ]' _ "$H"
+check "a reserved Windows name gets a writable folder" sh -c '[ -f "$1/apply/employers/NUL-x/checks.json" ]' _ "$H"
+check "no folder name ends in a dot" sh -c '[ -z "$(ls "$1/apply/employers" | grep "[.]$")" ]' _ "$H"
 
 # --- searches ------------------------------------------------------------------------------------------------------------------
 use "$T/flat"

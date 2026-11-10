@@ -36,7 +36,8 @@ ask before moving on. Each step is safe to run again: it skips what is already t
 - A program installed with winget is on the PATH in sessions started after the install: say so, then run
   `check_setup.py` again.
 - The person signs in to Google Drive and Chrome themselves. The Claude in Chrome extension: open its Chrome Web
-  Store page for them; they click "Add to Chrome", pin it and sign in with their Claude account.
+  Store page for them; they click "Add to Chrome", pin it and sign in with their Claude account. Read each page in
+  the browser with `find`, `read_page` or `get_page_text`; never a screenshot.
 
 ## 2. Logins and connectors
 

@@ -171,11 +171,11 @@ def turned_down(jobs, pipeline):
         elif job.get("status") == "excluded" and not sent:
             target, found = before, why(company)
         elif not sent and job.get("status") not in RULE_STAGES:
-            if el.decide(env, company, el.lookup(env, company), rule_set)[0] != "discuss":
+            if el.decide(env, company, el.lookup(env, company, facts="flagged"), rule_set)[0] != "discuss":
                 continue
             target = discuss
             found = []
-            for c, k in el.lookup(env, company).items():
+            for c, k in el.lookup(env, company, facts="flagged").items():
                 s = rule_set["categories"].get(c)
                 if k.get("status") != "flagged" or s is None:
                     continue
@@ -242,9 +242,8 @@ def report():
             if p.get("category"):
                 row["declined_category"] = p["category"]
         outcomes.append(row)
-    checks = el.checks_file(env).get("employers", {})
     employers = []
-    for name, entry in sorted(checks.items()):
+    for name, entry in sorted(el.merged_entries(env), key=lambda x: x[0]):
         cats = {c: {k: v for k, v in chk.items() if k in ("status", "level", "fact", "source_url", "checked", "basis")}
                 for c, chk in entry.get("checks", {}).items() if chk.get("status") in ("flagged", "clear")}
         row = {"name": name, "verdict": entry.get("verdict", ""), "checks": cats}
