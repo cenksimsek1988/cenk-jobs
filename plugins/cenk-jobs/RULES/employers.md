@@ -11,6 +11,8 @@ person's own filters are extra categories (`"custom": true`). A category counts 
 credible news from established outlets, a court ruling, a fine, a sanctions listing or an official list, each with
 its source link. A tie is direct (the employer, its group or its majority owner) or indirect (a minority investor,
 an investor's other holdings, a partner or a customer).
+A new fact that removes a finding's basis re-judges its level. Example: "indirect, not used by armed forces", then
+the employer's own page names armed forces as users: direct.
 - **What happens** is the person's choice per category, in `EMPLOYER_RULES`: direct `exclude` / `discuss` (default) /
   `allow`; indirect `discuss` (default) / `warn` / `allow`; or a whole category allowed. They change any of them by
   saying so ("exclude defence companies", "indirect ties are fine there, just warn me"): write it there at
@@ -20,7 +22,8 @@ an investor's other holdings, a partner or a customer).
   units: "Acme" covers "Acme Cloud Services"). No separate name lists. Every exclusion shows the finding behind it.
 - **The Israel check, two steps**, for the employer and its parent or majority owner:
   1. Lists: the BDS movement's current targets (bdsmovement.net, "What to boycott"; past successes do not count),
-     the UN OHCHR settlement-business database (latest edition), Who Profits, AFSC Investigate.
+     the UN OHCHR settlement-business database (latest edition), Who Profits (read its index
+     `/companies?page=N`; its search does not filter), AFSC Investigate.
   2. Four questions from the company's own site, careers page or annual report, each answered with a source link:
      founded in Israel or headquartered there? its own office, R&D team or subsidiary in Israel (example: "Tel Aviv"
      on its careers page)? its majority owner (then step 1 on the owner)? supplying Israel's military or police, or

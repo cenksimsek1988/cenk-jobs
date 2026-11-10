@@ -12,10 +12,10 @@ desktop, and the phone when Remote Control is on) and an Urgent row at the top o
   Questions page, a yes in a session through Remote Control) or "At your PC:" (anything typed into the Chrome form:
   a code, a CAPTCHA, a sign-in). Then the company, what to do and how long it stays valid. Example: "At your PC:
   Acme's form is filled; say I'm at my PC and Claude presses Submit, then type the emailed code."
-- A code is started only when the person is at the PC: a form that sends a one-time code on Submit is filled and
-  left open, and Submit waits until the person says they are at the PC (in the main session or the form's
-  session). Then Submit at once, so the code arrives while they are there. Example: a Greenhouse form that emails
-  a security code after Submit.
+- A code is started only while the person is active or at the PC: a form that sends a one-time code on Submit is
+  filled, and Submit waits until the person wrote in any job-search session in the last 15 minutes or says they are
+  at the PC. Then Submit at once and pass the code request on, so the code arrives while they are there. Example: a
+  Greenhouse form that emails a security code after Submit.
 - "I'm at my PC": the coordinator lists every step waiting at the PC and has each session go on, one at a time, so
   the person clears them in one sitting.
 - One notification per step, from the session that hit it (a sub-session sends its own; the coordinator does not

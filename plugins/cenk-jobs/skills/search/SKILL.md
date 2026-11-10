@@ -18,11 +18,16 @@ tracker, and nothing is prepared or sent.
    - Alert emails: Gmail `search_threads` with the row's `gmail` query, `pageSize` 10; open only messages newer than
      the row's last check.
    - Connectors: Indeed `search_jobs` and `get_job_details`; Develop21 `develop21_execute_job_search` (`list` with
-     `brief`, `check` to drop rows already seen).
+     `brief`, `check` to drop rows already seen). Indeed mostly returns older listings: a supplement, not the source
+     of new ones.
    - A job board's public JSON (the addresses in `workflows/screen-and-prepare.js`), or `fetch_jd.py`.
+   - LinkedIn guest search only for a search no alert covers: 4 s between calls, in the background, each result
+     written as it comes (example: 269 calls took 32 minutes).
    - A browser last, only for a search nothing else covers. Read each page with `find`, `read_page` or `get_page_text`; never a screenshot
      (RULES.md, "Claude in Chrome").
-   After each: `searches.py done <id> found=<n>`.
+   After each: `searches.py done <id> found=<n>`. A posting's date comes from the employer's board, since a job
+   board's card dated this week is often a repost: `first_published` (Greenhouse), `publishedAt` (Ashby),
+   `createdAt` (Lever).
 3. Check each employer: `employer.py check "<name>" ...`. "exclude": record the job as `excluded` with its category.
    An "allow" employer whose `unknown` lists israel or defence goes to the screen too: in step 4, without `known`.
    "discuss": the employer goes to the Questions page with what was found and its source (`questions.py`, RULES.md
@@ -43,6 +48,7 @@ tracker, and nothing is prepared or sent.
 ## Alerts
 
 One email alert per saved search, on each site that offers one, so the search is read from email in the background.
+- Greenhouse boards offer one per employer ("Create a Job Alert" on a posting): for an employer the person follows.
 - Each site needs the person's yes. Never create an account: a site without one is `alert=no`, checked on a schedule.
 - Create it once, signed in, with the site's own alert setting: in the built-in browser when the person has signed
   in there, else in Chrome. Never through a tick-box on an application form.

@@ -12,6 +12,8 @@ waits on the person.
 ## Before filling
 
 - Check the posting is still open and its link lands on the employer's own form (RULES.md, "Links").
+- Check the form before writing a letter: many have no letter field (often Workable, Rippling, HiBob, Ashby, Lever).
+  Ashby keeps no draft, so a form with an essay question waits until the person's answer is in the records.
 - Check the employer again if the last check is old (`employer.py check`).
 - The person must be signed in to the site. Ask them to tick "Keep me signed in" or "Remember me" where the site
   offers it, and to keep Chrome's "clear cookies when you close all windows" off.
@@ -37,15 +39,17 @@ waits on the person.
 - A form that waits on the person (RULES.md, "Applications"): stop on that page and put the field in Do now. If
   the step expires (an emailed or SMS code, a CAPTCHA, a Submit waiting for their yes, a sign-in page), send one
   notification at once (RULES.md, "Urgent steps"), "At your PC:" or "From your phone:", and keep the tab open.
-- A site that sends a one-time code on Submit (example: Greenhouse's emailed security code): fill everything, stop
-  before Submit, notify "At your PC:", and press Submit only when the person says they are at the PC.
+- A site that sends a one-time code on Submit (example: Greenhouse's emailed security code): fill everything, then
+  press Submit while the person is active (they wrote in any job-search session in the last 15 minutes) or has said
+  they are at the PC, and pass the code request on at once ("At your PC: type the code Acme just emailed").
+  Otherwise stop before Submit and notify "At your PC:".
   Keep-alive while it waits: a second tab on the same site, reloaded every 10 minutes for at most 2 hours; never the
   form's own tab.
 
 ## Sending
 
 - `APPLY_MODE=auto` (the default): submit every form whose answers all come from the person's records, then report;
-  a form that sends a one-time code on Submit waits until the person is at the PC (see "Filling").
+  a form that sends a one-time code on Submit waits until the person is active or at the PC (see "Filling").
 - `APPLY_MODE=review`: stop at the review page; submit after the person's go-ahead for that job or batch.
 - If the permission check refuses a submit click, stop and ask; never work around it.
 - After each submission: `track.py set <id> submitted "<what was sent>" cv=<path> letter=<path>`, `fetch_jd.py

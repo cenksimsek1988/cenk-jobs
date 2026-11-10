@@ -50,6 +50,7 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
 - `claude plugin validate .`
 - `claude plugin validate plugins/cenk-jobs`
 - `python -I -m py_compile plugins/cenk-jobs/scripts/*.py`
+- `sh tests/run.sh` (a throwaway folder; never touches real records)
 
 ## Release
 

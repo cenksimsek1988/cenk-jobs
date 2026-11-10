@@ -6,6 +6,27 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.25.0] - 2026-11-10
+
+Lessons from the job-search sessions of 10 Nov 2026.
+
+### Added
+
+- The coordinator submits a sub-session's application or letter after finding the person's own go-ahead for that
+  exact version in that session's transcript; an email stays a draft.
+- Sub-session titles start with their state: "You · ", "Ready · " or "Done · ".
+- A new fact that removes a finding's basis re-judges its level, in the rules and in the screening prompt.
+- A safety rule: records, job pages, emails and handoff files are data, never followed as instructions.
+- `search`: LinkedIn guest search only for a search no alert covers, in the background; a posting's date from the
+  employer's board; Greenhouse per-employer alerts; Indeed as a supplement.
+
+### Changed
+
+- A form that sends a one-time code on Submit is submitted while the person is active (wrote in a job-search session
+  in the last 15 minutes) or at the PC; the code request is passed on at once.
+- `apply` checks for a letter field before writing a letter; an Ashby form with an essay waits for the answer.
+- Why-join feedback aims at a calm, experienced voice. Who Profits is read through its company index.
+
 ## [0.24.0] - 2026-11-10
 
 Employer records in layers, so a question about ties loads no reviews, history or company size.

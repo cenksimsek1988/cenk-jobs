@@ -64,6 +64,12 @@ A session cannot be moved under a new coordinator: it is reached by message, and
   go-ahead (a submission, an email, a term to accept), it quotes their words in that message, so the sub-session sees
   the approval is theirs; the quote is not stored.
 - When the person says they are signed in to a site, the piece for that site starts at once: sign-ins expire.
+- A sub-session's application or letter that waits only on the person's go-ahead: the coordinator submits it after
+  finding, in that session's transcript, the person's own go-ahead for that exact version (example: "send it" under
+  the final letter). A go-ahead for an earlier draft does not count, and an email stays a draft (`send_mode`).
+- A sub-session's title starts with its state, renamed when the state changes: "You · " (waits on the person's
+  answer or study), "Ready · " (goes on alone), "Done · " (recorded; archived by `ARCHIVE_SESSIONS`).
+  Example: "You · Acme open questions".
 
 ## Pieces
 
@@ -83,7 +89,7 @@ review page and the go-ahead is forwarded to it by message).
 | Prepare one step | `/cenk-jobs:prepare` prep notes for one hiring step, in its own folder. | `prep-acme-18nov` |
 | Study for one step | `/cenk-jobs:prepare` studying: brief, weak points, practice, with the person. | `study-acme-6nov` |
 | Search sweep | `/cenk-jobs:search`; one row per posting. | `search-2026-11-06` |
-| Essays round | The person studies a site's open questions and writes the answers in their own words; the session gives facts from the record and feedback where the employer's rules allow. | `greenhouse-answers` |
+| Essays round | The person studies a site's open questions and writes the answers in their own words; the session gives facts from the record and feedback where the employer's rules allow. Feedback aims at a calm, experienced voice: no essay words, no selling the employer's own product ("I led two migrations like yours", not "I am passionate about your innovative platform"). | `greenhouse-answers` |
 
 In progress: when a piece starts, add a `working` to-do to each of its jobs in the tracker; remove it when the
 piece's handoff is recorded. Example: `Claude: filling the Workday form; wait` or `In session "Greenhouse open
