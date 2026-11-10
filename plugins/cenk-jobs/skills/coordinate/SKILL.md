@@ -77,10 +77,11 @@ outside its own step folder or `apply/bodies` / `apply/letters` asks the coordin
 
 One block per job, by company and role: status (`submitted`, `needs-person`, `account-needed`, `skipped`, `closed`,
 `failed`); what was sent (CV file, letter file); answers given on the form; new facts the person stated (one fact
-line each); hiring steps or deadlines seen (date, time, name, link); sign-ins seen. Nothing else.
+line each); hiring steps or deadlines seen (date, time, name, link); sign-ins seen; employee reviews looked up
+(employer, rating, number of reviews, complaint topics, source). Nothing else.
 
 The coordinator records it: `track.py set`, `PIPELINE`, `MASTER_RECORD`, `logins.py set` and `sync`, `employer.py
-record` or `decide`, `usage.py log`, `build_app_folders.py`, calendar events, the `working` to-do removed, and the
+record`, `environment` or `decide`, `usage.py log`, `build_app_folders.py`, calendar events, the `working` to-do removed, and the
 dashboard refresh.
 
 ## Ending

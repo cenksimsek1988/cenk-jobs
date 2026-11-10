@@ -119,6 +119,8 @@ official list, with its source.
   holdings, partners, customers): discuss, warn only, or allow. Your settings live in `employer-rules.json` in your folder.
 - The plugin ships a **shared blacklist** (`plugins/cenk-jobs/data/blacklist.json`): employers with
   sourced findings per category, checked by Claude before each new screen. It grows from users' usage reports.
+- The same list keeps what **employee reviews** say about an employer (rating, number of reviews, repeated complaints,
+  source, date), so Claude looks it up once. You see it in the application's `company.md`; it never decides anything.
 
 ## Usage reports (only with your yes)
 
@@ -126,12 +128,13 @@ On the first run Claude asks whether it may prepare a weekly usage report for th
 name, contact, CV, pay or address. It has:
 - how many applications you sent each week, the hiring steps they reached and the first "yes" answers;
 - which job sites and steps worked;
-- the employers checked, with each category's finding.
+- the employers checked, with each category's finding and what employee reviews say (rating, number of reviews,
+  complaint topics, source).
 
 Claude shows you each report and puts it in a Gmail draft to `cenk.plugins.reports@gmail.com`, an address only for
 these reports; you send it yourself. Privacy: a report lists, per application, the employer, the role, the dates and
-the hiring steps reached, and the findings of the employers checked; never your name, contact details, CV, letters,
-pay or address. Say "no" and nothing is prepared; you can change your answer at any time.
+the hiring steps reached, and the findings and employee reviews of the employers checked; never your name, contact
+details, CV, letters, pay or address. Say "no" and nothing is prepared; you can change your answer at any time.
 
 ## Updates
 

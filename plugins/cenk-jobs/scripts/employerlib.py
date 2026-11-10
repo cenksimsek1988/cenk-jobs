@@ -10,6 +10,9 @@ A check is {status, level, fact, source_url, checked}:
 What a flagged check does comes from the person's EMPLOYER_RULES: action for a direct tie (exclude | discuss |
 allow), indirect for an indirect one (discuss | warn | allow). The default is "discuss" for both: Claude shows the
 finding and the person decides (allow or exclude).
+An employer may also hold "environment": what employee reviews say, {rating, scale, reviews, complaints, source_url,
+checked}, apart from the categories: it is shown to the person and never changes a verdict. "reviews": 0 means someone
+looked and found none, so nobody looks again.
 
 Files:
   data/blacklist.json   in the plugin: the shared list, {employers: [{name, aliases, checks: {category: check}}]},
@@ -36,6 +39,11 @@ LEVELS = ("direct", "indirect")
 ACTIONS = ("exclude", "discuss", "allow")
 INDIRECT_ACTIONS = ("discuss", "warn", "allow")
 DECISIONS = ("exclude", "allow")
+ENVIRONMENT_FIELDS = ("rating", "scale", "reviews", "complaints", "source_url", "checked")
+MAX_COMPLAINTS = 6
+MAX_COMPLAINT_LENGTH = 60  # a topic of a few words: the shared list never holds review text
+SOURCE_URL = re.compile(r"https?://\S{1,500}")
+DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 LEGAL = re.compile(r"\b(inc|incorporated|ltd|limited|llc|plc|gmbh|ag|bv|nv|sa|spa|srl|sas|sarl|oy|oyj|ab|as|asa|"
                    r"aps|kg|co|corp|corporation|company|se|group|holding|holdings)\b")
 
@@ -156,6 +164,57 @@ def lookup(env, name):
         if cat not in out or check.get("status") != "unknown":
             out[cat] = dict(check, origin="own")
     return out
+
+
+def environment_finding(reviews, rating=None, scale=5, complaints="", source_url=""):
+    """A working-environment finding from employee reviews; ValueError when it is not one. complaints: a list or a
+    ';'-separated string of topics ("micromanagement; high turnover"). reviews 0: looked and found none."""
+    if not str(reviews).isdigit():
+        raise ValueError("reviews=<how many reviews> is required: a whole number, 0 when none were found")
+    if int(reviews) == 0:
+        return {"reviews": 0}
+    if rating in (None, "") or not SOURCE_URL.fullmatch(str(source_url)):
+        raise ValueError("a finding with reviews needs rating= and source=<url>")
+    rating, scale = float(rating), float(scale)
+    if not 0 < rating <= scale:
+        raise ValueError(f"rating {rating:g} is not between 0 and {scale:g}")
+    topics = [t.strip() for t in (complaints.split(";") if isinstance(complaints, str) else complaints) if t.strip()]
+    if len(topics) > MAX_COMPLAINTS or any(len(t) > MAX_COMPLAINT_LENGTH for t in topics):
+        raise ValueError(f"complaints are at most {MAX_COMPLAINTS} topics of a few words, never review text")
+    finding = {"rating": rating, "scale": scale, "reviews": int(reviews), "source_url": source_url}
+    return dict(finding, complaints=topics) if topics else finding
+
+
+def environment_from_report(block):
+    """A usage report's environment block, held to environment_finding's limits, with its date. Raises ValueError,
+    TypeError or AttributeError when it does not pass: a report is foreign text that reaches every person's Claude."""
+    checked = block.get("checked")
+    if not (isinstance(checked, str) and DATE.fullmatch(checked) and checked <= today()):
+        raise ValueError("its date is not a date up to today")
+    finding = environment_finding(block.get("reviews", ""), block.get("rating"), block.get("scale", 5),
+                                  block.get("complaints") or [], block.get("source_url") or "")
+    return dict(finding, checked=checked)
+
+
+def replaces_environment(old, new):
+    """Whether a new finding takes the place of the saved one: "no reviews found" never replaces a rating."""
+    return bool(new.get("reviews")) or not (old or {}).get("reviews")
+
+
+def environment_rank(finding):
+    """Orders the findings for one employer: any rating beats "no reviews found", then the newer date."""
+    return bool(finding.get("reviews")), finding.get("checked", "")
+
+
+def environment_of(env, name, shared=None, own=None):
+    """The saved working-environment finding for an employer with origin=own|shared, else None: of the person's own and
+    the shared list's, a rating before "no reviews found", then the newer, their own on a tie. shared, own: those two
+    files, if already read."""
+    _, mine = find_entry((checks_file(env) if own is None else own).get("employers", {}), name)
+    _, theirs = find_entry((blacklist() if shared is None else shared).get("employers", []), name)
+    found = [dict(e["environment"], origin=origin) for e, origin in ((mine, "own"), (theirs, "shared"))
+             if (e or {}).get("environment")]
+    return max(found, key=environment_rank, default=None)
 
 
 def excluding(env, name, rule_set=None):
@@ -287,9 +346,11 @@ def decide(env, name, checks, rule_set=None):
     return verdict, reasons
 
 
-def record(env, name, checks=None, verdict=None, decided=False, category=None, group=False):
+def record(env, name, checks=None, verdict=None, decided=False, category=None, group=False, environment=None):
     """Write checks (and a verdict, or with decided=True the person's decision) for an employer into EMPLOYER_CHECKS.
-    group=True: the entry also covers every name that starts with its own (the group's units)."""
+    group=True: the entry also covers every name that starts with its own (the group's units).
+    environment: an environment_finding(), which replaces the saved one (reviews 0 never replaces a rating) and gets
+    today's date."""
     path = env_path(env, "EMPLOYER_CHECKS")
     if not path:
         raise SystemExit("EMPLOYER_CHECKS is not set in job-search.env")
@@ -306,6 +367,8 @@ def record(env, name, checks=None, verdict=None, decided=False, category=None, g
         if entry["checks"].get(cat) and check.get("status") == "unknown":
             continue
         entry["checks"][cat] = check
+    if environment and replaces_environment(entry.get("environment"), environment):
+        entry["environment"] = dict(environment, checked=today())
     if verdict:
         entry["verdict"] = verdict
         entry["verdict_date"] = today()

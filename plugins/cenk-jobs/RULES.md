@@ -187,6 +187,14 @@ an investor's other holdings, a partner or a customer).
   fact, source); decisions and settings stay in the person's own files. The shared blacklist keeps every sourced finding, so each person's own rules decide. The plugin's
   developer merges their own findings with `employer.py merge --from-checks`; everyone else's reach it through the
   weekly usage report, with their yes.
+- Working environment: what employee reviews say, apart from the categories. `employer.py check` shows the saved
+  `environment`. When it is null and the employer is not excluded: one WebSearch (`"<name>" reviews glassdoor`;
+  Glassdoor blocks WebFetch, so read the rating from the search result; Kununu or Indeed when Glassdoor has nothing),
+  then `employer.py environment "<name>" reviews=120 rating=3.8 complaints="long hours; high turnover" source=<url>`.
+  Nothing found: `reviews=0`, saved too, so nobody searches again.
+- A saved `environment` is reused until the person asks for a refresh (the same command replaces it; `reviews=0` never
+  replaces a rating). It is shown in `company.md` and never changes a verdict: the person decides. Complaints are up to 6 topics of a few words that
+  reviews repeat; never review text, never a person's name. Details go in the job's `notes.md`.
 - An excluded employer the person applied to, once it writes beyond an automatic confirmation (an invitation to a
   step, a task or test, a recruiter's mail) or offers a job: draft the withdrawal mail from
   `templates/withdrawal-email.txt`, with the employer's sourced fact, so it reads why (a Gmail draft; the person
@@ -301,7 +309,7 @@ outcome.
 | `logins.py` | login state: set, sync, show |
 | `export_dashboard.py` | exports the dashboard's files: index, applications, steps, actions, logins, excluded |
 | `questions.py` | questions for the person: add, list, build (the Questions page's files), record (answers into the records) |
-| `employer.py` | employer checks: check, record, decide, import-tracker, merge |
+| `employer.py` | employer checks: check, record, environment, decide, import-tracker, merge |
 | `usage.py` | usage log (steps and runs) and the weekly usage report (due, report, mark-drafted) |
 | `trackerlib.py`, `employerlib.py` | shared code for the scripts above |
 | `workflows/screen-and-prepare.js` | Workflow: screens a batch of employers and prepares the cleared jobs; never submits |

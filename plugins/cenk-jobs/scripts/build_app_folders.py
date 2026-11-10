@@ -48,6 +48,7 @@ import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import employerlib as el  # noqa: E402
 import jsenv  # noqa: E402
 from trackerlib import applied_on, companies, is_company_shape, load_settings, needs_of, note_key, waits_on_person  # noqa: E402
 
@@ -153,6 +154,22 @@ def applied(job):
 def line(label, value):
     value = clean(value).strip()
     return f"- **{label}:** {value}\n" if value and value not in ("None", "not read", "[]") else ""
+
+
+EMPLOYERS_SHARED, EMPLOYERS_OWN = el.blacklist(), el.checks_file(env)
+
+
+def environment_section(name):
+    """company.md's section on what employee reviews say, or "" when nobody has looked yet."""
+    found = el.environment_of(env, name, EMPLOYERS_SHARED, EMPLOYERS_OWN)
+    if not found:
+        return ""
+    head = "\n## Working environment\n\n"
+    if not found.get("reviews"):
+        return head + f"No employee reviews found (checked {found.get('checked', '')}).\n"
+    return (head + line("Rating", f"{found['rating']:g} of {found.get('scale', 5):g}, from {found['reviews']} reviews")
+            + line("Repeated complaints", ", ".join(found.get("complaints") or []))
+            + line("Source", found.get("source_url")) + line("Checked", found.get("checked")))
 
 
 def cv_sent(job, prep):
@@ -386,7 +403,8 @@ for company, job in companies(data):
             notes.append("")
     write(os.path.join(path, "company.md"),
           f"# Company: {clean(company['name'])}\n\n" + line("Screening verdict", verdict)
-          + "\n" + ("\n".join(notes) if notes else "No screening notes were recorded for this company.\n"))
+          + "\n" + ("\n".join(notes) if notes else "No screening notes were recorded for this company.\n")
+          + environment_section(company["name"]))
 
     answers = "\n".join(f"- **{clean(a.get('question'))}**  \n  {clean(a.get('answer'))}"
                         for a in prep.get("answers") or [])

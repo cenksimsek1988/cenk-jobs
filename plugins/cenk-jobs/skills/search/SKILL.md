@@ -16,7 +16,8 @@ tracker, and nothing is prepared or sent.
    Chrome, company career sites. Keep only postings that match the roles and the location rule.
 3. Check each employer: `employer.py check "<name>" ...`. "exclude": record the job as `excluded` with its category.
    "discuss": the employer goes to the Questions page with what was found and its source (`questions.py`, RULES.md
-   "Questions for the person"); its jobs wait for the answer.
+   "Questions for the person"); its jobs wait for the answer. Not excluded and `environment` is null: look up its
+   employee reviews once (RULES.md, "Employer rules").
 4. Screen the rest with `workflows/screen-and-prepare.js` (Workflow tool): pass the search file, `known` (the checks
    from step 3), `employerRules` (the rules file's content) and the master record. It checks every category, is the
    posting still open, the employer's own apply page (`apply_url`, checked by fetching it), the fit and the pay.

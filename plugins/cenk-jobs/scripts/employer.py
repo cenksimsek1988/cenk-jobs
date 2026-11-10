@@ -5,6 +5,10 @@ python -I employer.py check "<name>" ["<name>" ...]     what is known per catego
                                                         discuss | allow. Run it before screening a new employer.
 python -I employer.py record "<name>" <category> <flagged|clear|unknown> [level=direct|indirect] [fact="..."]
                              [source=<url>]              write one category result (a flagged one needs source=)
+python -I employer.py environment "<name>" reviews=<n> [rating=<x>] [scale=5] [complaints="a; b"] [source=<url>]
+                                                        save what employee reviews say (replaces the saved one, with
+                                                        today's date); reviews=0: looked and found none, which
+                                                        never replaces a saved rating
 python -I employer.py decide "<name>" <exclude|allow> [<category>] [--group]
                                                         the person's answer to a "discuss": the value and the date,
                                                         with the category it was about (no quote); --group: the
@@ -41,7 +45,7 @@ if "--env" in args:
     del args[i:i + 2]
 group_flag = "--group" in args
 args = [a for a in args if a != "--group"]
-if not args or args[0] not in ("check", "record", "decide", "import-tracker", "merge"):
+if not args or args[0] not in ("check", "record", "environment", "decide", "import-tracker", "merge"):
     sys.exit(__doc__)
 cmd = args[0]
 
@@ -60,7 +64,9 @@ def merge(reports, into, only_excluded, only_flagged, only_hits):
     data = el.load_json(into, {"employers": []})
     data["_about"] = ("The shared employer blacklist of the cenk-jobs plugin: per employer and category, a sourced "
                       "check (flagged, or clear when someone checked and found nothing). Built from users' usage "
-                      "reports by employer.py merge; it holds no person's data. A flagged check needs its source.")
+                      "reports by employer.py merge; it holds no person's data. A flagged check needs its source. An "
+                      "'environment' block holds what employee reviews say (rating, number of reviews, complaint "
+                      "topics, source, date); it never decides anything.")
     data["categories"] = list(el.CATEGORIES)
     added = changed = 0
     for path in reports:
@@ -73,7 +79,14 @@ def merge(reports, into, only_excluded, only_flagged, only_hits):
                       and (k.get("status") == "clear" or k.get("source_url"))
                       and (not only_flagged or k.get("status") == "flagged")
                       and (not only_hits or k.get("basis", "hit") == "hit")}
-            if not checks:
+            # A filter on the checks asks for those checks only, so it leaves the employee reviews out too.
+            environment = None
+            if emp.get("environment") and not (only_flagged or only_hits):
+                try:
+                    environment = el.environment_from_report(emp["environment"])
+                except (ValueError, TypeError, AttributeError) as problem:
+                    print(f"left out the employee reviews of {emp['name']}: {problem}")
+            if not checks and not environment:
                 continue
             _, entry = el.find_entry(data["employers"], emp["name"])
             if entry is None:
@@ -95,6 +108,9 @@ def merge(reports, into, only_excluded, only_flagged, only_hits):
                     old["clear_reports"] = old.get("clear_reports", 0) + 1
                 else:
                     continue
+                changed += 1
+            if environment and el.environment_rank(environment) > el.environment_rank(entry.get("environment") or {}):
+                entry["environment"] = environment
                 changed += 1
             entry["updated"] = el.today()
     data["employers"].sort(key=lambda e: e["name"].lower())
@@ -121,7 +137,8 @@ if cmd == "merge":
             return dict(check, fact=person.sub("the person", check.get("fact", ""))) if person else check
         own = el.checks_file(dev_env).get("employers", {})
         rest.append({"employers": [{"name": name, "verdict": entry.get("verdict"),
-                                    "checks": {c: unnamed(k) for c, k in entry.get("checks", {}).items()}}
+                                    "checks": {c: unnamed(k) for c, k in entry.get("checks", {}).items()},
+                                    "environment": entry.get("environment")}
                                    for name, entry in own.items()]})
     if not rest:
         sys.exit("merge needs at least one report file, or --from-checks")
@@ -136,7 +153,8 @@ if cmd == "check":
         checks = el.lookup(env, name)
         verdict, reasons = el.decide(env, name, checks, rule_set)
         out.append({"name": name, "verdict": verdict, "reasons": reasons, "checks": checks,
-                    "unknown": [c for c in rule_set["categories"] if checks.get(c, {}).get("status", "unknown") == "unknown"]})
+                    "unknown": [c for c in rule_set["categories"] if checks.get(c, {}).get("status", "unknown") == "unknown"],
+                    "environment": el.environment_of(env, name)})
     print(json.dumps(out, ensure_ascii=False, indent=1))
 elif cmd == "record":
     if len(args) < 4:
@@ -153,6 +171,19 @@ elif cmd == "record":
     el.record(env, name, {cat: {"status": status, "level": level, "fact": extra.get("fact", ""),
                                 "source_url": extra.get("source", "")}})
     print(name, cat, status, level)
+elif cmd == "environment":
+    if len(args) < 3:
+        sys.exit(__doc__)
+    extra = pairs(args[2:])
+    try:
+        finding = el.environment_finding(extra.get("reviews", ""), extra.get("rating"), extra.get("scale", 5),
+                                         extra.get("complaints", ""), extra.get("source", ""))
+    except ValueError as problem:
+        sys.exit(str(problem))
+    entry = el.record(env, args[1], environment=finding)
+    print(args[1], json.dumps(entry["environment"], ensure_ascii=False))
+    if not finding.get("reviews") and entry["environment"].get("reviews"):
+        print("kept the saved rating: reviews=0 never replaces one")
 elif cmd == "decide":
     if len(args) < 3 or args[2] not in el.DECISIONS:
         sys.exit(__doc__)

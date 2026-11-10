@@ -20,7 +20,8 @@ pay figures or addresses (masked if they appear). It holds:
                 dates, the first "yes" (the first step) and the days it took, or the rejection date
   sites         each connector and job site with its login state (no account names)
   employers     every employer checked, with its verdict and each category's result (flagged with the fact and
-                source, clear, or left out when unknown); flagged employers are reported whatever the person decided
+                source, clear, or left out when unknown); flagged employers are reported whatever the person decided;
+                what employee reviews say (rating, number of reviews, complaint topics, source, date)
   employer_rules  jobs turned down because of the employer rules: excluded before applying, withdrawn after
                 applying (before or after a hiring step) and waiting on the person's answer to a "discuss", each
                 by category and by where the finding came from (shared list, own check, decision);
@@ -246,7 +247,10 @@ def report():
     for name, entry in sorted(checks.items()):
         cats = {c: {k: v for k, v in chk.items() if k in ("status", "level", "fact", "source_url", "checked", "basis")}
                 for c, chk in entry.get("checks", {}).items() if chk.get("status") in ("flagged", "clear")}
-        employers.append({"name": name, "verdict": entry.get("verdict", ""), "checks": cats})
+        row = {"name": name, "verdict": entry.get("verdict", ""), "checks": cats}
+        if entry.get("environment"):
+            row["environment"] = {k: v for k, v in entry["environment"].items() if k in el.ENVIRONMENT_FIELDS}
+        employers.append(row)
     log = events()
     steps = collections.Counter((e.get("step"), e.get("result")) for e in log if e.get("step"))
     install = next((e["id"] for e in log if e.get("event") == "install"), "")

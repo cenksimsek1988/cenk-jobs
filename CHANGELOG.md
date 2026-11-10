@@ -6,6 +6,17 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.22.0] - 2026-11-10
+
+### Added
+
+- Working environment per employer: `employer.py environment "<name>" reviews=<n> rating=<x> complaints="a; b"
+  source=<url>` saves what employee reviews say (rating, number of reviews, complaint topics, source, date), apart
+  from the categories. `employer.py check` shows it, `merge` holds a report's block to the same limits and carries
+  it into the shared `data/blacklist.json`, the usage report includes it and `company.md` gets a section.
+- The search looks up the reviews once for each employer that is not excluded; a saved result is reused until the
+  person asks for a refresh. It never changes a verdict.
+
 ## [0.21.1] - 2026-11-10
 
 ### Fixed
