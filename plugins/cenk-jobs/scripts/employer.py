@@ -240,8 +240,8 @@ elif cmd == "import-tracker":
                 continue
             found[cat] = {"status": "flagged", "level": level, "fact": finding[:500], "source_url": source,
                           "basis": basis}
-        for cat in ("israel", "defence"):  # the earlier screening checked these two for every employer
-            found.setdefault(cat, {"status": "clear"})
+        for cat in ("israel", "defence"):  # the earlier screening kept no fact or source for these: nobody can tell
+            found.setdefault(cat, {"status": "unknown", "fact": "imported from an older tracker: no fact or source recorded"})
         _, own = el.find_entry(have, company["name"])
         new = {c: k for c, k in found.items() if c not in (own or {}).get("checks", {})}
         if new:
