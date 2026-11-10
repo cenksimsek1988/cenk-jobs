@@ -191,11 +191,15 @@ elif cmd == "decide":
     if category and category not in el.categories(env):
         sys.exit(f"category must be one of {', '.join(el.categories(env))}")
     el.record(env, args[1], verdict=args[2], decided=True, category=category, group=group_flag)
-    # An older {companies: [...]} tracker keeps a verdict per company: the person's decision replaces a "discuss" there.
+    # An older {companies: [...]} tracker keeps a verdict per company: the person's decision replaces it there. A decision
+    # on one category: "exclude" still excludes the employer; "allow" replaces only a "discuss", since another category
+    # may still exclude it.
     path = env.path("TRACKER")
     tracker = el.load_json(path, {})
     for company in tracker.get("companies", []):
-        if company.get("verdict") == "discuss" and el.keys(company.get("name", "")) & el.keys(args[1]):
+        old = company.get("verdict")
+        replaces = old != args[2] and (not category or args[2] == "exclude" or old == "discuss")
+        if replaces and el.keys(company.get("name", "")) & el.keys(args[1]):
             company["verdict"] = args[2]
             company["decided"] = {"date": el.today(), **({"category": category} if category else {})}
             with open(path + ".tmp", "w", encoding="utf-8") as f:
