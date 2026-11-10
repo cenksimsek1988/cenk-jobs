@@ -1,11 +1,11 @@
 ---
 name: prepare
-description: "Prepare the hiring steps: reads invitations and tests in Gmail, books slots by the person's rules, puts steps and deadlines in Google Calendar, writes prep notes and practises with them. Use for 'prepare my interview', 'let's practise', 'book the interview', 'any interview invitations?', 'mülakata hazırla'. Never accepts or sends for them."
+description: "Prepare the hiring steps: reads invitations and tests in Gmail, books slots, puts steps in Google Calendar, writes prep notes, practises. Use for 'prepare my interview', 'let's practise', 'book the interview', 'any interview invitations?', 'mülakata hazırla'. Never accepts or sends."
 ---
 
 # Prepare: hiring steps and interviews
 
-Read `../../RULES.md` first ("Mail", "Calendar", "Outcomes"). Prepare the nearest steps first; a far-off step's
+Read `../../RULES.md` first, then `../../RULES/hiring-steps.md` ("Mail", "Calendar", "Outcomes"). Prepare the nearest steps first; a far-off step's
 prep waits.
 
 ## Mail and calendar

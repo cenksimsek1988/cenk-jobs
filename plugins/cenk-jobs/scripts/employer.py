@@ -13,6 +13,8 @@ python -I employer.py decide "<name>" <exclude|allow> [<category>] [--group]
                                                         the person's answer to a "discuss": the value and the date,
                                                         with the category it was about (no quote); --group: the
                                                         decision covers the group's units too ("Acme": "Acme Cloud")
+python -I employer.py repair-clear [--apply]            an israel or defence "clear" with no fact or source
+                                                        becomes "unknown"; prints the counts, and with --apply writes them after a backup
 python -I employer.py import-tracker                    fill EMPLOYER_CHECKS from an older {companies: [...]} tracker's
                                                         screening verdicts, hits and ties (adds, never overwrites)
 python -I employer.py merge <report.json> [...] [--only-excluded] [--only-flagged] [--only-hits]
@@ -30,12 +32,13 @@ Add --env <job-search.env> anywhere to pick the env file (merge needs none).
 import json
 import os
 import re
+import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import employerlib as el  # noqa: E402
 import jsenv  # noqa: E402
-from trackerlib import json_indent  # noqa: E402
+from trackerlib import expand_company, json_indent  # noqa: E402
 
 args = sys.argv[1:]
 env_arg = None
@@ -45,7 +48,10 @@ if "--env" in args:
     del args[i:i + 2]
 group_flag = "--group" in args
 args = [a for a in args if a != "--group"]
-if not args or args[0] not in ("check", "record", "environment", "decide", "import-tracker", "merge"):
+apply_flag = "--apply" in args
+args = [a for a in args if a != "--apply"]
+IMPORTED_UNKNOWN = "imported from an older tracker: no fact or source recorded"
+if not args or args[0] not in ("check", "record", "environment", "decide", "repair-clear", "import-tracker", "merge"):
     sys.exit(__doc__)
 cmd = args[0]
 
@@ -207,6 +213,23 @@ elif cmd == "decide":
             os.replace(path + ".tmp", path)
             break
     print(args[1], "->", args[2])
+elif cmd == "repair-clear":
+    path = env.path("EMPLOYER_CHECKS")
+    data = el.load_json(path, {"employers": {}})
+    counts, employers = {}, set()
+    for name, entry in data.get("employers", {}).items():
+        for cat in ("israel", "defence"):  # the only categories the older import-tracker wrote as "clear"
+            check = (entry.get("checks") or {}).get(cat) or {}
+            if check.get("status") == "clear" and not check.get("fact") and not check.get("source_url"):
+                counts[cat] = counts.get(cat, 0) + 1
+                employers.add(name)
+                if apply_flag:
+                    check.update(status="unknown", fact="no fact or source was recorded for this check")
+    print(f"{len(employers)} employers;", ", ".join(f"{c}: {n}" for c, n in sorted(counts.items())) or "nothing to repair")
+    if apply_flag and employers:
+        shutil.copy2(path, f"{path}.before-repair-{el.today()}.json")
+        el.save_json(path, data)
+        print("written, with a backup beside it")
 elif cmd == "import-tracker":
     tracker = el.load_json(env.path("TRACKER"), {})
     if "companies" not in tracker:
@@ -217,6 +240,7 @@ elif cmd == "import-tracker":
         verdict = company.get("verdict")
         if verdict not in ("exclude", "allow", "clear"):
             continue
+        company = expand_company(env.path("TRACKER"), company)  # a split tracker keeps hits and ties in a detail file
         found = {}
         # basis "hit": a finding the earlier screen judged exclusion-level; "tie": one of its weaker ties.
         hits = [(h.get("criterion", ""), h.get("finding", ""), h.get("source_url", ""), "hit")
@@ -241,7 +265,7 @@ elif cmd == "import-tracker":
             found[cat] = {"status": "flagged", "level": level, "fact": finding[:500], "source_url": source,
                           "basis": basis}
         for cat in ("israel", "defence"):  # the earlier screening kept no fact or source for these: nobody can tell
-            found.setdefault(cat, {"status": "unknown", "fact": "imported from an older tracker: no fact or source recorded"})
+            found.setdefault(cat, {"status": "unknown", "fact": IMPORTED_UNKNOWN})
         _, own = el.find_entry(have, company["name"])
         new = {c: k for c, k in found.items() if c not in (own or {}).get("checks", {})}
         if new:

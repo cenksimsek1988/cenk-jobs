@@ -6,6 +6,48 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.23.0] - 2026-11-10
+
+Less context per session and per agent. Measured 4-10 Nov 2026: a main session starts at 84k context, a default
+subagent at 66k.
+
+### Added
+
+- `agents/`: `screener`, `verifier`, `preparer`, `reviewer` and `applier`, each with a model and a short tool list. A
+  subagent with a short list starts at 15k context instead of 66k.
+- `career_view.py screen|facts`: the part of the master record a job needs (42 KB and 78 KB instead of 410 KB).
+- `searches.py`: saved searches, read from alert emails or checked on a schedule. `seen` (or `seen --file`) says whether a posting is new.
+- `check_setup.py --needs`: the programs, connectors, sign-ins and answers the next run waits on.
+- The handoff check in `coordinate`: every sub-session ends with `handoffs/<short name>.md`, and each new coordinator
+  reads them first, records them, deletes them and safe-ends the sessions. A handoff names answered fields, never their
+  values. New settings: `ARCHIVE_SESSIONS` (empty: ask), `APPLY_PARALLEL` (2), `SEARCHES` (`apply/searches.json`).
+- `track.py split [--apply]`: one summary row per job and company with links; details in one file each. On a copy of
+  real records: 2.84 MB to 0.70 MB, `track.py show` 3.6 KB to 1.4 KB, generated folders and dashboard unchanged.
+- `employer.py repair-clear [--apply]`: a "clear" with no fact and no source becomes "unknown".
+- `tests/run.sh`, `.gitattributes` (LF).
+
+### Changed
+
+- `RULES.md` is a router of 10 KB (from 27 KB) with the safety rules; the rest moved word for word to `RULES/`, read by audience.
+- `workflows/screen-and-prepare.js`: a model and agent per stage. Compared on 4 employers against recorded verdicts: 4 of
+  4 equal, every recorded flag found again, 4-8 turns and 125-203k weighted per agent against an 855k average before.
+- `/cenk-jobs:schedule`: the scheduled session is that day's coordinator, since a trigger's turn cannot start a session.
+  A task made before this version keeps messaging the old session until `/cenk-jobs:schedule` makes it again.
+- `/cenk-jobs:search`: alert emails, then connectors, then job-board scripts, a browser last. An employer whose israel
+  or defence check is `unknown` goes to the screen.
+- Applying: one `applier` subagent per application, one tab each, at most `APPLY_PARALLEL` at once. An applier has no
+  shell and writes no record: the session that started it records each report.
+- Job alerts the person says yes to for a site are the one exception to optional consents.
+- A job-search session never edits the plugin: a lesson is one line in `plugin-lessons.md`; only a session opened in
+  this repository changes it.
+- Never read a screenshot. On one posting `get_page_text` is the same in both browsers and `read_page` is 15k characters
+  in the built-in browser against 36k in Chrome; applying stays in Chrome, the only one with `file_upload`.
+
+### Fixed
+
+- `employer.py decide` replaced a tracker verdict only when it was "discuss", so excluding an "allow" company left "allow".
+- `employer.py import-tracker` wrote israel and defence "clear" with no fact or source; it now writes "unknown".
+
 ## [0.22.0] - 2026-11-10
 
 ### Added

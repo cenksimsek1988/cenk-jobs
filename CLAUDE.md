@@ -6,8 +6,12 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
 
 ## Owner
 
-- Changes here are made by the **Job search coordinator** session (titled "Job search coordinator", opened in the
-  person's job-search folder). Other sessions send plugin lessons to it; they do not edit here.
+- Only a session opened in this repository with cenk-workbench loaded changes the plugin. Job-search sessions never
+  edit here: they write one-line lessons into `plugin-lessons.md` in the person's main folder, and a session here
+  applies each with `/cenk-workbench:teach`.
+- The job-search folder's `.claude/settings.local.json` denies file edits on this repository (one `Edit(...)` rule, which also covers Write). It does not cover
+  edits made through a shell command: `RULES.md` forbids those. The manifest has no workbench dependency: this
+  plugin is public, the workbench private.
 - A person's data never goes here: no real names, employers from a real search, CVs, records, pay, addresses or
   logins, not even in examples. Examples use made-up ones (Jane Doe, Acme).
 - Develop by the workbench rules: skills, docs, CHANGELOG and the records the scripts write into the person's folder
@@ -25,7 +29,8 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
   is `cenk-jobs@cenk-jobs` from this folder (6 Nov 2026): edits load at the next session, with no new version. Never
   install `cenk-jobs@cenk` beside it.
 - `plugins/cenk-jobs/.claude-plugin/plugin.json`: the plugin manifest.
-- `plugins/cenk-jobs/RULES.md`: the rules every skill reads first; `skills/<name>/SKILL.md`: one job each.
+- `plugins/cenk-jobs/RULES.md`: the router every skill reads first, with the safety rules; `RULES/`: its parts, by
+  audience; `skills/<name>/SKILL.md`: one job each; `agents/`: one short tool list and model per stage.
 - `plugins/cenk-jobs/scripts/` (Python; every path comes from the person's `job-search.env`),
   `workflows/screen-and-prepare.js`, `templates/` (including `employer-rules.json`, the default rules),
   `data/blacklist.json` (the shared blacklist).

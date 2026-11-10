@@ -46,7 +46,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import jsenv  # noqa: E402
-from trackerlib import flat_jobs, json_indent  # noqa: E402
+from trackerlib import collapse_row, expand_row, flat_jobs, is_company_shape, json_indent  # noqa: E402
 
 DONE = ("submitted", "excluded", "skipped", "closed", "declined", "failed")
 KEEP_DONE_DAYS = 7  # a handled question stays on the page this long, with its note
@@ -383,9 +383,11 @@ else:  # record, answer
             # A Yes/No field's choice is the form's answer too, kept with each job's prepared answers; an
             # apply-or-decline question is a decision about the job, not a form field.
             if not any(o["value"] == "decline" for o in q["options"]):
-                for job in [jobs[j] for j in q.get("jobs", []) if j in jobs]:
+                for row in [jobs[j] for j in q.get("jobs", []) if j in jobs]:
+                    job = expand_row(tracker_path, row)  # a split row: the detail with the prep is merged in
                     given = job.setdefault("prep", {}).setdefault("answers", [])
                     given[:] = [a for a in given if a.get("question") != q["text"]] + [dict(entry, answer=label, question=q["text"])]
+                    collapse_row(tracker_path, row, job, is_company_shape(tracker))
                     changed["tracker"] = True
             for job_id in q.get("jobs", []):
                 if answer == "decline" and (jobs.get(job_id) or {}).get("status") not in DONE:
@@ -393,12 +395,14 @@ else:  # record, answer
                 elif answer != "decline":
                     go_on.append(job_id)
         else:
-            job = jobs.get(q["jobs"][0]) if q.get("jobs") else None
-            if not job:
+            row = jobs.get(q["jobs"][0]) if q.get("jobs") else None
+            if not row:
                 print(f"{qid}: skipped (job not in the tracker)")
                 continue
+            job = expand_row(tracker_path, row)  # a split row: the detail with the prep is merged in
             answers = job.setdefault("prep", {}).setdefault("answers", [])
             answers[:] = [a for a in answers if a.get("question") != q["text"]] + [dict(entry, question=q["text"])]
+            collapse_row(tracker_path, row, job, is_company_shape(tracker))
             changed["tracker"] = True
             go_on += q["jobs"]
             note = "Saved with the application's answers; Claude puts it into the form."

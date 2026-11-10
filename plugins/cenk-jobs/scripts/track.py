@@ -4,13 +4,25 @@ python -I track.py add <id> "<company>" "<title>" <url> [key=value ...]   add a 
                                                                            letter, apply_url, salary_note, note)
 python -I track.py set <id> <status> "<note>" [key=value ...]             record an outcome (and update fields, e.g.
                                                                            cv=<path> letter=<path>)
-python -I track.py show <id>                                              print one job
+python -I track.py show <id> [--full]                                     print one job's summary row and the path of
+                                                                           its detail file; --full: the row with its
+                                                                           detail merged in (prep, history, earlier)
 python -I track.py brief <id> [<id> ...]                                  compact view of prepared jobs: links, CV,
                                                                            letter, answers, open points
 python -I track.py list [<status>]                                        one line per job
 python -I track.py summary                                                counts by status (and screening verdict)
 python -I track.py sync <journal.jsonl> [...]                             merge screening and preparation results
                                                                            into the tracker, print the queue
+python -I track.py split [--apply]                                        split the tracker: one summary row per job
+                                                                           and company, the rest in details/jobs/<id>.json
+                                                                           and details/companies/<name>.json beside it.
+                                                                           A dry run prints the counts and bytes before
+                                                                           and after; --apply backs the tracker up
+                                                                           (<TRACKER>.before-split-<date>.json), writes the
+                                                                           details, proves that every row merges back
+                                                                           exactly and only then replaces the tracker
+                                                                           (a mismatch changes nothing and exits 1)
+A split tracker keeps working with every command: set and brief open only the details they need; sync opens them all.
 Statuses: found, pending, to-apply, account-needed, needs-person, needs-captcha, submitted, skipped, excluded, failed,
 closed (the posting closed before it was sent: 404, 410, "no longer available"), declined (the person chose not to
 apply: ethics, relocation, pay, other); any other "needs-<word>" (an older tracker may say "needs-jane") and any status
@@ -32,17 +44,21 @@ come from the "sync" part of the TRACKER_SETTINGS file (see templates/tracker-se
 """
 import ast
 import collections
+import copy
 import datetime
 import json
 import os
 import re
+import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import employerlib as el  # noqa: E402
 import jsenv  # noqa: E402
-from trackerlib import (companies, date_in, entries, is_company_shape, json_indent, load_settings, needs_of,  # noqa: E402
-                        note_key)
+from trackerlib import (DETAILS, collapse, collapse_row, companies, date_in, entries, expand,  # noqa: E402
+                        expand_company,
+                        expand_row, flat_jobs, is_company_shape, json_indent, load_settings, needs_of, note_key, split_tracker,
+                        write_json)
 
 STATUSES = ("found", "pending", "to-apply", "account-needed", "needs-person", "needs-captcha", "submitted", "skipped",
             "excluded", "failed", "closed", "declined")
@@ -181,7 +197,7 @@ def sync(journals):
     refute_also = set(rules.get("refute_incomplete", []))
     overrides = rules.get("verdict_overrides", {})
     exclude_overrides = rules.get("exclude_overrides", {})
-    data = load()
+    data = expand(load(), PATH)  # every detail merged: sync reads hits and ties and writes prep
     if not is_company_shape(data):
         sys.exit("sync works on the {companies: [...]} tracker, where screening verdicts belong to companies")
     merge_found(data, [tuple(x) for x in rules.get("merge", [])])
@@ -241,7 +257,7 @@ def sync(journals):
             for job in company["jobs"]:
                 if job["id"] == pj.get("id"):
                     job["prep"] = pj
-    save(data)
+    save(collapse(data, PATH))  # rows with a detail file go back to summary rows and their files
     queue = [(c["name"], j) for c in data["companies"] if c.get("verdict") in ("clear", "allow")
              for j in c["jobs"] if "prep" in j and j["status"] == "pending"]
     for name, j in queue:
@@ -254,8 +270,66 @@ def sync(journals):
     print("verdicts:", counts, "| queue:", len(queue))
 
 
+# --- split ---------------------------------------------------------------------------------------------------------
+def rows_of(tracker):
+    """[(label, row without jobs and without "details")]: a company by its position, a job by its id."""
+    out = []
+    for n, c in enumerate(tracker.get("companies", []), 1):
+        out.append((f"company #{n}", {k: v for k, v in c.items() if k not in ("jobs", DETAILS)}))
+        out += [(f"job {j.get('id')}", {k: v for k, v in j.items() if k != DETAILS}) for j in c.get("jobs", [])]
+    out += [(f"job {j.get('id')}", {k: v for k, v in j.items() if k != DETAILS}) for j in tracker.get("jobs", [])]
+    return out
+
+
+def split_tracker_files(data, apply):
+    base = os.path.dirname(PATH)
+    taken = [os.path.relpath(os.path.join(root, name), base).replace(os.sep, "/")
+             for root, _, names in os.walk(os.path.join(base, DETAILS)) for name in names]
+    summary, files = split_tracker(data, taken)
+    indent = json_indent(PATH)
+    size_before = os.path.getsize(PATH)
+    with open(PATH, "rb") as fh:
+        crlf = b"\r\n" in fh.read(4096)  # save() writes text mode: on Windows every line ends in CR LF
+
+    def size_of(value, indent):
+        text = json.dumps(value, ensure_ascii=False, indent=indent)
+        return len(text.encode("utf-8")) + (text.count("\n") if crlf else 0)
+    size_summary = size_of(summary, indent)
+    size_details = sum(size_of(d, 1) for d in files.values())
+    jobs_n = sum(1 for rel in files if rel.startswith(f"{DETAILS}/jobs/"))
+    print(f"to split: {jobs_n} jobs and {len(files) - jobs_n} companies -> {len(files)} detail files")
+    print(f"bytes: tracker {size_before} now; after: tracker {size_summary} + details {size_details}")
+    if not files:
+        print("nothing to split: every row with a detail is split already")
+        return
+    if not apply:
+        print("dry run: nothing was changed; split --apply does it")
+        return
+    backup, n = f"{PATH}.before-split-{today}.json", 1
+    while os.path.exists(backup):
+        n += 1
+        backup = f"{PATH}.before-split-{today}-{n}.json"
+    shutil.copy2(PATH, backup)
+    for rel, detail in files.items():
+        write_json(os.path.join(base, rel), detail, 1)
+    # The proof: read every row back through the detail files just written and compare it with the original.
+    was, now = rows_of(expand(copy.deepcopy(data), PATH)), rows_of(expand(copy.deepcopy(summary), PATH))
+    bad = next((a[0] for a, b in zip(was, now) if a != b), None) if len(was) == len(now) else "the number of rows"
+    if bad is None:
+        keep = ("prep", "history", "earlier", DETAILS, "prep_apply_url")
+        strip = lambda rows: [{k: v for k, v in r.items() if k not in keep} for r in rows]  # noqa: E731
+        if strip(flat_jobs(summary)) != strip(flat_jobs(data)):
+            bad = "flat_jobs"
+    if bad is not None:
+        sys.exit(f"the round trip differs at {bad}: the tracker was not changed (backup {backup}; "
+                 f"the detail files written are unused)")
+    save(summary)
+    print(f"split: {len(files)} detail files written, round trip exact for {len(now)} rows; tracker is now "
+          f"{os.path.getsize(PATH)} bytes (backup {backup})")
+
+
 # --- the commands -------------------------------------------------------------------------------------------------
-if not args or args[0] not in ("add", "set", "show", "brief", "list", "summary", "sync"):
+if not args or args[0] not in ("add", "set", "show", "brief", "list", "summary", "sync", "split"):
     sys.exit(__doc__)
 cmd = args[0]
 if cmd == "sync":
@@ -280,7 +354,8 @@ elif cmd == "set":
     allowed = set(STATUSES) | {j.get("status") for _, j in entries(data) if j.get("status")}
     if status not in allowed and not re.fullmatch(r"needs-[a-z]+", status):
         sys.exit(f"status must be one of {', '.join(sorted(allowed))}, or needs-<word>")
-    company, job = find(data, job_id)
+    company, row = find(data, job_id)
+    job = expand_row(PATH, row)  # a split row: its detail merged in; written back below
     history = job.setdefault("history", [])
     old, old_status = job.get(NOTE, ""), job.get("status", "")
     if old and not any(h.get(NOTE) == old for h in history):
@@ -295,20 +370,26 @@ elif cmd == "set":
         job["applied"] = today
     job[NOTE] = note or old
     history.append({"date": today, "status": status, NOTE: note})
+    collapse_row(PATH, row, job, is_company_shape(data))
     save(data)
     print(job_id, company.get("name", ""), title_of(job)[:60], "->", status)
 elif cmd == "show":
-    company, job = find(data, args[1])
+    company, job = find(data, [a for a in args[1:] if a != "--full"][0])
     row = {"company": company.get("name", "")}
     if is_company_shape(data):
         row["verdict"] = company.get("verdict")  # the company's screening verdict, which a job's own row lacks
-    row.update(job)
+        if company.get(DETAILS):
+            row["company_details"] = company[DETAILS]
+    row.update(expand_row(PATH, job) if "--full" in args else job)
     print(json.dumps(row, ensure_ascii=False, indent=1))
+elif cmd == "split":
+    split_tracker_files(data, "--apply" in args)
 elif cmd == "brief":
     wanted = args[1:]
     for company, job in companies(data):
         if job["id"] not in wanted:
             continue
+        job = expand_row(PATH, job)
         p = job.get("prep") or job
         print("==", job["id"], company.get("name", ""), "|", job.get("title"), "|", p.get("action"), "|",
               p.get("platform"))
@@ -335,6 +416,7 @@ elif any(c.get("verdict") for c, _ in companies(data)):
         print(verdict, status, n)
     for company in data.get("companies", []):
         if company.get("verdict") in ("exclude", "uncertain", "incomplete"):
+            company = expand_company(PATH, company)  # a split row keeps its hits in the detail file
             why = company.get("override") or "; ".join(h["criterion"] + ": " + h["finding"][:110]
                                                        for h in company.get("hits", [])[:2])
             print("  ", company["verdict"].upper(), company["name"], "-", why)

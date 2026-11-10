@@ -1,12 +1,13 @@
 ---
 name: apply
-description: "Apply to planned jobs in the person's Chrome: fills each form from their records with the right CV and a fresh letter, sends it when every answer is known (APPLY_MODE), then records it. Use for 'apply to these jobs', 'send the applications', 'fill the Workday form', 'candidati per me', 'başvuru yap'. Stops at codes, CAPTCHAs, passwords and essays."
+description: "Apply to planned jobs in the person's Chrome: fills each form from their records with the right CV and a fresh letter, submits by APPLY_MODE and records it. Use for 'apply to these jobs', 'send the applications', 'candidati per me', 'başvuru yap'. Stops at codes, CAPTCHAs, passwords, essays."
 ---
 
 # Apply: fill, review, send
 
 Read `../../RULES.md` first: never an ID number, password, verification code or CAPTCHA; optional consents off;
-open free-text questions stay the person's.
+open free-text questions stay the person's. Read `../../RULES/urgent.md` and `../../RULES/questions.md` when a form
+waits on the person.
 
 ## Before filling
 
@@ -14,16 +15,22 @@ open free-text questions stay the person's.
 - Check the employer again if the last check is old (`employer.py check`).
 - The person must be signed in to the site. Ask them to tick "Keep me signed in" or "Remember me" where the site
   offers it, and to keep Chrome's "clear cookies when you close all windows" off.
-- Fill a site right after the person signs in: sign-ins expire within minutes when idle. For several sites at once,
-  give each site its own background helper; at most two use Chrome at once, each only in tabs it opened.
+- Fill a site right after the person signs in: sign-ins expire within minutes when idle.
+- Several applications at once: one `cenk-jobs:applier` subagent per application, started together, one tab each,
+  at most `APPLY_PARALLEL` at once (default 2), never two on the same site. A subagent cannot ask the person: its
+  brief holds every answer and names the CV and letter, already copied for upload; what it cannot do comes back as
+  `needs-person`. It writes no record: this session records each block as it returns, one at a time ("After each
+  submission").
 
 ## Filling
 
+- Read a form with `find`, `read_page` (`filter: interactive`) or `javascript_tool`; never a screenshot (RULES.md,
+  "Claude in Chrome").
 - The CV version the plan chose, and the letter built today: `make_letter_pdf.py --company .. --role .. --body
   <body file> --variant "<CV variant>" --out-dir <letter folder>`. Claude in Chrome `file_upload` reads only files
   this session may read: copy both into the session's scratchpad and upload from there.
 - Every answer from the master record; a health, family or identity answer only from `PERSONAL_RECORD`, read by
-  the session that fills the form (never handed to a workflow agent that reads job pages). Anything
+  the session that fills the form (never handed to a screen-and-prepare agent; an applier's brief carries the ones its form asks for). Anything
   they do not answer goes to the Questions page with the job that needs it (`questions.py add`, RULES.md "Questions
   for the person"); a question no option of which is true is asked, never ticked.
 - The home address only in the form's own address fields, never in a file or a message.

@@ -1,6 +1,8 @@
 """Check that a person's job-search setup is healthy: the env file, folders, master record, CV versions, tracker.
 
 Usage: python -I check_setup.py [--env] [<job-search.env or main folder>]
+       python -I check_setup.py --needs [--env] [...]    the programs, connectors, sign-ins and answers the next run
+                                                         waits on, one line each (RULES.md, "Every run")
        (default: $JOB_SEARCH_ENV, else the job-search.env above the current folder; --env is optional, so the
        check runs the same way as every other script)
 Prints one line per check (OK / WARN / FAIL) and exits 1 if anything FAILs. It changes nothing.
@@ -16,9 +18,77 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import jsenv  # noqa: E402  (jsenv.py sits next to this script)
+from trackerlib import flat_jobs, login_of, waits_on_person  # noqa: E402
 
-given = [a for a in sys.argv[1:] if a != "--env"]
+given = [a for a in sys.argv[1:] if a not in ("--env", "--needs")]
 env = jsenv.load(given[0] if given else None, __file__)
+
+
+def needs():
+    """Programs, logins, connectors and answers a run waits on, from this computer and the records as last seen."""
+    unread = []
+
+    def records(key, inner):
+        try:
+            with open(env.path(key), encoding="utf-8") as f:
+                return json.load(f).get(inner, [])
+        except (FileNotFoundError, SystemExit, ValueError):
+            unread.append(key)
+            return []
+    logins = {r["id"]: r for r in records("LOGINS", "logins")}
+    fine = ("connected", "signed-in", "excluded")
+    lines = [f"install {what}: {detail}" for level, what, detail in programs() if level != "OK"]
+    lines += [f"connector {r.get('name') or r['id']}: {r.get('status')}" + (f"; {r['fix']}" if r.get("fix") else "")
+              for r in logins.values() if r.get("kind") == "connector" and r.get("status") not in fine]
+    try:
+        with open(env.path("TRACKER"), encoding="utf-8") as f:
+            jobs = flat_jobs(json.load(f))
+    except (FileNotFoundError, SystemExit, ValueError):
+        unread.append("TRACKER")
+        jobs = []
+    by_login, waiting = {}, {}
+    for job in jobs:
+        status = job.get("status") or ""
+        if status == "to-apply":
+            by_login.setdefault(login_of(job), []).append(job)
+        elif waits_on_person(status):
+            waiting[status] = waiting.get(status, 0) + 1
+    for login, planned in sorted(by_login.items()):
+        if logins.get(login, {}).get("status") not in fine:
+            lines.append(f"sign in to {login}: {len(planned)} planned, first {planned[0].get('company')}, {planned[0].get('title')}")
+    lines += [f"{n} job(s) wait: {status}" for status, n in sorted(waiting.items())]
+    questions = records("QUESTIONS", "questions")
+    open_questions = [q for q in (questions.values() if isinstance(questions, dict) else questions) if q.get("status") == "open"]
+    if open_questions:
+        lines.append(f"{len(open_questions)} open question(s) on the Questions page")
+    lines += [f"cannot read {key}: check it in job-search.env" for key in unread]
+    print("\n".join(lines) if lines else "nothing needed from the person")
+
+
+def programs():
+    """(level, what, detail) for each program the job search uses."""
+    chrome = env.get("CHROME")
+    chrome = chrome if chrome and os.path.exists(chrome) else (
+        next((c for c in (r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                          r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+                          "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome") if os.path.exists(c)), None)
+        or shutil.which("google-chrome") or shutil.which("chrome"))
+    drive = next((p for p in (r"C:\Program Files\Google\Drive File Stream", "/Applications/Google Drive.app") if os.path.exists(p)), None)
+    pypdf = importlib.util.find_spec("pypdf")
+    poppler = shutil.which("pdftoppm")
+    return [("OK" if chrome else "FAIL", "Google Chrome (prints CVs and letters to PDF, runs Claude in Chrome)",
+             chrome or "not found; install Chrome or set CHROME in job-search.env"),
+            ("OK" if drive else "WARN", "Google Drive for desktop (keeps the main folder in Drive and on this computer)",
+             drive or "not found; install it, or keep the main folder somewhere that is backed up"),
+            ("OK" if pypdf else "WARN", "pypdf (reads PDFs as text: old CVs, documents, each CV built)",
+             os.path.dirname(pypdf.origin) if pypdf else "not found; python -I -m pip install pypdf (setup, step 1)"),
+            ("OK" if poppler else "WARN", "Poppler pdftoppm (lets Claude see PDF pages as images)",
+             poppler or "not found; install Poppler (setup, step 1), then start a new session")]
+
+
+if "--needs" in sys.argv:
+    needs()
+    sys.exit(0)
 results = []
 REQUIRED_DIRS = ("RECORDS_DIR", "CVS_DIR", "CV_VERSIONS_DIR", "CERTIFICATES_DIR", "APPLICATIONS_DIR", "LETTERS_DIR",
                  "LETTER_BODIES_DIR")
@@ -53,23 +123,8 @@ if not os.path.isdir(env.home):
     sys.exit(1)
 
 report("OK" if sys.version_info >= (3, 10) else "FAIL", "Python 3.10 or newer", sys.version.split()[0])
-chrome = env.get("CHROME")
-chrome = chrome if chrome and os.path.exists(chrome) else (
-    next((c for c in (r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-                      r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-                      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome") if os.path.exists(c)), None)
-    or shutil.which("google-chrome") or shutil.which("chrome"))
-report("OK" if chrome else "FAIL", "Google Chrome (prints CVs and letters to PDF, runs Claude in Chrome)",
-       chrome or "not found; install Chrome or set CHROME in job-search.env")
-drive = next((p for p in (r"C:\Program Files\Google\Drive File Stream", "/Applications/Google Drive.app") if os.path.exists(p)), None)
-report("OK" if drive else "WARN", "Google Drive for desktop (keeps the main folder in Drive and on this computer)",
-       drive or "not found; install it, or keep the main folder somewhere that is backed up")
-pypdf = importlib.util.find_spec("pypdf")
-report("OK" if pypdf else "WARN", "pypdf (reads PDFs as text: old CVs, documents, each CV built)",
-       os.path.dirname(pypdf.origin) if pypdf else "not found; python -I -m pip install pypdf (setup, step 1)")
-poppler = shutil.which("pdftoppm")
-report("OK" if poppler else "WARN", "Poppler pdftoppm (lets Claude see PDF pages as images)",
-       poppler or "not found; install Poppler (setup, step 1), then start a new session")
+for level, what, detail in programs():
+    report(level, what, detail)
 
 for key in REQUIRED_DIRS + OPTIONAL_DIRS:
     if env.get(key):

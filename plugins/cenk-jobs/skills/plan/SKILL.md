@@ -1,6 +1,6 @@
 ---
 name: plan
-description: "Plan the applications: orders the cleared postings by deadline, fit and site, picks the CV and letter for each, and lists what only the person must do first. Use for 'plan my applications', 'what should I apply to today?', 'which CV for this job?', 'pianifica le candidature', 'başvurularımı planla'. Never sends."
+description: "Plan the applications: orders the cleared postings by deadline and fit, picks each CV and letter, lists what the person must do first. Use for 'plan my applications', 'what should I apply to today?', 'which CV for this job?', 'pianifica le candidature', 'başvurularımı planla'. Never sends."
 ---
 
 # Plan: which applications, in which order

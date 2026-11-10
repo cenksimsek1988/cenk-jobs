@@ -21,7 +21,7 @@ from html.parser import HTMLParser
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jsenv  # noqa: E402
-from trackerlib import companies  # noqa: E402
+from trackerlib import companies, expand_row  # noqa: E402
 
 args = sys.argv[1:]
 options = {}
@@ -179,6 +179,7 @@ for job_id in ids:
     if os.path.exists(target) and not force:
         print(job_id, "kept the existing job-description.md (--force replaces it)")
         continue
+    job = expand_row(env.path("TRACKER"), job)  # a split row: its prep is in the detail file
     prep = job.get("prep") or {}
     links = [u for u in (job.get("url"), job.get("apply_url"), prep.get("apply_url")) if u]
     head = body = source = ""

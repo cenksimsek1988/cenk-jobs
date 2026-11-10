@@ -5,25 +5,44 @@ description: "Find and screen job postings: searches job boards and company site
 
 # Search: find and screen postings
 
-Read `../../RULES.md` first. This skill only searches: it writes postings and their screening results into the
+Read `../../RULES.md` first, and `../../RULES/employers.md` before step 3. This skill only searches: it writes postings and their screening results into the
 tracker, and nothing is prepared or sent.
 
 ## Steps
 
 1. Read the person's rules from the master record: where they will work (cities, remote, relocation), the pay
    rule, the roles they want, the languages they work in, and `EMPLOYER_RULES`.
-2. Search the sources the person uses (the master record's search brief): job boards and their APIs, LinkedIn in
-   Chrome, company career sites. Keep only postings that match the roles and the location rule.
+2. `searches.py due` lists the saved searches due today. For each, the cheapest source that covers it, in this order.
+   Keep only postings that match the roles and the location rule; drop what the tracker has (`searches.py seen --file
+   <links file>`, one link per line, never typed into a command).
+   - Alert emails: Gmail `search_threads` with the row's `gmail` query, `pageSize` 10; open only messages newer than
+     the row's last check.
+   - Connectors: Indeed `search_jobs` and `get_job_details`; Develop21 `develop21_execute_job_search` (`list` with
+     `brief`, `check` to drop rows already seen).
+   - A job board's public JSON (the addresses in `workflows/screen-and-prepare.js`), or `fetch_jd.py`.
+   - A browser last, only for a search nothing else covers; never a screenshot (RULES.md, "Claude in Chrome").
+   After each: `searches.py done <id> found=<n>`.
 3. Check each employer: `employer.py check "<name>" ...`. "exclude": record the job as `excluded` with its category.
+   An "allow" employer whose `unknown` lists israel or defence goes to the screen too: in step 4, without `known`.
    "discuss": the employer goes to the Questions page with what was found and its source (`questions.py`, RULES.md
    "Questions for the person"); its jobs wait for the answer. Not excluded and `environment` is null: look up its
    employee reviews once (RULES.md, "Employer rules").
 4. Screen the rest with `workflows/screen-and-prepare.js` (Workflow tool): pass the search file, `known` (the checks
-   from step 3), `employerRules` (the rules file's content) and the master record. It checks every category, is the
+   from step 3), `employerRules` (the rules file's content), the master record and its two parts (`career_view.py screen --out <outDir>/screen.json` as `screenRecord`, `career_view.py facts --out
+   <outDir>/facts.json` as `factsRecord`; both are deleted after `track.py sync`). It checks every category, is the
    posting still open, the employer's own apply page (`apply_url`, checked by fetching it), the fit and the pay.
    Then `track.py sync <journal>`.
 5. Record every finding as found (RULES.md, "Employer rules"). Postings that closed: `track.py set <id> closed`.
 6. `build_app_folders.py` and the dashboard refresh.
+
+## Alerts
+
+One email alert per saved search, on each site that offers one, so the search is read from email in the background.
+- Each site needs the person's yes. Never create an account: a site without one is `alert=no`, checked on a schedule.
+- Create it once, signed in, with the site's own alert setting: in the built-in browser when the person has signed
+  in there, else in Chrome. Never through a tick-box on an application form.
+- Then record it. Example: `searches.py add LinkedIn "Backend engineer, remote" alert=yes
+  gmail="from:jobalerts-noreply@linkedin.com newer_than:2d"`. A site with no alerts: `alert=no every=7`.
 
 ## Report
 

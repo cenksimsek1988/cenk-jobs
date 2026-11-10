@@ -1,6 +1,6 @@
 ---
 name: setup
-description: "First run of the job search, once: checks programs and logins, creates the main folder and its settings, reads the person's CVs into one master record, builds CV versions, and creates and pins their two pages. Use for 'set up my job search', 'start using cenk-jobs', 'first run', 'iş aramamı kur'. Not for daily work."
+description: "First run of the job search, once: checks programs and logins, creates the main folder, reads the person's CVs into one master record, builds CV versions, creates and pins two pages. Use for 'set up my job search', 'start using cenk-jobs', 'first run', 'iş aramamı kur'. Not for daily work."
 ---
 
 # Setup: the first run
@@ -40,7 +40,7 @@ ask before moving on. Each step is safe to run again: it skips what is already t
 
 ## 2. Logins and connectors
 
-The health-check calls in RULES.md, and the person's LinkedIn signed in in Chrome. Help with each missing one, step
+The health-check calls in RULES/run.md, and the person's LinkedIn signed in in Chrome. Help with each missing one, step
 by step.
 
 ## 3. The main folder
@@ -56,7 +56,7 @@ Show the defaults and ask: "Use these defaults? You can change any of them later
 
 - The search runs every day at 19:00 your local time (`SEARCH_TIME`; `/cenk-jobs:schedule` changes it).
 - Optional consents stay off: newsletters, talent pools, job alerts, marketing, SMS, AI analysis of interviews,
-  extra data retention.
+  extra data retention. A job alert you say yes to for a site is the exception: it replaces repeat searches.
 - Open free-text questions, essays and self-ratings are never filled for you: they wait for you on your
   Questions page, with every other question your records do not answer. Each answer goes into your records, so it
   is asked once.

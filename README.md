@@ -96,7 +96,7 @@ you like.
 
 For bigger days, say **"start the job search coordinator"** (or `/cenk-jobs:coordinate`) in a session opened in your
 job-search folder. That session keeps your records and dashboard and starts one short session per piece of work (one
-site to apply on, one interview to prepare, one search sweep); each reports back to it, and it asks you before
+interview to prepare, one search sweep) and one subagent per application; each reports back to it, and it asks you before
 anything is sent.
 
 ## What Claude will and won't do
@@ -151,7 +151,9 @@ Upgrading from this repository's old catalog `cenk` (before 0.4.1) or a Google D
 ```
 .claude-plugin/marketplace.json          this repository's own catalog "cenk-jobs"
 plugins/cenk-jobs/.claude-plugin/plugin.json
-plugins/cenk-jobs/RULES.md               the rules every skill reads first
+plugins/cenk-jobs/RULES.md               the router every skill reads first, with the safety rules
+plugins/cenk-jobs/RULES/                 the parts of the rules, by audience
+plugins/cenk-jobs/agents/                one short tool list and model per workflow stage
 plugins/cenk-jobs/skills/<name>/SKILL.md setup, coordinate, search, plan, apply, prepare, schedule
 plugins/cenk-jobs/scripts/               check_setup, init_career_folder, build_cv, make_letter_pdf, track,
                                          logins, build_app_folders, fetch_jd, export_dashboard, jsenv (reads

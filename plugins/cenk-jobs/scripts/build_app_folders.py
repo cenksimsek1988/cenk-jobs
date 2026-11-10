@@ -50,13 +50,14 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import employerlib as el  # noqa: E402
 import jsenv  # noqa: E402
-from trackerlib import applied_on, companies, is_company_shape, load_settings, needs_of, note_key, waits_on_person  # noqa: E402
+from trackerlib import (applied_on, companies, expand, is_company_shape, load_settings, needs_of, note_key,  # noqa: E402
+                        waits_on_person)
 
 args = sys.argv[1:]
 env = jsenv.load(args[args.index("--env") + 1] if "--env" in args else None, __file__)
 out = env.path("APPLICATIONS_DIR")
 with open(env.path("TRACKER"), encoding="utf-8") as fh:
-    data = json.load(fh)
+    data = expand(json.load(fh), env.path("TRACKER"))  # a split tracker: every detail merged back (prep, ties, history)
 pipeline = {}
 if os.path.isfile(env.path("PIPELINE")):
     with open(env.path("PIPELINE"), encoding="utf-8") as fh:
