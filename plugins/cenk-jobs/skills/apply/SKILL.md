@@ -21,7 +21,9 @@ waits on the person.
 - Check the employer again if the last check is old (`employer.py check`).
 - The person must be signed in to the site. Ask them to tick "Keep me signed in" or "Remember me" where the site
   offers it, and to keep Chrome's "clear cookies when you close all windows" off.
-- Fill a site right after the person signs in: sign-ins expire within minutes when idle.
+- Fill a site right after the person signs in: sign-ins expire within minutes when idle. Workday can end the session
+  after about 25 minutes on one application: save each step as soon as it is filled, and check that the session is
+  still signed in before the next step.
 - Several applications at once: one `cenk-jobs:applier` subagent per application, started together, one tab each,
   at most `APPLY_PARALLEL` at once (default 2), never two on the same site. A subagent cannot ask the person: its
   brief holds every answer and names the CV and letter, already copied for upload; what it cannot do comes back as
@@ -34,13 +36,17 @@ waits on the person.
   "Claude in Chrome"). `javascript_tool` output shaped like `key=value; ...` is blocked as cookie data: return JSON
   (`JSON.stringify({...})`).
 - A dropdown built from `input[type=button]` keeps the choice in its `value` while its label still reads "Select
-  one": read the value, not the label.
+  one": read the value, not the label. Eightfold careers sites ignore a plain click on a dropdown option: dispatch
+  pointerdown, mousedown, pointerup, mouseup and click on the option element, in that order (`javascript_tool`).
 - LinkedIn Easy Apply fills screening answers saved from earlier applications (example: 3 years of a skill, where the
   record says 6): check every prefilled number against the record before Review. Its salary fields take a number
   only: `50000`, not "EUR 50,000 a year" ("Invalid input").
 - The CV version the plan chose, and the letter built today: `make_letter_pdf.py --company .. --role .. --body
   <body file> --variant "<CV variant>" --out-dir <letter folder>`. Claude in Chrome `file_upload` reads only files
-  this session may read: copy both into the session's scratchpad and upload from there.
+  this session may read: copy both into the session's scratchpad and upload from there. SuccessFactors: the visible
+  "Upload a CV" label does nothing; click the `span.addAttachments` icon with `javascript_tool`, and its in-page
+  dialog holds `input[type=file]` (name `fileData1`) for `file_upload`. Start the next upload only after the last one
+  has finished.
 - Every answer from the master record; a health, family or identity answer only from `PERSONAL_RECORD`, read by
   the session that fills the form (never handed to a screen-and-prepare agent; an applier's brief carries the ones its form asks for). Anything
   they do not answer goes to the Questions page with the job that needs it (`questions.py add`, RULES.md "Questions

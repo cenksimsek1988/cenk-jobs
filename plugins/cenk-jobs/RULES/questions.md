@@ -24,6 +24,16 @@ What an application needs and the records do not answer is asked once, on the pe
   <dir>`, delete the answers it lists, go on with the jobs it names and bring up each "discuss" in the chat. Then
   `questions.py build <dir> --page <dir>` (it also adds every employer the rules leave to the person), write each
   file into the page's `questions` and `status` collections, and delete the ids it lists.
+- `record` saves button answers at once; every typed answer comes under "read first", and Claude reads it. A plain
+  answer: `questions.py answer <id> "<answer>" typed="<their words>"`, its spelling and grammar fixed, its meaning and
+  facts unchanged; the record keeps their words. A question or remark to Claude (example: "did we already send
+  this?"): a reply in the chat, or on the page with
+  `questions.py note`; nothing is recorded and the question stays open. Then delete that answer on the page. A line
+  marked `[private]` (health, family, identity) goes only to `questions.py answer`: never into a note, a handoff, a
+  sub-session's brief or a report.
+- `build` closes a job question whose jobs all ended, with a note when one was sent (example: "Closed: the
+  application was sent on 2026-11-10; nothing to answer now."); with none sent (excluded, declined, skipped, closed,
+  failed), it drops it.
 - Every handled question gets a note saying what happened and stays on the page under Done until the first build
   after 7 days. When its
   job moves on, a new note: `questions.py note <id> "Submitted on 8 Nov; the confirmation is in Gmail."`.

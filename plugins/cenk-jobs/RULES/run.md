@@ -4,7 +4,7 @@ A part of `RULES.md`. Read when you run the health check, create or refresh the 
 
 ## Every run: health check and status
 
-After step 1: the handoff check (`coordinate`), then `check_setup.py --needs` as one list to the person (RULES.md, "Every run"), with what step 3 finds.
+After step 1: the handoff check and the shared-list update (`coordinate`), then `check_setup.py --needs` as one list to the person (RULES.md, "Every run"), with what step 3 finds.
 
 1. Say when the run starts: "Job-search run started at 21:05 (by hand); I'll tell you when it's done." Log it with
    `usage.py log run started "<by hand|scheduled>"`. At the end: "Run finished at 21:40." plus the short report,

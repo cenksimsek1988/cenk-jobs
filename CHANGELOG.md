@@ -6,6 +6,27 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.28.0] - 2026-11-11
+
+Lessons from the job-search sessions of 11 Nov 2026: apply sites and the Questions page.
+
+### Added
+
+- `apply`: SuccessFactors uploads a CV through the `span.addAttachments` icon (the "Upload a CV" label does nothing),
+  then the dialog's `input[type=file]` (`fileData1`), one upload at a time.
+- `apply`: an Eightfold dropdown option takes pointerdown, mousedown, pointerup, mouseup and click, in that order.
+- `apply`: Workday can end the session after about 25 minutes on one application: each step is saved as soon as it is
+  filled, and the sign-in is checked before the next step.
+- `questions.py build` ends a job question whose jobs all ended, so nobody answers it for nothing: `closed`, with a
+  note saying when, if one was sent; `dropped` if none was (excluded, declined, skipped, closed, failed).
+
+### Changed
+
+- The run order in `schedule`, `coordinate` and `RULES/run.md` names the shared-list update after the handoff check.
+- `questions.py record` records button answers at once and lists every typed answer under "read first": Claude reads
+  it, records a plain answer with `answer` (spelling and grammar fixed, meaning unchanged) and replies to a question
+  or remark ("did we already send this?") without recording it.
+
 ## [0.27.0] - 2026-11-11
 
 A new version of the shared blacklist reaches the person's own records.

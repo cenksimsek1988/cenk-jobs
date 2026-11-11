@@ -18,18 +18,23 @@ python -I questions.py build <out dir> [--page <dir>]
     the page's files: <out dir>/questions/<id>.json for each open question and each one done in the last 7 days
     (with its note), and <out dir>/status/run.json (when Claude last handled the page, and what). First adds the
     "Allow, or exclude?" questions from the person's employer rules (an employer whose finding is "discuss", with a
-    job not sent yet). --page <dir>: the page's questions as an ArtifactData list saved there (<dir>/questions/*.json):
+    job not sent yet), and ends each job question whose jobs all ended: closed, with a note saying when, if one was
+    sent; dropped if none was (excluded, declined, skipped, closed, failed). --page <dir>: the page's questions as an ArtifactData list saved there (<dir>/questions/*.json):
     prints the ids to delete on the page (done more than 7 days ago, or dropped).
 python -I questions.py record <answers dir>
-    the page's answers, an ArtifactData list of "answers" saved there (<dir>/answers/<id>.json): a decision goes to
+    the page's answers, an ArtifactData list of "answers" saved there (<dir>/answers/<id>.json). A typed answer (a
+    fact, or a job question without options) is not recorded: it is printed under "read first", and its question
+    stays open, for Claude to read it: a plain answer is recorded with answer (spelling and grammar fixed, meaning
+    unchanged), a question or remark to Claude is replied to. A button answer is recorded at once: a decision goes to
     employer.py decide (exclude: its jobs not sent yet become excluded), a fact into the master record's form_answers
     or PERSONAL_RECORD, a job answer into that job's prepared answers. Each handled question gets a note saying what
     happened (example: "Allowed: Acme is cleared by your decision; 1 job goes on.") and stays on the page as done.
     Prints the jobs that can go on and the answers to delete on the page. "discuss" (the middle button on every
     allow-or-exclude and yes-or-no question) records nothing: the question stays open with a note, and is printed
     under "discuss", for Claude to bring up with the person in the chat.
-python -I questions.py answer <id> "<answer>"
-    record one answer the person gave in the chat (example: after discussing it), the same way as record
+python -I questions.py answer <id> "<answer>" [typed="<their words>"]
+    record one answer the person gave in the chat (example: after discussing it), the same way as record;
+    typed=: a page answer Claude read and corrected (spelling, grammar): the record keeps their words and the page
 python -I questions.py note <id> "<text>"
     a new note on a question, to show how far its job got (example: "Submitted on 8 Nov; confirmation in Gmail.")
 Files: QUESTIONS (default apply/questions.json), PERSONAL_RECORD (default career-records/personal.json),
@@ -48,7 +53,8 @@ sys.path.insert(0, HERE)
 import jsenv  # noqa: E402
 from trackerlib import collapse_row, expand_row, flat_jobs, is_company_shape, json_indent  # noqa: E402
 
-DONE = ("submitted", "excluded", "skipped", "closed", "declined", "failed")
+DONE = ("submitted", "excluded", "skipped", "closed", "declined", "failed")  # job statuses
+HANDLED = ("answered", "closed")  # question statuses shown under Done
 KEEP_DONE_DAYS = 7  # a handled question stays on the page this long, with its note
 args = sys.argv[1:]
 env_args = []
@@ -150,14 +156,14 @@ def page_doc(q, jobs):
            "employer": q.get("employer", ""), "role": q.get("role", ""),
            "jobs": [job_label(jobs, j) for j in q.get("jobs", [])][:8], "personal": bool(q.get("personal")),
            "category": q.get("category_label", ""), "placeholder": q.get("placeholder", ""),
-           "open": q["status"] == "open", "done": q["status"] == "answered", "note": q.get("note", ""),
+           "open": q["status"] == "open", "done": q["status"] in HANDLED, "note": q.get("note", ""),
            "noted_at": q.get("noted_at", ""), "order": q.get("order", 0), "options": q.get("options", [])}
     return {k: v for k, v in doc.items() if v not in ("", [], None) or k in ("open", "personal", "done")}
 
 
 def recent(q):
     """A question done within KEEP_DONE_DAYS: it stays on the page with its note."""
-    if q["status"] != "answered" or not q.get("noted_at"):
+    if q["status"] not in HANDLED or not q.get("noted_at"):
         return False
     noted = datetime.datetime.fromisoformat(q["noted_at"].replace("Z", "+00:00"))
     return datetime.datetime.now(datetime.timezone.utc) - noted < datetime.timedelta(days=KEEP_DONE_DAYS)
@@ -174,7 +180,8 @@ def run(script, *argv):
 if not args or args[0] not in ("add", "list", "build", "record", "answer", "note"):
     sys.exit(__doc__)
 data = load(QUESTIONS, {"_about": "Questions for the person, asked once on their Questions page (questions.py). "
-                                  "status: open, answered (written into the records) or dropped.",
+                                  "status: open, answered (written into the records), closed (its jobs were sent "
+                                  "first) or dropped.",
                         "questions": {}})
 qs = data["questions"]
 
@@ -256,6 +263,19 @@ elif args[0] == "build":
     for qid, q in qs.items():
         if q["kind"] == "decision" and q["status"] == "open" and not q.get("manual") and q.get("employer") not in asked:
             q.update(status="dropped", dropped=today)
+    # A job question whose jobs all ended (the asks() rule: a DONE status or a PIPELINE row), so nobody answers it for
+    # nothing: closed with a note when one was sent, else dropped, like a decision nobody needs.
+    flat = flat_jobs(tracker)
+    sent = {j["id"]: j.get("applied") or "" for j in flat if j.get("status") == "submitted" or j["id"] in pipeline}
+    ended = set(sent) | {j["id"] for j in flat if j.get("status") in DONE}
+    for qid, q in qs.items():
+        if q["kind"] == "job" and q["status"] == "open" and q.get("jobs") and all(j in ended for j in q["jobs"]):
+            if any(j in sent for j in q["jobs"]):
+                when = max(sent.get(j, "") for j in q["jobs"]) or today
+                q.update(status="closed", closed=today, noted_at=now,
+                         note=f"Closed: the application was sent on {when}; nothing to answer now.")
+            else:
+                q.update(status="dropped", dropped=today)
     save(QUESTIONS, data)
     os.makedirs(os.path.join(out_dir, "questions"), exist_ok=True)
     os.makedirs(os.path.join(out_dir, "status"), exist_ok=True)
@@ -282,7 +302,9 @@ else:  # record, answer
     if len(args) < (3 if args[0] == "answer" else 2):
         sys.exit(__doc__)
     if args[0] == "answer":
-        given = [(args[1], args[2], "chat")]
+        # typed="<their words>": a page answer Claude read and corrected keeps its source and the person's wording.
+        typed = next((a.split("=", 1)[1] for a in args[3:] if a.startswith("typed=")), "")
+        given = [(args[1], args[2], "Questions page, read by Claude" if typed else "chat")]
     else:
         given = [(os.path.basename(f)[:-5], (load(f, {}) or {}).get("answer", ""), "Questions page")
                  for f in sorted(glob.glob(os.path.join(args[1], "answers", "*.json")))]
@@ -294,7 +316,7 @@ else:  # record, answer
                                          "identity): used only in forms, never in a CV, letter or shared file.",
                                "facts": {}})
     changed = {"tracker": False, "master": False, "personal": False}
-    go_on, delete, discuss = [], [], []
+    go_on, delete, discuss, read_first = [], [], [], []
     names = labels(tracker)
 
     def titles(ids):
@@ -338,7 +360,15 @@ else:  # record, answer
                 q.update(note="You chose Discuss: Claude brings it up with you in your main session.", noted_at=now)
             discuss.append(f"{qid} ({q.get('employer') or ', '.join(q.get('jobs', []))}: {q['text']})")
             continue
+        # Typed text is what the page shows as a reply box: no buttons (index.html), never a decision.
+        if source == "Questions page" and q["kind"] != "decision" and not q.get("options"):
+            # Typed text: Claude reads it first. A plain answer is recorded with answer, its spelling and grammar
+            # fixed; a question or remark to Claude ("did we already send this?") gets a reply, nothing recorded.
+            read_first.append(("[private] " if q.get("personal") else "") + f"{qid} | {q['text']} | {answer}")
+            continue
         entry = {"answer": answer, "date": today, "source": source}
+        if args[0] == "answer" and typed and typed != answer:
+            entry["typed"] = typed
         if q["kind"] == "decision":
             if answer not in ("allow", "exclude"):
                 print(f"{qid}: skipped (a decision is allow or exclude)")
@@ -420,3 +450,5 @@ else:  # record, answer
     print("go on with:", " ".join(go_on) or "none")
     print("delete these answers on the page (their questions stay as done; then run build):", " ".join(delete) or "none")
     print("discuss with the person:", "; ".join(discuss) or "none")
+    print("read first (record each plain answer with answer, spelling and grammar fixed; reply to a question):")
+    print("\n".join(read_first) or "none")

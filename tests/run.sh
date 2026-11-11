@@ -703,6 +703,39 @@ check "decide: the employer has the person's opinion from now on" q "$F" "employ
 employer record "Sigma Co" sanctions clear fact="not on the lists" source=https://example.com/s18 --person >/dev/null 2>&1
 check "record --person: a finding the person stated gives the employer their opinion" q "$F" "employers.Sigma Co.opinion" present
 
+# --- the Questions page: a job's question closes once it is sent; typed answers are read before they are recorded -------
+cp -R "$T/flat" "$T/qp"
+use "$T/qp"
+questions add job "Why do you want to join?" job=F1 >/dev/null 2>&1
+track set F1 submitted "sent in the test" >/dev/null 2>&1
+questions build "$T/qp-out" >/dev/null 2>&1
+QF="$H/apply/questions.json"
+check "build: a job question whose job was sent is closed, with a note" sh -c '
+    "$1" -I "$2/q.py" "$3" "questions.job-f1-why-do-you-want-to-join.status" eq closed &&
+    grep -q "Closed: the application was sent on" "$3" && [ -f "$4/questions/job-f1-why-do-you-want-to-join.json" ]' _ "$PY" "$T" "$QF" "$T/qp-out"
+questions add job "What would you change first?" job=F2 >/dev/null 2>&1
+track set F2 excluded "employer excluded in the test" >/dev/null 2>&1
+questions build "$T/qp-out" >/dev/null 2>&1
+check "build: a job question whose job ended unsent is dropped" q "$QF" "questions.job-f2-what-would-you-change-first.status" eq dropped
+questions add fact "What is your notice period?" key=notice_period job=F2 >/dev/null 2>&1
+mkdir -p "$T/qp-ans/answers"
+echo '{"answer": "did we already send this?"}' >"$T/qp-ans/answers/fact-notice-period.json"
+questions record "$T/qp-ans" >"$T/qp-rec.out" 2>&1
+check "record: a typed answer is read first, never recorded as it is" sh -c '
+    "$1" -I "$2/q.py" "$3" "questions.fact-notice-period.status" eq open && grep -q "^fact-notice-period | " "$4" &&
+    "$1" -I "$2/q.py" "$5/career-records/career.json" form_answers.notice_period eq "1 month"' _ "$PY" "$T" "$QF" "$T/qp-rec.out" "$H"
+questions add fact "Do you need any adjustments for the interview?" key=adjustments personal=yes job=F2 >/dev/null 2>&1
+echo '{"answer": "none needed"}' >"$T/qp-ans/answers/fact-adjustments.json"
+questions record "$T/qp-ans" >"$T/qp-rec2.out" 2>&1
+check "record: a private typed answer is marked [private] under read first" grep -q "^\[private\] fact-adjustments | " "$T/qp-rec2.out"
+questions answer fact-adjustments "None needed." typed="none needed" >/dev/null 2>&1
+check "answer typed=: the corrected answer keeps the person's words and the page as its source" sh -c '
+    "$1" -I "$2/q.py" "$3/career-records/personal.json" facts.adjustments.answer eq "None needed." &&
+    "$1" -I "$2/q.py" "$3/career-records/personal.json" facts.adjustments.typed eq "none needed" &&
+    "$1" -I "$2/q.py" "$3/career-records/personal.json" facts.adjustments.source eq "Questions page, read by Claude"' _ "$PY" "$T" "$H"
+questions answer fact-notice-period "One month." >/dev/null 2>&1
+check "answer: the answer Claude read and checked is recorded" q "$H/career-records/career.json" form_answers.notice_period.answer eq "One month."
+
 # --- searches ------------------------------------------------------------------------------------------------------------------
 use "$T/flat"
 searches add LinkedIn "Java lead, remote" alert=yes gmail="from:alerts@example.com newer_than:2d" >"$T/s1.out" 2>&1

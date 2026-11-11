@@ -45,7 +45,7 @@ A session cannot be moved under a new coordinator: it is reached by message, and
   `build_app_folders.py`), the calendar category, the dashboard and the Questions page. Sub-sessions report; the coordinator records. Why: the files sync through Google Drive, and two
   sessions writing one file lose each other's changes.
 - Never changes the plugin (RULES.md, "The plugin's own files"): a lesson is one line in `plugin-lessons.md`.
-- Each run: "run started", the handoff check, `check_setup.py --needs`, the health check, then the pieces of the day (`/cenk-jobs:schedule` lists the order),
+- Each run: "run started", the handoff check, the shared-list update, `check_setup.py --needs`, the health check, then the pieces of the day (`/cenk-jobs:schedule` lists the order),
   one sub-session per piece; "run finished" and the short report at the end.
 - Each run, before the pieces: read the Questions page's answers and record them (`questions.py record`, RULES.md
   "Questions for the person"), so the jobs they free go on in this run; bring up every "Discuss" in the chat. After
