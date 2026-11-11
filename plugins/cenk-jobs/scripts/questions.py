@@ -136,8 +136,8 @@ def asks(tracker, pipeline):
             s = rule_set["categories"].get(cat)
             if k.get("status") != "flagged" or s is None:
                 continue
-            level = k.get("level", "direct")
-            if (s.get("action", "discuss") if level == "direct" else s.get("indirect", "discuss")) == "discuss":
+            level = el.level_of(k)  # the second check's own level when there is one
+            if level != "none" and el.act_for(s, level) == "discuss":
                 found.append({"cat": cat, "label": s.get("label", cat), "level": level, "fact": k.get("fact", ""),
                               "source": k.get("source_url", "")})
         if found:

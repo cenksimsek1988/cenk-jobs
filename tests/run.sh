@@ -494,6 +494,127 @@ check "two long names that differ only after the cut get two folders" sh -c '[ "
 check "a reserved Windows name gets a writable folder" sh -c '[ -f "$1/apply/employers/NUL-x/checks.json" ]' _ "$H"
 check "no folder name ends in a dot" sh -c '[ -z "$(ls "$1/apply/employers" | grep "[.]$")" ]' _ "$H"
 
+# --- employer levels: the plugin's levels, the second check against the person's own rules, running applications ------------
+cp -R "$T/old" "$T/lv"
+use "$T/lv"
+echo "EMPLOYER_RULES=apply/employer-rules.json" >>"$H/job-search.env"
+cat >"$H/apply/employer-rules.json" <<'EOF'
+{"categories": {"defence": {"what": "OLD WHAT", "action": "exclude", "indirect": "warn",
+                            "notes": "a defence product sold with no customer named counts as sold to armed forces"},
+                "israel": {"label": "Ties to Israel", "what": "OLD WHAT", "action": "discuss", "indirect": "allow"}},
+ "changes": []}
+EOF
+cat >"$H/apply/employer-checks.json" <<'EOF'
+{"employers": {
+ "Acme Corp": {"checks": {"defence": {"status": "flagged", "level": "indirect", "fact": "Acme sells its planning tool to an army",
+                                      "source_url": "https://example.com/d1", "checked": "2026-11-01"}},
+               "verdict": "allow", "verdict_date": "2026-11-01"},
+ "Delta Inc": {"checks": {"defence": {"status": "flagged", "level": "direct", "fact": "Delta builds drones",
+                                      "source_url": "https://example.com/d2", "checked": "2026-11-01"}},
+               "verdict": "allow", "verdict_date": "2026-11-01"}}}
+EOF
+cat >"$H/apply/targets.json" <<'EOF'
+{"jobs": [{"id": "R1", "company": "Acme Corp", "title": "Engineer", "url": "https://example.com/r1", "status": "submitted"},
+          {"id": "R2", "company": "Delta Inc", "title": "Analyst", "url": "https://example.com/r2", "status": "submitted"}]}
+EOF
+echo '{"R2": {"stage": "rejected", "date": "2026-11-05"}}' >"$H/apply/pipeline.json"
+# setrule <field> <value>: the person changes one field of their defence category
+setrule() {
+    "$PY" -I -c 'import json, sys
+p = sys.argv[1]
+d = json.load(open(p, encoding="utf-8"))
+d["categories"]["defence"][sys.argv[2]] = sys.argv[3]
+json.dump(d, open(p, "w", encoding="utf-8"))' "$H/apply/employer-rules.json" "$1" "$2"
+}
+employer rules >"$T/lv-rules.json" 2>&1
+check "rules: a shared category's what and levels are the plugin's, not the person's copy" sh -c '
+    "$1" -I "$2/q.py" "$3" categories.defence.what ne "OLD WHAT" && "$1" -I "$2/q.py" "$3" categories.defence.levels.none present' _ "$PY" "$T" "$T/lv-rules.json"
+check "rules: israel is a state category with the state levels" sh -c '
+    "$1" -I "$2/q.py" "$3" categories.israel.state eq Israel && "$1" -I "$2/q.py" "$3" categories.israel.levels.none present &&
+    "$1" -I "$2/q.py" "$3" categories.israel.what ne "OLD WHAT" && "$1" -I "$2/q.py" "$3" categories.israel.label eq "Ties to Israel"' _ "$PY" "$T" "$T/lv-rules.json"
+check "rules: the person's actions and notes stay theirs" sh -c '
+    "$1" -I "$2/q.py" "$3" categories.defence.action eq exclude && "$1" -I "$2/q.py" "$3" categories.defence.notes present' _ "$PY" "$T" "$T/lv-rules.json"
+employer check "Acme Corp" >"$T/lv-c1.json" 2>&1
+check "check: a finding in a category with notes has its second check due" q "$T/lv-c1.json" 0.recheck.0 eq defence
+check "check: while a second check is due, an indirect tie set to warn is discuss, never allow" q "$T/lv-c1.json" 0.verdict eq discuss
+employer own "Acme Corp" defence direct why="unnamed defence customers count as armed forces" >/dev/null 2>&1
+F="$H/apply/employer-checks.json"
+check "own: the level for the person sits beside the finding, which stays as found" sh -c '
+    "$1" -I "$2/q.py" "$3" "employers.Acme Corp.checks.defence.own_level" eq direct &&
+    "$1" -I "$2/q.py" "$3" "employers.Acme Corp.checks.defence.level" eq indirect' _ "$PY" "$T" "$F"
+employer check "Acme Corp" >"$T/lv-c2.json" 2>&1
+check "own: the verdict uses the person's level (direct, set to exclude), and nothing is due" sh -c '
+    "$1" -I "$2/q.py" "$3" 0.verdict eq exclude && "$1" -I "$2/q.py" "$3" 0.recheck len 0' _ "$PY" "$T" "$T/lv-c2.json"
+employer record "Acme Corp" defence flagged level=indirect fact="Acme sells its planning tool to an army" source=https://example.com/d1 >/dev/null 2>&1
+check "record: the same finding again keeps its second check" q "$F" "employers.Acme Corp.checks.defence.own_level" eq direct
+employer record "Acme Corp" defence flagged level=indirect fact="Acme sells a planning tool to two armies" source=https://example.com/d3 >/dev/null 2>&1
+check "record: a new finding drops the old second check, so it is due again" sh -c '
+    "$1" -I "$2/q.py" "$3" "employers.Acme Corp.checks.defence.own_level" absent &&
+    "$1" -I "$2/q.py" "$3" "employers.Acme Corp.checks.defence.history.0.own_level" eq direct' _ "$PY" "$T" "$F"
+employer own "Acme Corp" defence none why="a general product" >/dev/null 2>&1
+employer check "Acme Corp" >"$T/lv-c3.json" 2>&1
+check "own none: the finding is not counted for the person" sh -c '
+    "$1" -I "$2/q.py" "$3" 0.verdict eq allow && grep -q "not counted" "$3"' _ "$PY" "$T" "$T/lv-c3.json"
+check "own: the second check keeps the fingerprint of the notes it judged against" q "$F" "employers.Acme Corp.checks.defence.own_rules" len 12
+setrule indirect allow
+setrule notes "a defence product  sold with no customer named counts as sold to armed forces"
+employer check "Acme Corp" >"$T/lv-c4.json" 2>&1
+check "a change to a category's indirect setting, or to the spaces in its notes, leaves its second check as it is" q "$T/lv-c4.json" 0.recheck len 0
+setrule notes "a defence product sold with no customer named counts as sold to its armed forces"
+employer check "Acme Corp" >"$T/lv-c5.json" 2>&1
+check "a change to a category's notes makes its second check due again" q "$T/lv-c5.json" 0.recheck.0 eq defence
+employer recheck-running >"$T/lv-r1.json" 2>&1
+check "recheck-running: lists a running application whose second check is due; an ended one never" sh -c '
+    "$1" -I "$2/q.py" "$3" 0.employer eq "Acme Corp" && "$1" -I "$2/q.py" "$3" 0.recheck.0 eq defence &&
+    "$1" -I "$2/q.py" "$3" "" len 1' _ "$PY" "$T" "$T/lv-r1.json"
+check "recheck-running: while the second check is due the saved verdict is discuss" q "$F" "employers.Acme Corp.verdict" eq discuss
+employer own "Acme Corp" defence direct why="unnamed defence customers count as armed forces" >/dev/null 2>&1
+employer recheck-running >"$T/lv-r2.json" 2>&1
+check "recheck-running: a verdict that moved to exclude is listed with its running job" sh -c '
+    "$1" -I "$2/q.py" "$3" 0.now eq exclude && "$1" -I "$2/q.py" "$3" 0.saved eq discuss && "$1" -I "$2/q.py" "$3" 0.jobs.0.id eq R1' _ "$PY" "$T" "$T/lv-r2.json"
+check "recheck-running: the moved verdict is saved" q "$F" "employers.Acme Corp.verdict" eq exclude
+employer recheck-running >"$T/lv-r3.out" 2>&1
+check "recheck-running: the next run lists it only when it moves again" grep -q "nothing moved" "$T/lv-r3.out"
+"$PY" -I "$S/usage.py" report --out "$T/lv-report.json" --env "$ENVF" >/dev/null 2>&1
+"$PY" -I "$S/employer.py" merge --from-checks --into "$T/lv-blacklist.json" --env "$ENVF" >/dev/null 2>&1
+check "the second check never leaves the person's files: not in the usage report, not in a merge" sh -c '
+    [ -s "$1" ] && [ -s "$2" ] && grep -q "Acme sells" "$1" && grep -q "Acme sells" "$2" && ! grep -q "own_" "$1" && ! grep -q "own_" "$2"' _ "$T/lv-report.json" "$T/lv-blacklist.json"
+cp -R "$T/old" "$T/lv-sync"
+use "$T/lv-sync"
+echo "EMPLOYER_RULES=apply/employer-rules.json" >>"$H/job-search.env"
+cp "$T/lv/apply/employer-rules.json" "$H/apply/employer-rules.json"
+cat >"$H/apply/employer-checks.json" <<'EOF'
+{"employers": {"Epsilon Co": {"checks": {"defence": {"status": "flagged", "level": "indirect", "fact": "Epsilon sells software to an army",
+                                                     "source_url": "https://example.com/e9", "checked": "2026-11-01"}},
+                              "verdict": "discuss", "verdict_date": "2026-11-01"}}}
+EOF
+cat >"$T/lv-journal.jsonl" <<'EOF'
+{"type": "started", "agentId": "b1", "label": "excl-screen:Acme Corp"}
+{"type": "result", "agentId": "b1", "result": {"verdict": "allow", "hits": [], "ties": [], "notes": "", "checks": [{"category": "defence", "status": "flagged", "level": "indirect", "fact": "Acme sells its planning tool to an army", "source_url": "https://example.com/d1"}, {"category": "climate", "status": "flagged", "level": "direct", "fact": "Acme was fined for dumping waste", "source_url": "https://example.com/c1"}]}}
+{"type": "started", "agentId": "b2", "label": "excl-own:Acme Corp"}
+{"type": "result", "agentId": "b2", "result": {"checks": [{"category": "defence", "own_level": "direct", "why": "unnamed defence customers count as armed forces"}, {"category": "climate", "own_level": "none", "why": "not due: climate has no notes"}], "notes": ""}}
+{"type": "started", "agentId": "b3", "label": "excl-own:Epsilon Co"}
+{"type": "result", "agentId": "b3", "result": {"checks": [{"category": "defence", "own_level": "none", "why": "a general product"}], "notes": ""}}
+{"type": "started", "agentId": "b4", "label": "excl-screen:Gamma Inc"}
+{"type": "result", "agentId": "b4", "result": {"verdict": "allow", "hits": [], "ties": [], "notes": "", "checks": [{"category": "defence", "status": "flagged", "level": "indirect", "fact": "Gamma sells software to an army", "source_url": "https://example.com/g1"}]}}
+EOF
+track sync "$T/lv-journal.jsonl" >"$T/lv-sync.out" 2>&1
+check "sync: the second check's level is recorded beside the finding and decides the verdict" sh -c '
+    "$1" -I "$2/q.py" "$3/apply/employer-checks.json" "employers.Acme Corp.checks.defence.own_level" eq direct &&
+    "$1" -I "$2/q.py" "$3/apply/employer-checks.json" "employers.Acme Corp.checks.defence.level" eq indirect &&
+    "$1" -I "$2/q.py" "$3/apply/targets.json" "companies.name=Acme Corp.verdict" eq exclude' _ "$PY" "$T" "$H"
+check "sync: a known employer's second check alone is recorded, and its verdict follows it" sh -c '
+    "$1" -I "$2/q.py" "$3/apply/employer-checks.json" "employers.Epsilon Co.checks.defence.own_level" eq none &&
+    "$1" -I "$2/q.py" "$3/apply/targets.json" "companies.name=Epsilon Co.verdict" eq allow' _ "$PY" "$T" "$H"
+check "sync: a second-check result for a category with no notes of the person's is ignored" sh -c '
+    "$1" -I "$2/q.py" "$3/apply/employer-checks.json" "employers.Acme Corp.checks.climate.status" eq flagged &&
+    "$1" -I "$2/q.py" "$3/apply/employer-checks.json" "employers.Acme Corp.checks.climate.own_level" absent' _ "$PY" "$T" "$H"
+check "sync: a finding whose second check did not run is discuss, never allow" sh -c '
+    "$1" -I "$2/q.py" "$3/apply/targets.json" "companies.name=Gamma Inc.verdict" eq discuss &&
+    "$1" -I "$2/q.py" "$3/apply/employer-checks.json" "employers.Gamma Inc.verdict" eq discuss' _ "$PY" "$T" "$H"
+check "withdrawal template: a version with the reason and one without it" sh -c '
+    grep -q "^With the reason:" "$1" && grep -q "^Without the reason" "$1"' _ "$S/../templates/withdrawal-email.txt"
+
 # --- searches ------------------------------------------------------------------------------------------------------------------
 use "$T/flat"
 searches add LinkedIn "Java lead, remote" alert=yes gmail="from:alerts@example.com newer_than:2d" >"$T/s1.out" 2>&1

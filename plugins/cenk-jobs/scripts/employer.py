@@ -8,6 +8,19 @@ python -I employer.py check "<name>" ["<name>" ...] [--full]
                                                         employers the name may be (a possible match is "discuss"
                                                         until alias or alias --not settles it). Opens only that
                                                         employer's checks.json; --full adds environment and history.
+                                                        recheck: categories whose second check against the person's
+                                                        own rules (their notes) is due; "allow" is "discuss" until
+                                                        it is done
+python -I employer.py own "<name>" <category> <direct|indirect|none> [why="..."]
+                                                        the second check of a finding under the person's own rules
+                                                        (their notes): the level for them and the rule it meets,
+                                                        beside the finding, which stays as found; none = not counted
+python -I employer.py recheck-running                   every employer with a running application (sent, not
+                                                        rejected, closed or declined), judged again: prints those
+                                                        whose verdict moved to exclude or discuss, or whose second
+                                                        check is due, and saves each moved verdict
+python -I employer.py rules                             the person's rules as they apply: their file filled from the
+                                                        plugin's (levels, state category, what); for the workflow
 python -I employer.py alias "<saved name>" "<other name>"   the other name finds the saved employer from now on
                                                         (its keys go into names.json); refused when one of its
                                                         keys already points to another employer
@@ -38,8 +51,8 @@ python -I employer.py merge --from-checks [--into <blacklist.json>]
                                                         for the plugin's developer: merge their own EMPLOYER_CHECKS
                                                         (every sourced finding, direct and indirect; never their
                                                         decisions) into the shared list
-Categories: israel, defence, animal_cruelty, climate, sexism, human_rights, working_conditions, sanctions, and the
-person's own filters ("custom": true in their EMPLOYER_RULES).
+Categories: israel (a state category), defence, animal_cruelty, climate, sexism, human_rights, working_conditions,
+sanctions, and the person's own filters ("custom": true in their EMPLOYER_RULES; another state has "state").
 The summary file EMPLOYER_CHECKS keeps per employer the verdict, decisions and a status per category; the facts sit
 in the employer's detail files (employerlib.py describes the layout). EMPLOYERS_DIR (job-search.env) is their folder.
 Add --env <job-search.env> anywhere to pick the env file (merge needs none).
@@ -52,7 +65,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import employerlib as el  # noqa: E402
 import jsenv  # noqa: E402
-from trackerlib import expand_company, json_indent  # noqa: E402
+from trackerlib import expand_company, flat_jobs, json_indent  # noqa: E402
 
 args = sys.argv[1:]
 env_arg = None
@@ -70,7 +83,7 @@ not_flag = "--not" in args
 args = [a for a in args if a != "--not"]
 IMPORTED_UNKNOWN = "imported from an older tracker: no fact or source recorded"
 if not args or args[0] not in ("check", "record", "environment", "decide", "repair-clear", "import-tracker", "merge",
-                               "alias", "split"):
+                               "alias", "split", "own", "recheck-running", "rules"):
     sys.exit(__doc__)
 cmd = args[0]
 
@@ -175,6 +188,20 @@ if cmd == "check":
     employers = el.checks_file(env).get("employers", {})  # the summary, read once for every name
     out = [el.check_view(env, name, rule_set, full_flag, employers) for name in args[1:]]
     print(json.dumps(out, ensure_ascii=False, indent=1))
+elif cmd == "rules":
+    print(json.dumps(el.rules(env), ensure_ascii=False, indent=1))
+elif cmd == "own":
+    if len(args) < 4:
+        sys.exit(__doc__)
+    if args[2] not in el.categories(env):
+        sys.exit(f"category must be one of {', '.join(el.categories(env))}")
+    check = el.set_own(env, args[1], args[2], args[3], pairs(args[4:]).get("why", ""))
+    print(args[1], args[2], "found", check.get("level", "direct"), "-> for the person", check["own_level"])
+elif cmd == "recheck-running":
+    tracker_path = env.path("TRACKER") if env.get("TRACKER") else ""
+    pipeline_path = env.path("PIPELINE") if env.get("PIPELINE") else ""
+    rows = el.recheck_running(env, flat_jobs(el.load_json(tracker_path, {})), el.load_json(pipeline_path, {}))
+    print(json.dumps(rows, ensure_ascii=False, indent=1) if rows else "nothing moved: no running application needs the person")
 elif cmd == "alias":
     if len(args) != 3:
         sys.exit(__doc__)

@@ -1,7 +1,9 @@
 Withdrawal mail for an employer the person's rules exclude, once the person applied and the employer wrote beyond an
-automatic confirmation (an invitation, a task, a recruiter's mail) or offered a job (RULES.md, "Employer rules").
-Claude fills the fields, writes a Gmail draft to the sender (a no-reply sender: the address RULES.md names), and the
-person sends it. Everything above the line of dashes is for Claude; the draft starts at "Subject:".
+automatic confirmation (an invitation, a task, a recruiter's mail) or offered a job (RULES/employers.md). A mail is
+optional: first ask the person whether to send one at all and whether to give the reason. Two versions below: with
+the reason and without it (facts only). Claude fills the fields, writes a Gmail draft to the sender (a no-reply
+sender: the address RULES/employers.md names), and the person sends it. Everything above the first line of dashes is
+for Claude; each version starts at "Subject:".
 
 Fields:
 - {greeting}: "Dear <recruiter's name>," and a blank line when the mail names a recruiter; otherwise nothing.
@@ -11,12 +13,14 @@ Fields:
 - {next_step}: the step they invited to, with the role when known. Example: do the one-way interview for the Team
   Lead position. No step yet: leave out ", and I will not {next_step}".
 - {fact}: from the employer's check (EMPLOYER_CHECKS or data/blacklist.json), never stronger than its source, and
-  naming the source. One sentence; two findings in one category may share it, joined by "and".
-- {subject_reason} and {rule_line}: from the table below, for the category that excluded the employer.
+  naming the source. One sentence; two findings in one category may share it, joined by "and". With the reason only.
+- {subject_reason} and {rule_line}: from the table below, for the category that excluded the employer. With the
+  reason only.
 - {full_name}: the person's name from the master record.
 
 Per category ({subject_reason} | {rule_line}):
 - israel: I do not work for companies tied to Israel's occupation | I do not work for companies with ties to Israel's occupation or military.
+- another state category: I do not work for companies tied to the state of <state> | I do not work for companies with ties to the state of <state>.
 - defence: I do not work for suppliers of the military | I do not work for the defence industry, and I will not work for a company that sells to it.
 - animal_cruelty: I do not work for companies that harm animals | I do not work for companies with a record of animal cruelty.
 - climate: I do not work for companies that cause serious environmental harm | I do not work for companies with a record of serious environmental harm.
@@ -32,11 +36,23 @@ Rules:
 - A recruiter reached only on LinkedIn: tell the person to paste the same text there; Claude sends nothing.
 - Show the draft (recipient, subject, body) in the chat as well as in Gmail.
 ------------------------------------------------------------------------------------------------------------------
+With the reason:
+
 Subject: I withdraw from {employer}: {subject_reason}
 
 {greeting}I withdraw my application to {employer}, for every role I applied to{roles}, and I will not {next_step}.
 
 The reason is ethical. {fact} {rule_line}
+
+Do not route me to any other role.
+
+{full_name}
+------------------------------------------------------------------------------------------------------------------
+Without the reason (facts only):
+
+Subject: I withdraw my application to {employer}
+
+{greeting}I withdraw my application to {employer}, for every role I applied to{roles}, and I will not {next_step}.
 
 Do not route me to any other role.
 

@@ -30,6 +30,8 @@ tracker, and nothing is prepared or sent.
    `createdAt` (Lever).
 3. Check each employer: `employer.py check "<name>" ...`. "exclude": record the job as `excluded` with its category.
    An "allow" employer whose `unknown` lists israel or defence goes to the screen too: in step 4, without `known`.
+   A `recheck` list (a second check against the person's own rules is due) sends it to step 4 with `known` and
+   `own` (those categories), before any question about it.
    "discuss": the employer goes to the Questions page with what was found and its source (`questions.py`, RULES.md
    "Questions for the person"); its jobs wait for the answer. Not excluded and `has_environment` is false: look up its
    employee reviews once (RULES.md, "Employer rules").
@@ -38,10 +40,10 @@ tracker, and nothing is prepared or sent.
    unsure: the job waits (`track.py set <id> needs-person`) and the main session asks the person in the chat, since
    `questions.py add decision` needs a category. Example: "Examplia" against the saved "Examplia Internet GmbH".
 4. Screen the rest with `workflows/screen-and-prepare.js` (Workflow tool): pass the search file, `known` (the checks
-   from step 3), `employerRules` (the rules file's content), the master record and its two parts (`career_view.py screen --out <outDir>/screen.json` as `screenRecord`, `career_view.py facts --out
+   from step 3), `employerRules` (the output of `employer.py rules`), the master record and its two parts (`career_view.py screen --out <outDir>/screen.json` as `screenRecord`, `career_view.py facts --out
    <outDir>/facts.json` as `factsRecord`; both are deleted after `track.py sync`). It checks every category, is the
    posting still open, the employer's own apply page (`apply_url`, checked by fetching it), the fit and the pay.
-   Then `track.py sync <journal>`.
+   Then `track.py sync <journal>`, and `employer.py recheck-running` (RULES/employers.md, "Running applications").
 5. Record every finding as found (RULES.md, "Employer rules"). Postings that closed: `track.py set <id> closed`.
 6. `build_app_folders.py` and the dashboard refresh.
 

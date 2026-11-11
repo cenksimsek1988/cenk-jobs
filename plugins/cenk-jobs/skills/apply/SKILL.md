@@ -11,7 +11,9 @@ waits on the person.
 
 ## Before filling
 
-- Check the posting is still open and its link lands on the employer's own form (RULES.md, "Links").
+- Check the posting is still open and its link lands on the employer's own form (RULES.md, "Links"). A
+  SuccessFactors apply link (`talentcommunity/apply/<id>`) opens the site's home page when signed out: not a closed
+  posting; open the job's own page.
 - Check the form before writing a letter: many have no letter field (often Workable, Rippling, HiBob, Ashby, Lever).
   Ashby keeps no draft, so a form with an essay question waits until the person's answer is in the records.
 - Check the employer again if the last check is old (`employer.py check`).
@@ -27,7 +29,13 @@ waits on the person.
 ## Filling
 
 - Read a form with `find`, `read_page` (`filter: interactive`) or `javascript_tool`; never a screenshot (RULES.md,
-  "Claude in Chrome").
+  "Claude in Chrome"). `javascript_tool` output shaped like `key=value; ...` is blocked as cookie data: return JSON
+  (`JSON.stringify({...})`).
+- A dropdown built from `input[type=button]` keeps the choice in its `value` while its label still reads "Select
+  one": read the value, not the label.
+- LinkedIn Easy Apply fills screening answers saved from earlier applications (example: 3 years of a skill, where the
+  record says 6): check every prefilled number against the record before Review. Its salary fields take a number
+  only: `50000`, not "EUR 50,000 a year" ("Invalid input").
 - The CV version the plan chose, and the letter built today: `make_letter_pdf.py --company .. --role .. --body
   <body file> --variant "<CV variant>" --out-dir <letter folder>`. Claude in Chrome `file_upload` reads only files
   this session may read: copy both into the session's scratchpad and upload from there.
@@ -39,6 +47,7 @@ waits on the person.
 - A form that waits on the person (RULES.md, "Applications"): stop on that page and put the field in Do now. If
   the step expires (an emailed or SMS code, a CAPTCHA, a Submit waiting for their yes, a sign-in page), send one
   notification at once (RULES.md, "Urgent steps"), "At your PC:" or "From your phone:", and keep the tab open.
+  A Submit answered by "The captcha is invalid." means an invisible CAPTCHA ran: a CAPTCHA stop.
 - A site that sends a one-time code on Submit (example: Greenhouse's emailed security code): fill everything, then
   press Submit while the person is active (they wrote in any job-search session in the last 15 minutes) or has said
   they are at the PC, and pass the code request on at once ("At your PC: type the code Acme just emailed").

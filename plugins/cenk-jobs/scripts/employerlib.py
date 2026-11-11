@@ -1,15 +1,19 @@
 """Employer rules, the shared blacklist and the person's own employer checks; used by employer.py, usage.py and
 track.py.
 
-Categories (templates/employer-rules.json): israel, defence, animal_cruelty, climate, sexism, human_rights,
-working_conditions, sanctions, plus the person's own filters (a category with "custom": true in their rules).
-A check is {status, level, fact, source_url, checked}:
-  status  flagged (a crime-level finding with its source) | clear (checked, nothing found) | unknown (not checked)
-  level   direct (the employer, its corporate group or its majority owner) | indirect (a minority investor, an
-          investor's other holdings, a partner or a customer)
+Categories (templates/employer-rules.json): israel (a state category: "state": "Israel"), defence, animal_cruelty,
+climate, sexism, human_rights, working_conditions, sanctions, plus the person's own filters (a category with
+"custom": true in their rules; another state is one with "state").
+A check is {status, level, fact, source_url, checked} as found, plus the second check's own_level, own_why,
+own_checked and own_rules (the fingerprint of the notes it was judged against) when the person's rules for the
+category (its notes) judged it:
+  status     flagged (a crime-level finding with its source) | clear (checked, nothing found) | unknown (not checked)
+  level      direct | indirect, by the plugin's levels for the category (its levels, else the general ones)
+  own_level  direct | indirect | none: the level under the person's own rules; none = not counted for them. It never
+             leaves the person's files (the usage report and merge copy only the fields as found).
 What a flagged check does comes from the person's EMPLOYER_RULES: action for a direct tie (exclude | discuss |
 allow), indirect for an indirect one (discuss | warn | allow). The default is "discuss" for both: Claude shows the
-finding and the person decides (allow or exclude).
+finding and the person decides (allow or exclude). The level that counts is own_level when there is one (level_of).
 An employer may also hold "environment": what employee reviews say, {rating, scale, reviews, complaints, source_url,
 checked}, apart from the categories: it is shown to the person and never changes a verdict. "reviews": 0 means someone
 looked and found none, so nobody looks again.
@@ -36,6 +40,7 @@ review finding), history.json ({category: earlier checks}). An entry with no "de
 import copy
 import datetime
 import difflib
+import hashlib
 import json
 import os
 import re
@@ -51,6 +56,10 @@ CATEGORIES = ("israel", "defence", "animal_cruelty", "climate", "sexism", "human
               "sanctions")
 STATUSES = ("flagged", "clear", "unknown")
 LEVELS = ("direct", "indirect")
+OWN_LEVELS = ("direct", "indirect", "none")
+FOUND_FIELDS = ("status", "level", "fact", "source_url", "basis")  # a check as found; a change makes a history item
+OWN_FIELDS = ("own_level", "own_why", "own_checked", "own_rules")  # the second check's: the person's only, never shared
+ENDED = ("rejected", "closed", "declined")  # PIPELINE stages after which an application no longer runs
 ACTIONS = ("exclude", "discuss", "allow")
 INDIRECT_ACTIONS = ("discuss", "warn", "allow")
 DECISIONS = ("exclude", "allow")
@@ -103,15 +112,28 @@ def env_path(env, key):
 
 
 def rules(env):
-    """The person's rules, with any missing category filled from the defaults."""
+    """The person's rules, with any missing category filled from the defaults. The levels, the state category's
+    definition and each shared category's what and levels are always the plugin's: a finding is recorded as found, so
+    the shared blacklist means the same for everyone; the person's own rules are their notes (the second check)."""
     default = load_json(DEFAULT_RULES, {})
     own = load_json(env_path(env, "EMPLOYER_RULES"), {})
     merged = dict(default, **{k: v for k, v in own.items() if k != "categories"})
-    merged["categories"] = {c: dict(default.get("categories", {}).get(c, {}), **own.get("categories", {}).get(c, {}))
-                            for c in CATEGORIES}
+    for key in ("levels", "state_category"):
+        if key in default:
+            merged[key] = default[key]
+    state = merged.get("state_category") or {}
+    merged["categories"] = {}
+    for c in CATEGORIES:
+        plugin = default.get("categories", {}).get(c, {})
+        s = {k: v for k, v in dict(plugin, **own.get("categories", {}).get(c, {})).items() if k not in ("what", "levels")}
+        merged["categories"][c] = dict(s, **{k: plugin[k] for k in ("what", "levels") if k in plugin})
     # The person's own filters (example: gambling) count like the shared categories, for them only.
-    merged["categories"].update({c: s for c, s in own.get("categories", {}).items()
-                                 if c not in CATEGORIES and s.get("custom")})
+    merged["categories"].update({c: dict(s) for c, s in own.get("categories", {}).items()
+                                 if c not in CATEGORIES and isinstance(s, dict) and s.get("custom")})
+    # A state category (israel, or one the person named) takes its what and levels from the state category.
+    for s in merged["categories"].values():
+        if s.get("state"):
+            s.update({k: copy.deepcopy(state[k]) for k in ("what", "levels") if k in state})
     # A value the rules do not know (a typo, an older name such as "never") counts as "discuss": the person decides,
     # and nothing is applied to on a setting nobody understood.
     for s in merged["categories"].values():
@@ -125,6 +147,38 @@ def rules(env):
 def categories(env):
     """Every category the person's rules check: the shared ones, then their own filters."""
     return list(rules(env)["categories"])
+
+
+def level_of(check):
+    """The level that counts for the person: the second check's own_level when there is one, else the level as found."""
+    own = check.get("own_level")
+    return own if own in OWN_LEVELS else (check.get("level") or "direct")
+
+
+def act_for(setting, level):
+    """What a category setting does with a tie of this level: exclude | discuss | warn | allow."""
+    return setting.get("action", "discuss") if level == "direct" else setting.get("indirect", "discuss")
+
+
+def notes_key(rule_set, cat):
+    """The fingerprint of a category's notes (the person's own rules): sha256 of the text with its spaces collapsed,
+    12 hex characters. A second check stores it as own_rules; another fingerprint now means the notes changed."""
+    notes = " ".join(str((rule_set["categories"].get(cat) or {}).get("notes") or "").split())
+    return hashlib.sha256(notes.encode("utf-8")).hexdigest()[:12]
+
+
+def own_fields(rule_set, cat, own_level, why=""):
+    """A second check's fields for one category: own_level, own_why, today's own_checked and own_rules."""
+    return {"own_level": own_level, "own_why": why, "own_checked": today(), "own_rules": notes_key(rule_set, cat)}
+
+
+def second_check_due(rule_set, cat, check):
+    """Whether a finding needs the second check against the person's own rules: it is flagged, the category has notes,
+    and it has no own_level yet, or one judged against other notes (own_rules is not the notes' fingerprint now)."""
+    setting = rule_set["categories"].get(cat) or {}
+    if check.get("status") != "flagged" or not str(setting.get("notes") or "").strip():
+        return False
+    return check.get("own_level") not in OWN_LEVELS or check.get("own_rules") != notes_key(rule_set, cat)
 
 
 def blacklist():
@@ -575,14 +629,16 @@ def lookup(env, name, facts=True, history=False, employers=None):
 
 
 def check_view(env, name, rule_set=None, full=False, employers=None):
-    """What employer.py check prints for a name: {name, match, matched, verdict, reasons, checks, unknown,
+    """What employer.py check prints for a name: {name, match, matched, verdict, reasons, checks, unknown, recheck,
     has_environment, possible}; full adds the environment finding and each check's history. A possible match with no
-    exact or group match turns an "allow" into "discuss" ("possible match: <name> (<verdict>)"): never a silent allow."""
+    exact or group match turns an "allow" into "discuss" ("possible match: <name> (<verdict>)"): never a silent allow.
+    recheck: the categories whose second check is due (second_check_due; none once the person decided); while one is
+    due, an "allow" is "discuss" too."""
     rule_set = rule_set or rules(env)
     employers = checks_file(env).get("employers", {}) if employers is None else employers
     entry_name, entry, how, possible = own_match(env, name, employers)
     checks = lookup(env, name, history=full, employers=employers)
-    verdict, reasons = decide(env, name, checks, rule_set)
+    verdict, reasons, recheck = decide_due(env, name, checks, rule_set)
     for p in possible:
         reasons.append(f"possible match: {p['name']} ({p['verdict'] or 'no verdict'})")
     if possible and verdict == "allow":
@@ -592,9 +648,87 @@ def check_view(env, name, rule_set=None, full=False, employers=None):
     out = {"name": name, "match": how, "matched": entry_name or "", "verdict": verdict, "reasons": reasons,
            "checks": checks,
            "unknown": [c for c in rule_set["categories"] if checks.get(c, {}).get("status", "unknown") == "unknown"],
-           "has_environment": saved or bool(shared.get("environment")), "possible": possible}
+           "recheck": recheck, "has_environment": saved or bool(shared.get("environment")), "possible": possible}
     if full:
         out["environment"] = environment_of(env, name, own={"employers": employers})
+    return out
+
+
+def recheck_of(env, name, checks, rule_set):
+    """The categories of an employer whose second check is due; none when the person decided on the employer."""
+    if decision_for(env, name):
+        return []
+    return [c for c, k in checks.items() if c in rule_set["categories"] and second_check_due(rule_set, c, k)]
+
+
+def decide_due(env, name, checks, rule_set=None):
+    """(verdict, reasons, due): decide(), and while a second check is due (due: its categories) an "allow" is
+    "discuss": never an allow on a level the person's own rules have not judged yet. Every verdict goes through it:
+    check_view, recheck_running and track.py sync."""
+    rule_set = rule_set or rules(env)
+    verdict, reasons = decide(env, name, checks, rule_set)
+    due = recheck_of(env, name, checks, rule_set)
+    if due:
+        reasons = reasons + ["second check due: " + ", ".join(due)]
+        if verdict == "allow":
+            verdict = "discuss"
+    return verdict, reasons, due
+
+
+def pipeline_row(pipeline, job_id):
+    """A job's PIPELINE row; a row marked same_as follows that row."""
+    p = pipeline.get(job_id) or {}
+    return (pipeline.get(p["same_as"]) or p) if p.get("same_as") else p
+
+
+def set_own(env, name, cat, own_level, why=""):
+    """Record the second check of one category: own_level (direct | indirect | none), own_why (the rule it meets) and
+    today's date beside the finding, which stays as found. A finding only the shared list holds is copied into the
+    person's own record first. Returns the check written."""
+    if own_level not in OWN_LEVELS:
+        raise SystemExit(f"own level must be one of {', '.join(OWN_LEVELS)}")
+    found = lookup(env, name).get(cat)
+    if not found or found.get("status") != "flagged":
+        raise SystemExit(f"{name} has no finding in {cat}: a second check judges a finding")
+    check = {k: v for k, v in found.items() if k not in ("origin", "history")}
+    check.update(own_fields(rules(env), cat, own_level, why))
+    record(env, name, {cat: check})
+    return check
+
+
+def running(jobs, pipeline):
+    """{employer: [job]} of the applications sent and still running: tracker status submitted (or a PIPELINE row), and
+    a PIPELINE stage that is not rejected, closed or declined (a row marked same_as follows that row)."""
+    out = {}
+    for job in jobs:
+        p = pipeline_row(pipeline, job.get("id"))
+        if (job.get("status") == "submitted" or job.get("id") in pipeline) and p.get("stage") not in ENDED:
+            out.setdefault(job.get("company", ""), []).append(job)
+    return out
+
+
+def recheck_running(env, jobs, pipeline, write=True):
+    """Every employer with a running application, judged again under the person's current rules and records:
+    [{employer, saved, now, reasons, recheck, jobs: [{id, title, stage}]}] for those that need the person or a second
+    check: the verdict moved to exclude or discuss, or a second check is due. A moved verdict is saved (write), so the
+    next run lists it only when it moves again; a move to allow is saved without a line."""
+    rule_set = rules(env)
+    employers = checks_file(env).get("employers", {})
+    out = []
+    for name, jobs_of in sorted(running(jobs, pipeline).items()):
+        if not name:
+            continue
+        entry_name, entry = find_own(env, name, employers)
+        checks = lookup(env, name, employers=employers)
+        verdict, reasons, recheck = decide_due(env, name, checks, rule_set)
+        saved = (entry or {}).get("verdict") or "allow"  # a sent application was allowed when it was sent
+        if verdict != saved and write:
+            record(env, entry_name or name, verdict=verdict)
+            employers = checks_file(env).get("employers", {})
+        if (verdict != saved and verdict in ("exclude", "discuss")) or recheck:
+            out.append({"employer": name, "saved": saved, "now": verdict, "reasons": reasons, "recheck": recheck,
+                        "jobs": [{"id": j.get("id", ""), "title": j.get("title", ""),
+                                  "stage": pipeline_row(pipeline, j.get("id")).get("stage", "sent")} for j in jobs_of]})
     return out
 
 
@@ -709,9 +843,8 @@ def excluding(env, name, rule_set=None):
     for cat, check in lookup(env, name, facts="flagged").items():
         if check.get("status") != "flagged" or cat not in r["categories"]:
             continue
-        setting = r["categories"][cat]
-        level = check.get("level", "direct")
-        if (setting.get("action", "discuss") if level == "direct" else setting.get("indirect", "discuss")) == "exclude":
+        level = level_of(check)
+        if level != "none" and act_for(r["categories"][cat], level) == "exclude":
             out.append({"category": cat, "origin": check.get("origin", "own"), "level": level})
     return out
 
@@ -786,8 +919,8 @@ def _excluded_list(env, jobs, pipeline, employers):
         why, facts, sources = [], [], []
         for cat in wanted:
             k = checks.get(cat) if (checks.get(cat) or {}).get("fact") else group_check(name, cat) or checks.get(cat) or {}
-            level = k.get("level", "direct")
-            why.append(labels.get(cat, cat) + (" (indirect)" if level == "indirect" else ""))
+            level = level_of(k)
+            why.append(labels.get(cat, cat) + {"indirect": " (indirect)", "none": " (not a tie by your rules)"}.get(level, ""))
             if k.get("fact"):
                 facts.append(k["fact"])
             if k.get("source_url") and k["source_url"] not in sources:
@@ -817,10 +950,14 @@ def decide(env, name, checks, rule_set=None):
         if check.get("status") != "flagged" or cat not in r["categories"]:
             continue
         setting = r["categories"][cat]
-        level = check.get("level", "direct")
-        act = setting.get("action", "discuss") if level == "direct" else setting.get("indirect", "discuss")
         label = setting.get("label", cat)
-        reasons.append(f"{act}: {label} ({level}): {check.get('fact', '')[:160]}")
+        level, found = level_of(check), check.get("level") or "direct"
+        if level == "none":
+            reasons.append(f"not counted: {label}: not a tie by your rules: {check.get('own_why', '')[:160]}")
+            continue
+        act = act_for(setting, level)
+        how = level if level == found else f"{level} by your rules, found {found}"
+        reasons.append(f"{act}: {label} ({how}): {check.get('fact', '')[:160]}")
         if act == "exclude":
             verdict = "exclude"
         elif act == "discuss" and verdict != "exclude":
@@ -853,11 +990,16 @@ def record(env, name, checks=None, verdict=None, decided=False, category=None, g
         # An "unknown" never replaces a result someone already found (flagged or clear).
         if old and check.get("status") == "unknown":
             continue
-        if old and any(old.get(k) != check.get(k) for k in ("status", "level", "fact", "source_url", "basis")):
+        if old and any(old.get(k) != check.get(k) for k in FOUND_FIELDS):
+            # A new finding: the second check of the old one does not carry over (it is due again).
             earlier = {k: v for k, v in old.items() if k != "history"}
             check["history"] = list(old.get("history") or []) + [dict(earlier, until=today())]
-        elif old and old.get("history"):
-            check["history"] = old["history"]
+        elif old:
+            # The same finding again: it keeps its history and its second check, unless a new one comes with it.
+            if old.get("history"):
+                check["history"] = old["history"]
+            if "own_level" not in check:
+                check.update({k: old[k] for k in OWN_FIELDS if k in old})
         entry["checks"][cat] = check
     if environment and replaces_environment(entry.get("environment"), environment):
         entry["environment"] = dict(environment, checked=today())

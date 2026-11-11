@@ -16,20 +16,24 @@
 //   scripts       absolute path of this skill's scripts folder
 //   python        how to run Python, e.g. "python" or "C:/.../python.exe" (run with -I)
 //   searchFile    the search results: {companies: [{name, jobs: [{id, title, url, apply_url, ...}]}]}
-//   companies     [{name, known?, verdict?, ties?, applied_jobs?, recheck?}] - known + verdict "allow" skips the
-//                 screen; recheck: one extra question for this employer (e.g. a new product line to check)
+//   companies     [{name, known?, verdict?, ties?, applied_jobs?, recheck?, own?}] - known + verdict "allow" skips the
+//                 screen; recheck: one extra question for this employer (e.g. a new product line to check); own: the
+//                 categories whose second check is due (`employer.py check` recheck): known + own runs that check only
 //   outDir        folder for one prepared-jobs JSON file per company
 //   bodiesDir     LETTER_BODIES_DIR; lettersDir: LETTERS_DIR (absolute paths)
 //   tag           a short run tag for letter file and folder names, e.g. "v8"
 //   cvs           [{variant, file, use}] - the CV versions: variant name, CV PDF path, which roles it is for
 //   decided       {excluded: [...names], cleared: [...names]} - employers already decided (not re-checked)
 //   person        the person's name, for the prompts
-//   employerRules the person's EMPLOYER_RULES file content (categories with action and indirect, trigger);
-//                 defaults from templates/employer-rules.json when the person has none
+//   employerRules the person's rules as they apply (`employer.py rules`): categories with action, indirect, what,
+//                 levels, lists, notes (their own rules); trigger; the general levels
 //   known         optional {name: result of `employer.py check`} - what the shared blacklist and the person's own
 //                 checks already say, so the agents confirm or update it instead of starting from nothing
 // Each stage's model and short tool list are in agents/<name>.md: a default subagent starts at 66k context, these at 15k.
-// Agent labels (read back by track.py sync): excl-screen:, excl-verify:, excl-judge:, prep-jobs:, review-jobs:.
+// Agent labels (read back by track.py sync): excl-screen:, excl-verify:, excl-judge:, excl-own:, prep-jobs:, review-jobs:.
+// Levels: the screen, verify and judge agents judge each finding by the plugin's levels only, so it is recorded as
+// found. A finding in a category with the person's own rules (notes) then gets one second check (excl-own:), which
+// returns the level for this person (own_level: direct, indirect or none); the verdict uses it.
 // Verdicts: exclude (a master-record rule or a category set to "exclude"), discuss (a category set to "discuss": the
 // person decides before anything is prepared), allow. Every agent also returns one check per category (flagged with fact and
 // source, clear, or unknown), which track.py sync writes to EMPLOYER_CHECKS and the usage report can share.
@@ -55,13 +59,18 @@ const ER = A.employerRules || { categories: {} }
 const CATS = ['israel', 'defence', 'animal_cruelty', 'climate', 'sexism', 'human_rights', 'working_conditions', 'sanctions',
   ...Object.keys(ER.categories || {}).filter(c => (ER.categories[c] || {}).custom)]
 
-const CATEGORY_TEXT = `CATEGORIES (the person's employer-rule settings; check EVERY one for this employer): ${CATS.map(c => {
+const LV = ER.levels || {}
+const levelText = s => {
+  const l = s.levels || LV
+  return `direct = ${l.direct || 'the employer, its corporate group or its majority owner'}; indirect = ${l.indirect || 'a minority investor, a partner or a customer'}${l.none ? '; no tie = ' + l.none : ''}`
+}
+const CATEGORY_TEXT = `CATEGORIES (check EVERY one for this employer): ${CATS.map(c => {
   const s = (ER.categories || {})[c] || {}
-  return `${c} = ${s.label || c}: ${s.what || ''}${s.notes ? ' [the person: ' + s.notes + ']' : ''}`
+  return `${c} = ${s.label || c}: ${s.what || ''}${s.state ? ' [state: ' + s.state + ']' : ''}${(s.lists || []).length ? ' [lists: ' + s.lists.join('; ') + ']' : ''} LEVELS: ${levelText(s)}`
 }).join(' | ')}.
 TRIGGER: ${ER.trigger || 'a crime-level problem shown by credible news, a ruling, a fine, a sanctions listing or an official list, with its source'}.
-For each category return one check: status "flagged" (a finding that meets the trigger, with fact and source_url), "clear" (you checked and found nothing), or "unknown" (not checked). level "direct" = the employer, its corporate group or its majority owner; "indirect" = a minority investor, an investor's other holdings, a partner or a customer. A new fact that removes a finding's basis re-judges its level.
-ISRAEL runs in two steps, as its "what" says: the four lists, then the four questions from the company's own pages. For a small or new brand, first find its parent or majority owner (company registry, the site's legal notice or imprint) and run both steps on it too. When neither step finds anything, return status "unknown" with fact "nothing found: <the lists and questions checked>", never "clear": a small company's absence from the lists proves little.`
+For each category return one check: status "flagged" (a finding that meets the trigger, with fact and source_url), "clear" (you checked and found nothing, or only what its LEVELS call no tie: say so in fact), or "unknown" (not checked). level: by that category's LEVELS only, never by ${WHO}'s own rules (a second check applies those). A new fact that removes a finding's basis re-judges its level.
+A STATE category (one with [state]) runs in two steps, as its "what" says: its lists, then the questions from the company's own pages. For a small or new brand, first find its parent or majority owner (company registry, the site's legal notice or imprint) and run both steps on it too. When neither step finds anything, return status "unknown" with fact "nothing found: <the lists and questions checked>", never "clear": a small company's absence from the lists proves little.`
 
 const RULES = `THE RULES ARE ${WHO.toUpperCase()}'S OWN: read ${SCREEN_RECORD} (JSON) with the Read tool first: preferences.employer_rules (every rule with its date; where two rules differ, the newer one wins), any employer decisions (decisions) and the names already decided below.
 Decide by those rules only. verdict "exclude" needs a rule that excludes this employer AND a source you cite that states the fact about the employer itself, its corporate group or its majority owner (not a namesake). Every tie that the rules do not count as an exclusion, or that the rules say ${WHO} decides, goes into ties as one line with its source. If a rule names a list, register or database (sanctions, boycott or settlement lists, for example), check that list directly.
@@ -77,25 +86,53 @@ const TOOLS = 'Load tools with ONE ToolSearch call ("select:WebSearch,WebFetch")
 const HIT = { type: 'object', properties: { criterion: { type: 'string' }, finding: { type: 'string' }, source_url: { type: 'string' } }, required: ['criterion', 'finding', 'source_url'] }
 const CHECK = { type: 'object', properties: { category: { type: 'string', enum: CATS }, status: { type: 'string', enum: ['flagged', 'clear', 'unknown'] }, level: { type: 'string', enum: ['direct', 'indirect'] }, fact: { type: 'string' }, source_url: { type: 'string' } }, required: ['category', 'status', 'level', 'fact', 'source_url'] }
 const EXCL_SCHEMA = { type: 'object', properties: { verdict: { type: 'string', enum: ['exclude', 'allow'] }, hits: { type: 'array', items: HIT }, ties: { type: 'array', items: { type: 'string' } }, checks: { type: 'array', items: CHECK }, notes: { type: 'string' } }, required: ['verdict', 'hits', 'ties', 'checks', 'notes'] }
+const OWN_LEVELS = ['direct', 'indirect', 'none']
+const OWN_SCHEMA = { type: 'object', properties: { checks: { type: 'array', items: { type: 'object', properties: { category: { type: 'string', enum: CATS }, own_level: { type: 'string', enum: OWN_LEVELS }, why: { type: 'string' } }, required: ['category', 'own_level', 'why'] } }, notes: { type: 'string' } }, required: ['checks', 'notes'] }
+const notesOf = c => String(((ER.categories || {})[c] || {}).notes || '').trim()
 
 // The person's category settings applied to the checks (the same rule as employerlib.decide): exclude -> exclude,
-// discuss -> discuss, warn and allow -> allow with the finding noted. A master-record exclusion always stands.
+// discuss -> discuss, warn and allow -> allow with the finding noted. The level that counts is the second check's
+// own_level when there is one; "none" is not counted. A master-record exclusion (the agents' verdict) always stands.
 function decide(name, result) {
   if (!result) return result
-  if (result.verdict === 'exclude') return { ...result, reasons: ['a master-record rule'] }
+  const agentVerdict = result.agentVerdict || result.verdict
+  if (agentVerdict === 'exclude') return { ...result, agentVerdict, verdict: 'exclude', reasons: ['a master-record rule'] }
   let verdict = 'allow'
   const reasons = []
   for (const k of result.checks || []) {
     if (k.status !== 'flagged' || !k.source_url) continue
     const s = (ER.categories || {})[k.category] || {}
+    const level = OWN_LEVELS.includes(k.own_level) ? k.own_level : k.level
+    if (level === 'none') {
+      reasons.push(`not counted: ${s.label || k.category}: not a tie by ${WHO}'s rules: ${String(k.own_why || '').slice(0, 160)}`)
+      continue
+    }
     // A value the rules do not know counts as discuss (as in employerlib.rules): never an allow by mistake.
-    const raw = k.level === 'direct' ? s.action : s.indirect
-    const act = (k.level === 'direct' ? ['exclude', 'discuss', 'allow'] : ['discuss', 'warn', 'allow']).includes(raw) ? raw : 'discuss'
-    reasons.push(`${act}: ${s.label || k.category} (${k.level}): ${String(k.fact).slice(0, 160)}`)
+    const raw = level === 'direct' ? s.action : s.indirect
+    const act = (level === 'direct' ? ['exclude', 'discuss', 'allow'] : ['discuss', 'warn', 'allow']).includes(raw) ? raw : 'discuss'
+    const how = level === k.level ? level : `${level} by ${WHO}'s rules, found ${k.level}`
+    reasons.push(`${act}: ${s.label || k.category} (${how}): ${String(k.fact).slice(0, 160)}`)
     if (act === 'exclude') verdict = 'exclude'
     else if (act === 'discuss' && verdict !== 'exclude') verdict = 'discuss'
   }
-  return { ...result, verdict, reasons }
+  return { ...result, agentVerdict, verdict, reasons }
+}
+
+// The second check: the flagged categories with the person's own rules (notes) and no own level yet, or the categories
+// named in only (a known employer's due ones). One agent per employer, only when one is due; it fails safe: never an
+// allow while a second check is missing.
+async function withOwn(c, final, only) {
+  if (!final || final.agentVerdict === 'exclude') return final
+  const due = (final.checks || []).filter(k => k.status === 'flagged' && notesOf(k.category) &&
+    (only ? only.includes(k.category) : !OWN_LEVELS.includes(k.own_level)))
+  if (!due.length) return final
+  const o = await agent(ownPrompt(c, due), { label: label('excl-own', c.name), phase: 'Verify', schema: OWN_SCHEMA, agentType: 'cenk-jobs:screener' })
+  if (!o) return { ...final, verdict: final.verdict === 'allow' ? 'discuss' : final.verdict, reasons: [...(final.reasons || []), 'second check failed: ' + due.map(k => k.category).join(', ')] }
+  const own = Object.fromEntries((o.checks || []).filter(x => OWN_LEVELS.includes(x.own_level) && due.some(k => k.category === x.category)).map(x => [x.category, x]))
+  const out = decide(c.name, { ...final, checks: (final.checks || []).map(k => own[k.category] ? { ...k, own_level: own[k.category].own_level, own_why: own[k.category].why } : k) })
+  // A due category the agent left out is still due: never an allow.
+  const missing = due.filter(k => !own[k.category]).map(k => k.category)
+  return missing.length && out.verdict === 'allow' ? { ...out, verdict: 'discuss', reasons: [...out.reasons, 'second check missing: ' + missing.join(', ')] } : out
 }
 const PREP_SCHEMA = {
   type: 'object',
@@ -128,6 +165,12 @@ const screenPrompt = c => `Exclusion check for the employer "${c.name}", for ${W
 ${RULES}
 ${c.recheck ? 'SPECIAL CASE: ' + c.name + ' was cleared earlier (ties noted: ' + (c.ties || []).join('; ') + '). Re-check ONLY this: ' + c.recheck + '\n' : ''}${(A.known || {})[c.name] ? 'ALREADY KNOWN (shared blacklist and earlier checks; confirm, update or add to it): ' + JSON.stringify((A.known || {})[c.name]).slice(0, 3000) + '\n' : ''}${TOOLS} At most 1 WebSearch query (the limit is shared by many agents); WebFetch freely for the lists the rules name and the company's own pages. Identify the corporate group and the majority owner first. A staffing agency's or consultancy's unnamed client cannot be screened: screen the agency itself and say so in ties.
 RETURN the schema: verdict exclude only with an exclude-level hit and its source; every weaker tie as one line in ties.`
+
+const ownPrompt = (c, due) => `Second check of the employer "${c.name}" under ${WHO}'s OWN rules, for these findings only. Each was judged by the plugin's general levels; judge the level it has under ${WHO}'s rules for its category.
+FINDINGS: ${JSON.stringify(due.map(k => ({ category: k.category, level: k.level, fact: k.fact, source_url: k.source_url })))}
+${WHO.toUpperCase()}'S RULES: ${due.map(k => `${k.category}: ${notesOf(k.category)}`).join(' | ')}. Also read ${SCREEN_RECORD} (JSON) with the Read tool: preferences.employer_rules may hold dated rules for these categories (where two differ, the newer wins).
+For each finding return own_level: "direct" or "indirect" as those rules call it, or "none" when they do not count it as a tie; why: the rule it meets, in one line. A rule may need one more fact (example: who buys a product): WebFetch the finding's source or the company's own pages for it; no WebSearch. ${TOOLS}
+RETURN the schema: one item per finding, and in notes what you opened.`
 
 const verifyPrompt = (c, s) => `Independent second check of the employer "${c.name}" under ${WHO}'s rules. Another agent already checked it and returned: ${JSON.stringify(s)}.
 ${RULES}
@@ -169,16 +212,21 @@ No browser, no WebSearch. RETURN the schema: the file, how many jobs you checked
 const results = await pipeline(
   A.companies,
   async c => {
+    if (c.known && (c.own || []).length && !c.recheck) {
+      // Screened earlier; only the second check is due, on the findings already known.
+      const known = Object.entries(((A.known || {})[c.name] || {}).checks || {}).map(([category, k]) => ({ ...k, category }))
+      return { c, final: await withOwn(c, decide(c.name, { verdict: 'allow', hits: [], ties: c.ties || [], checks: known, notes: 'screened earlier; second check only' }), c.own), route: 'own' }
+    }
     if (c.known && c.verdict === 'allow' && !c.recheck) return { c, final: { verdict: 'allow', hits: [], ties: c.ties || [], checks: [], notes: 'screened earlier' }, route: 'known' }
     const s = await agent(screenPrompt(c), { label: label('excl-screen', c.name), phase: 'Screen', schema: EXCL_SCHEMA, agentType: 'cenk-jobs:screener' })
     if (!s) return { c, final: null, route: 'screen-failed' }
     const v = await agent(verifyPrompt(c, s), { label: label('excl-verify', c.name), phase: 'Verify', schema: EXCL_SCHEMA, agentType: 'cenk-jobs:verifier' })
-    if (!v) return { c, final: decide(c.name, s), route: 'verify-failed' }
+    if (!v) return { c, final: await withOwn(c, decide(c.name, s)), route: 'verify-failed' }
     // The second check's category results stand (it saw the first's); the first's fill categories it left out.
     const checks = [...(v.checks || []), ...(s.checks || []).filter(k => !(v.checks || []).some(x => x.category === k.category))]
-    if (v.verdict === s.verdict) return { c, final: decide(c.name, { verdict: v.verdict, hits: v.verdict === 'exclude' ? v.hits : [], ties: [...new Set([...(s.ties || []), ...(v.ties || [])])], checks, notes: s.notes + ' | second check: ' + v.notes }), route: 'agreed' }
+    if (v.verdict === s.verdict) return { c, final: await withOwn(c, decide(c.name, { verdict: v.verdict, hits: v.verdict === 'exclude' ? v.hits : [], ties: [...new Set([...(s.ties || []), ...(v.ties || [])])], checks, notes: s.notes + ' | second check: ' + v.notes })), route: 'agreed' }
     const j = await agent(judgePrompt(c, s, v), { label: label('excl-judge', c.name), phase: 'Verify', schema: EXCL_SCHEMA, agentType: 'cenk-jobs:verifier' })
-    return { c, final: decide(c.name, j ? { ...j, checks: (j.checks || []).length ? j.checks : checks } : { ...s, checks }), route: 'judged' }
+    return { c, final: await withOwn(c, decide(c.name, j ? { ...j, checks: (j.checks || []).length ? j.checks : checks } : { ...s, checks })), route: 'judged' }
   },
   async r => {
     if (!r.final || r.final.verdict !== 'allow') return r

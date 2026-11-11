@@ -1,22 +1,41 @@
 {
-  "_about": "The person's employer rules (EMPLOYER_RULES in job-search.env), copied from the plugin's defaults on the first run. Each category says what happens when an employer is flagged in it. action (a direct tie: the employer, its corporate group or its majority owner): exclude = never apply; discuss = show the person the finding and let them decide, allow or exclude (the default); allow = apply and note the finding. indirect (a minority investor, an investor's other holdings, a partner or a customer): discuss = the person decides (the default); warn = allow and tell the person; allow = allow and note it. notes: the person's limits as a short fact (for example 'Western countries only'). The person's decisions per employer live in one list, EMPLOYER_CHECKS (employer.py decide), not here. The person changes any value by saying so; Claude writes it here and adds {date, field, new} to changes.",
+  "_about": "The person's employer rules (EMPLOYER_RULES in job-search.env), copied from the plugin's defaults on the first run. Each category says what happens when an employer is flagged in it. action (a direct tie): exclude = never apply; discuss = show the person the finding and let them decide, allow or exclude (the default); allow = apply and note the finding. indirect (an indirect tie): discuss = the person decides (the default); warn = allow and tell the person; allow = allow and note it. A tie's level comes from the category's levels, else the general levels below. Those levels, state_category and each shared category's what always come from the plugin, so a finding is recorded as found and the shared blacklist means the same for everyone. notes: the person's own rules for the category, as short facts (example: 'a defence product offered in a state, with no customer named, counts as sold to its armed forces'); a finding in a category with notes gets a second check against them, which may set another level for this person (own_level: direct, indirect or none) and never changes the finding. A category with a state field is a state category: its what and levels come from state_category, its lists are checked in step 1. Israel is the only default state; another is added only when the person names it, never inferred. The person's decisions per employer live in one list, EMPLOYER_CHECKS (employer.py decide), not here. The person changes any value by saying so; Claude writes it here and adds {date, field, new} to changes (field example: 'defence.notes').",
   "version": 1,
   "trigger": "A category counts only with a crime-level problem: credible news from established outlets, a court ruling, a regulator's fine, a sanctions listing, or an official or recognised list (UN, NGO databases). Rumours, opinion pieces and unsourced pages do not count; each finding needs its source link.",
   "levels": {
     "direct": "the employer itself, its corporate group or its majority owner",
-    "indirect": "a minority investor, an investor's other holdings, a partner or a customer"
+    "indirect": "a minority investor, an investor's other holdings, a partner, a customer, or another firm between the employer and the category"
+  },
+  "state_category": {
+    "what": "Ties to the state named in state. Step 1, the category's lists, for the employer and its parent or majority owner. Step 2, from the company's own site, careers page or annual report, each answer with a source link: where it is headquartered; who owns it; whether it operates only in the state or works only for it; its own office, R&D team or subsidiary there; whether it sells to the state's bodies or state-owned companies; whether it sells there, itself or through a reseller. For a small or new brand, find the parent or majority owner first (company registry, the site's legal notice). Nothing found after both steps is status unknown with the fact 'nothing found: <what was checked>', never clear.",
+    "levels": {
+      "direct": "a hit on one of the category's lists; headquartered in the state; an owner from the state; operating only in the state or working only for it; selling to a body of the state or a state-owned company (government, ministries, armed forces, police, state companies)",
+      "indirect": "its own office, R&D team or subsidiary in the state; selling there, itself or through a reseller or partner; a minority investor, an investor's other holdings, or another firm between it and the state",
+      "none": "self-service users from the state (a portal or marketplace anyone signs up to): not a tie, not recorded as one"
+    }
   },
   "categories": {
     "israel": {
-      "label": "Ties to Israel's occupation or military",
-      "what": "Step 1, lists, for the employer and its parent or majority owner: a current target of the BDS movement (bdsmovement.net, 'What to boycott'; past successes do not count), the UN OHCHR settlement-business database (latest edition), Who Profits (its index /companies?page=N; its search does not filter), AFSC Investigate. Step 2, from the company's own site, careers page or annual report, each answer with a source link: founded in Israel or headquartered there; its own office, R&D team or subsidiary in Israel; its majority owner (step 1 on the owner); supplying Israel's military or police, or the settlements. A list hit or a yes is a direct tie. Indirect: a reseller or shop selling the brand in Israel, a minority investor's other holdings, customers, a board member's outside seat, a licensee's owner. Nothing found is 'nothing found', never 'clear'.",
+      "label": "Ties to the state of Israel",
+      "state": "Israel",
+      "lists": [
+        "the BDS movement's current targets (bdsmovement.net, 'What to boycott'; past successes do not count)",
+        "the UN OHCHR settlement-business database (latest edition)",
+        "Who Profits (its index /companies?page=N; its search does not filter)",
+        "AFSC Investigate"
+      ],
       "action": "discuss",
       "indirect": "discuss",
       "notes": ""
     },
     "defence": {
       "label": "Defence industry",
-      "what": "producing arms, ammunition or military systems, or a military product line",
+      "what": "arms, ammunition, military systems, or a defence product line or service; a defence ministry counts as a defence customer; police belong to a state category",
+      "levels": {
+        "direct": "a defence offering of the employer, its group or its majority owner: a defence product line, or a defence sales team or page",
+        "indirect": "no defence line, but named sales to the defence industry, armed forces or a defence ministry",
+        "none": "a general product open to anyone, in any country or industry: recorded clear with that fact, not even indirect"
+      },
       "action": "discuss",
       "indirect": "discuss",
       "notes": ""
@@ -67,6 +86,6 @@
       "notes": ""
     }
   },
-  "custom": "The person's own filters go into categories too, with \"custom\": true, an id of their choice and the same fields. Example: \"gambling\": {\"label\": \"Gambling\", \"what\": \"runs or supplies gambling\", \"custom\": true, \"action\": \"never\", \"indirect\": \"warn\"}.",
+  "custom": "The person's own filters go into categories too, with \"custom\": true, an id of their choice and the same fields. Example: \"gambling\": {\"label\": \"Gambling\", \"what\": \"runs or supplies gambling\", \"custom\": true, \"action\": \"exclude\", \"indirect\": \"warn\"}. Another state, only when the person names it: \"state\": \"<its name>\" and its lists, no what or levels.",
   "changes": []
 }

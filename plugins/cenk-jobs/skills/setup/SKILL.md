@@ -74,8 +74,8 @@ Show the defaults and ask: "Use these defaults? You can change any of them later
   forms. Never into a CV, letter, shared file or the dashboard.
 - Employer checks, in eight categories, each "discuss" for a direct tie and for an indirect one (you see the
   finding and decide: allow or exclude):
-  ties to Israel's occupation or military; defence industry; animal cruelty; climate and environmental harm;
-  sexism; human rights; working conditions; sanctions.
+  ties to the state of Israel (the only state checked until you name another); defence industry; animal cruelty;
+  climate and environmental harm; sexism; human rights; working conditions; sanctions.
 - Sanctions: the UN Security Council list, plus the lists of the country or region you live in. Ask which, with
   examples: EU, UK (OFSI), US (OFAC), a national list. Write them into `lists` of the `sanctions` category.
 
@@ -83,10 +83,13 @@ Then say how to change them, with examples:
 - per category, a direct tie: exclude / discuss / allow ("exclude defence companies");
 - per category, an indirect tie (an investor, a partner, a customer): discuss / just warn / allow ("indirect ties to
   climate harm are fine, just warn me");
-- a whole category allowed ("animal cruelty checks are not for me").
+- a whole category allowed ("animal cruelty checks are not for me");
+- your own rule for a category, into its `notes`: a finding there gets a second check against it ("a defence product
+  sold in a state with no customer named counts as sold to its armed forces").
 
-Ask once: "Any filter of your own?" Examples: another sanctions list, a sector (gambling, tobacco, fossil fuels), a
-country. Write each as a category with `"custom": true`, an id, a label, `what`, `action` and `indirect`.
+Ask once: "Any filter of your own?" Examples: another sanctions list, a sector (gambling, tobacco, fossil fuels),
+another state. Write each as a category with `"custom": true`, an id, a label, `what`, `action` and `indirect`; a
+state only when the person names it, with `"state"` and its `lists` instead of `what`.
 Write every answer into `EMPLOYER_RULES` (the template is `templates/employer-rules.json`) with `{date, field, new}`
 in `changes`.
 

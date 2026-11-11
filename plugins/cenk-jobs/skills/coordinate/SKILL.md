@@ -50,6 +50,9 @@ A session cannot be moved under a new coordinator: it is reached by message, and
 - Each run, before the pieces: read the Questions page's answers and record them (`questions.py record`, RULES.md
   "Questions for the person"), so the jobs they free go on in this run; bring up every "Discuss" in the chat. After
   the pieces: add the run's new questions to the page (`questions.py build`).
+- After every change that can move an employer's verdict (the person's rules, a decision, a sync):
+  `employer.py recheck-running`, and each employer it lists goes to the person (RULES/employers.md, "Running
+  applications").
 - Urgent steps (RULES.md): when a report names one, add the job's Urgent to-do (`"kind": "urgent"`, `"where":
   "pc"` or `"phone"`) and remove it once done or expired; the sub-session already sent the notification. At the end
   of each run, one notification for deadlines today or tomorrow.

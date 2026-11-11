@@ -179,8 +179,8 @@ def turned_down(jobs, pipeline):
                 s = rule_set["categories"].get(c)
                 if k.get("status") != "flagged" or s is None:
                     continue
-                act = s.get("action", "discuss") if k.get("level", "direct") == "direct" else s.get("indirect", "discuss")
-                if act == "discuss":
+                level = el.level_of(k)  # the second check's own level when there is one
+                if level != "none" and el.act_for(s, level) == "discuss":
                     found.append({"category": c, "origin": k.get("origin", "own")})
         else:
             continue

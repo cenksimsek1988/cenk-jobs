@@ -6,6 +6,49 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.26.0] - 2026-11-11
+
+Employer levels per category, a second check against the person's own rules, and running applications checked again.
+
+### Added
+
+- Levels per category in `templates/employer-rules.json`. Defence: direct = a defence offering (a product line, or a
+  defence sales team or page); indirect = named sales to the defence industry, armed forces or a defence ministry,
+  with no defence line; a general product open to anyone is no tie (`clear`, with that fact).
+- State categories (`state_category`): direct = HQ in the state, an owner from it, operating only there or only for
+  it, selling to a state body or a state-owned company (police included), or a hit on the category's lists;
+  indirect = an own office, R&D team or subsidiary there, selling there itself or through a reseller, an investor or
+  another firm between them; self-service users are no tie. `israel` is the only default state, with its four lists;
+  another is added only when the person names it.
+- A second check against the person's own rules (a category's `notes`), only for a finding in that category:
+  `own_level` direct, indirect or none, `own_why`, `own_checked` and `own_rules` beside the finding, which stays as
+  found. The workflow runs it as `excl-own:` (one agent per employer); `track.py sync` records it, only for a
+  category whose second check was due; verdicts, the Questions page, the Excluded tab and the usage report's counts
+  use it. A failed or missing second check gives "discuss", never "allow".
+- A change to a category's notes makes its second checks due again: each keeps a fingerprint of the notes it was
+  judged against (`own_rules`, sha256 of the notes, 12 hex); the earlier one counts until then.
+- `employer.py check` lists `recheck` (second checks due) and says "discuss" instead of "allow" while one is due.
+- `employer.py own "<name>" <category> <direct|indirect|none> why="..."`, `employer.py recheck-running` (every
+  employer with a running application judged again; lists those that moved to exclude or discuss, or need a second
+  check, and saves each moved verdict) and `employer.py rules` (the rules as they apply, for the workflow).
+- `templates/withdrawal-email.txt`: a version without the reason (facts only).
+- `apply`: LinkedIn Easy Apply's prefilled numbers are checked against the record; its salary fields take a number
+  only; "The captcha is invalid." at Submit is a CAPTCHA stop; `input[type=button]` dropdowns hold the choice in their
+  value; a SuccessFactors `talentcommunity/apply/<id>` link that opens the home page is not a closed posting;
+  `javascript_tool` returns JSON, since `key=value; ...` output is blocked as cookie data.
+
+### Changed
+
+- The first check judges levels by the plugin's levels only; the person's notes act only through the second check.
+  The levels, the state category and each shared category's `what` always come from the plugin, whatever the
+  person's copy of the rules says.
+- An own office, R&D team or subsidiary in a state is an indirect tie (was direct); being founded there no longer makes
+  a direct tie by itself. The `israel` label is "Ties to the state of Israel".
+- A withdrawal mail is optional: the person is asked first whether to send one and whether to give the reason.
+- Sanctions stay a name check on the lists the person follows; no state-level rule.
+- The general indirect level also names another firm between the employer and the category.
+- The custom-category example in the rules template uses `exclude` (it said `never`, which counts as `discuss`).
+
 ## [0.25.0] - 2026-11-10
 
 Lessons from the job-search sessions of 10 Nov 2026.

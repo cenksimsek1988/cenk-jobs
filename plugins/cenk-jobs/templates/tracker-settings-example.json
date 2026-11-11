@@ -6,7 +6,7 @@
  ],
  "cv_copied_when_note_has": "new CV",
  "sync": {
-  "_about": "track.py sync. merge: search-result files ({companies: [...]}) joined to the tracker, each with an origin label. labels: agent-label prefixes per kind of result, newest run first (defaults: exclusion = excl-judge:, excl-verify:, excl-screen:; prep = prep-jobs:; screen and refute = none). refute_incomplete: companies whose 'incomplete' screen takes the refuting check's verdict. verdict_overrides: company -> [verdict, why]. exclude_overrides: company -> why it is excluded.",
+  "_about": "track.py sync. merge: search-result files ({companies: [...]}) joined to the tracker, each with an origin label. labels: agent-label prefixes per kind of result, newest run first (defaults: exclusion = excl-judge:, excl-verify:, excl-screen:; own = excl-own:; prep = prep-jobs:; screen and refute = none). refute_incomplete: companies whose 'incomplete' screen takes the refuting check's verdict. verdict_overrides: company -> [verdict, why]. exclude_overrides: company -> why it is excluded.",
   "merge": [["apply/search-2026-11-06.json", "search-6nov"]],
   "labels": {
    "exclusion": ["excl-judge:", "excl-verify:", "excl-screen:"],

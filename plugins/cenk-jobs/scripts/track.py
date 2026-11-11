@@ -35,11 +35,12 @@ is its "outcome". Add --env <job-search.env> anywhere to pick the env file.
 
 sync also applies the person's employer-rule categories (EMPLOYER_RULES, see employer.py) to each employer's category
 checks: an "exclude" category excludes it, a "discuss" category sets its verdict to "discuss" (nothing is
-prepared until the person decides with employer.py decide), and the checks are written to EMPLOYER_CHECKS.
+prepared until the person decides with employer.py decide), and the checks are written to EMPLOYER_CHECKS. A
+second check against the person's own rules (own: excl-own:) adds own_level beside its finding, and the verdict uses it.
 sync reads workflow journals (rows {type: started, agentId, label} and {type: result, agentId, result}); an agent's
 label is "<kind prefix><company name, maybe cut short>". By default the kinds are the ones workflows/
-screen-and-prepare.js writes (exclusion: excl-judge:, excl-verify:, excl-screen:; prep: prep-jobs:, whose result may
-be the path of the JSON file the agent wrote). Older runs, search-result files to merge and per-company decisions
+screen-and-prepare.js writes (exclusion: excl-judge:, excl-verify:, excl-screen:; own: excl-own:; prep: prep-jobs:,
+whose result may be the path of the JSON file the agent wrote). Older runs, search-result files to merge and per-company decisions
 come from the "sync" part of the TRACKER_SETTINGS file (see templates/tracker-settings-example.json).
 """
 import ast
@@ -194,6 +195,7 @@ def sync(journals):
     # checks disagreed, else the second check's, else the first's.
     preps = labels.get("prep", ["prep-jobs:"])
     exclusions = labels.get("exclusion", ["excl-judge:", "excl-verify:", "excl-screen:"])
+    owns = labels.get("own", ["excl-own:"])  # the second check against the person's own rules (their notes)
     refute_also = set(rules.get("refute_incomplete", []))
     overrides = rules.get("verdict_overrides", {})
     exclude_overrides = rules.get("exclude_overrides", {})
@@ -212,6 +214,30 @@ def sync(journals):
         if company.get("verdict") == "exclude" and not newest(done, name, screens[:1]):
             continue
         x = newest(done, name, exclusions)
+        # {category: {own_level, why}}: the level under the person's own rules, beside the finding as found.
+        own = {k["category"]: k for k in (newest(done, name, owns) or {}).get("checks", [])
+               if k.get("category") and k.get("own_level") in el.OWN_LEVELS}
+        if own and not x and env.get("EMPLOYER_CHECKS"):
+            # A known employer whose second check alone ran: its findings are recorded already. Only a category whose
+            # second check was due takes the result: an agent never sets a level where the person has no own rules.
+            rule_set, recorded = el.rules(env), el.lookup(env, name)
+            for cat, k in own.items():
+                if not el.second_check_due(rule_set, cat, recorded.get(cat) or {}):
+                    print(f"{name}: the second check of {cat} was not due: not recorded")
+                    continue
+                try:
+                    el.set_own(env, name, cat, k["own_level"], k.get("why", ""))
+                except SystemExit as problem:
+                    print(f"{name}: the second check of {cat} is not recorded: {problem}")
+            # A second check that did not land leaves the category due: never an allow.
+            by_rules, reasons, _ = el.decide_due(env, name, el.lookup(env, name))
+            el.record(env, name, verdict=by_rules)
+            company["verdict"] = by_rules
+            if by_rules == "allow":
+                attach_prep(company, newest(done, name, preps))
+            else:
+                company["rule_reasons"] = reasons
+            continue
         if x and x.get("checks"):
             # One result per category: the deciding check's, filled from the first check's for categories it left out.
             first = newest(done, name, ["excl-screen:"]) or {}
@@ -219,8 +245,13 @@ def sync(journals):
             found.update({k["category"]: k for k in x["checks"] if k.get("category")})
             checks = {c: {f: k.get(f, "") for f in ("status", "level", "fact", "source_url")}
                       for c, k in found.items() if c in el.CATEGORIES}
+            rule_set = el.rules(env)
+            for cat, k in own.items():
+                # Only a due category (flagged, with the person's notes) takes the second check's level.
+                if cat in checks and el.second_check_due(rule_set, cat, checks[cat]):
+                    checks[cat].update(el.own_fields(rule_set, cat, k["own_level"], k.get("why", "")))
             company["checks"] = checks
-            by_rules, reasons = el.decide(env, name, checks)
+            by_rules, reasons, _ = el.decide_due(env, name, checks)
             if env.get("EMPLOYER_CHECKS"):
                 el.record(env, name, checks, verdict="exclude" if x.get("verdict") == "exclude" else by_rules)
             if x.get("verdict") != "exclude" and by_rules in ("exclude", "discuss"):
@@ -252,11 +283,8 @@ def sync(journals):
             company[ties_key(x)] = x.get(ties_key(x), [])
             verdict = "clear" if verdict == "clear" else "allow"
         company["verdict"] = verdict
-        p = newest(done, name, preps) if verdict in ("clear", "allow") else None
-        for pj in (p or {}).get("jobs", []):
-            for job in company["jobs"]:
-                if job["id"] == pj.get("id"):
-                    job["prep"] = pj
+        if verdict in ("clear", "allow"):
+            attach_prep(company, newest(done, name, preps))
     save(collapse(data, PATH))  # rows with a detail file go back to summary rows and their files
     queue = [(c["name"], j) for c in data["companies"] if c.get("verdict") in ("clear", "allow")
              for j in c["jobs"] if "prep" in j and j["status"] == "pending"]
@@ -268,6 +296,14 @@ def sync(journals):
     for c in data["companies"]:
         counts[c.get("verdict", "pending")] = counts.get(c.get("verdict", "pending"), 0) + 1
     print("verdicts:", counts, "| queue:", len(queue))
+
+
+def attach_prep(company, prep):
+    """A prepared-jobs result's jobs into the company's jobs, by id."""
+    for pj in (prep or {}).get("jobs", []):
+        for job in company["jobs"]:
+            if job["id"] == pj.get("id"):
+                job["prep"] = pj
 
 
 # --- split ---------------------------------------------------------------------------------------------------------
