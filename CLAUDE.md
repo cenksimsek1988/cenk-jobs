@@ -51,6 +51,11 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
 - `claude plugin validate plugins/cenk-jobs`
 - `python -I -m py_compile plugins/cenk-jobs/scripts/*.py`
 - `sh tests/run.sh` (a throwaway folder; never touches real records)
+- With the workbench: `sh <workbench>/scripts/check-plugin.sh --base main plugins/cenk-jobs` (the plugin folder: the
+  repository root has no plugin.json).
+- `workflows/screen-and-prepare.js` parses with `node --check` only as a copy wrapped in `(async () => { ... })()`:
+  it has a top-level `return`.
+- A test on a copy of a job-search folder: a short path; a deep one breaks `shutil.copytree` on Windows path length.
 
 ## Release
 
