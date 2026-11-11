@@ -109,16 +109,20 @@ anything is sent.
 
 ## Employer rules and the shared blacklist
 
-Before anything is prepared, each employer is checked in seven categories: ties to Israel's occupation or military,
-defence industry, animal cruelty, climate and environmental harm, sexism, human rights and working conditions. A
+Before anything is prepared, each employer is checked in eight categories: ties to the state of Israel, defence
+industry, animal cruelty, climate and environmental harm, sexism, human rights, working conditions and sanctions. A
 category counts only with a crime-level problem shown by credible news, a ruling, a fine, a sanctions listing or an
-official list, with its source.
+official list, with its source. Each finding is direct or indirect by the plugin's levels for its category; your own
+rules for a category (its notes) get a second check on each finding there.
 
 - The default for every category is **discuss**: Claude shows you what it found and you decide, allow or exclude.
   You can set any category to **exclude** or **allow**, and say how to treat indirect ties (an investor's other
   holdings, partners, customers): discuss, warn only, or allow. Your settings live in `employer-rules.json` in your folder.
 - The plugin ships a **shared blacklist** (`plugins/cenk-jobs/data/blacklist.json`): employers with
   sourced findings per category, checked by Claude before each new screen. It grows from users' usage reports.
+  When a new version changes it, the employers you never gave an opinion on follow it; for each one you gave an
+  opinion on (a decision, or a finding you stated), Claude asks you on the Questions page whether to change your
+  setting.
 - The same list keeps what **employee reviews** say about an employer (rating, number of reviews, repeated complaints,
   source, date), so Claude looks it up once. You see it in the application's `company.md`; it never decides anything.
 

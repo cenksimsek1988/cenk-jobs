@@ -6,6 +6,42 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.27.0] - 2026-11-11
+
+A new version of the shared blacklist reaches the person's own records.
+
+### Added
+
+- `EMPLOYERS_DIR/shared-seen.json`: per employer and category, a fingerprint of the shared list the person last took
+  in (the status and a sha256 of the fields as found, 12 hex; 37 KB against 128 KB for a copy). The first time, only
+  the fingerprints are saved.
+- `opinion` (its date) on an employer the person gave an opinion on: a decision (`employer.py decide`, or an answer on
+  the Questions page) or a finding they stated (`employer.py record ... --person`); an older entry with a decision
+  counts too. `employer.py check` shows it.
+- `employer.py shared-update [--from <file>] [--apply]`: per changed check, an employer the person never gave an
+  opinion on follows the new version, a retraction too (the old finding goes to the history; one line each in the
+  run report); an employer with their opinion gets one `ask` item, with every changed category, and a question for
+  the Questions page ("Allow, or exclude?"); a change its record already holds needs none. A check that `merge` would
+  refuse (no source on a finding, an unknown level or status, another category) never enters the records. A dry run
+  without `--apply`; `--apply` backs the records up first. Only an exact own entry takes an update; a group entry
+  covering a unit keeps its record.
+- The coordinator runs it each run after the handoff check: a dry run, the questions, then `--apply` (so a stopped run
+  loses no question), then `recheck-running`.
+- `apply`: signing in to SuccessFactors from a job's Apply link can submit at once by quick apply from the stored
+  profile: upload the CV to the profile first, or sign in from the site's home page.
+
+### Changed
+
+- README: eight categories, the first "ties to the state of Israel"; the second check and shared-list updates.
+- A note that limits which employers are acceptable ("Western countries only") never lowers a finding's level in the
+  second check: the level stays as found and the category's action decides, exclude or ask.
+
+### Fixed
+
+- `recheck-running` and `track.py sync` saved the "discuss" of a due second check as the employer's verdict, so after
+  the second check an employer still at "discuss" for a real reason looked unchanged and was never listed. They now
+  save the verdict from the findings and levels alone; the jobs still wait while a second check is due.
+
 ## [0.26.0] - 2026-11-11
 
 Employer levels per category, a second check against the person's own rules, and running applications checked again.

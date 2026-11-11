@@ -20,7 +20,10 @@ established outlets, a court ruling, a fine, a sanctions listing or an official 
 - **The person's own rules** for a category are its `notes` in `EMPLOYER_RULES`. Example: "a defence product offered
   in a state, with no customer named, counts as sold to its armed forces". A finding in a category with notes gets a
   second check against them: `own_level` direct, indirect or none (not counted), with the rule it meets, beside the
-  finding, which stays as found. The workflow runs it (`excl-own:`); by hand: `employer.py own "<name>" <category>
+  finding, which stays as found. A note that limits which employers are acceptable (an action rule, example:
+  "Western countries only") never lowers the level: the level stays as found and the category's action decides,
+  exclude or ask; only a note about what counts as a tie sets another level or none. The workflow runs it
+  (`excl-own:`); by hand: `employer.py own "<name>" <category>
   <direct|indirect|none> why="<the rule>"`. No finding, no second check. Each second check keeps the fingerprint of
   the notes it judged against (`own_rules`); other notes make it due again, and the earlier one counts until then.
   `employer.py check` lists the due ones in `recheck` and says "discuss" instead of "allow" while one is due.
@@ -72,6 +75,18 @@ established outlets, a court ruling, a fine, a sanctions listing or an official 
 - A saved `environment` is reused until the person asks for a refresh (the same command replaces it; `reviews=0` never
   replaces a rating). It is shown in `company.md` and never changes a verdict: the person decides. Complaints are up to 6 topics of a few words that
   reviews repeat; never review text, never a person's name. Details go in the job's `notes.md`.
+- **Shared list updates:** `EMPLOYERS_DIR/shared-seen.json` keeps a fingerprint per employer and category of the shared
+  list the person last took in (example: `"defence": "flagged direct 1a2b3c4d5e6f"`). Each
+  run, in this order: `employer.py shared-update` (a dry run; nothing to do while the plugin's list is the same), each
+  `ask` item's `question` to the Questions page (`questions.py add decision`, with its employer, category, fact and
+  source), then `employer.py shared-update --apply`, so a stopped run loses no question. The first time `--apply` only
+  saves the fingerprints. An employer the person never gave an opinion on follows the new version: the new check replaces
+  their own one in that category, a retraction too (flagged to clear), the old one goes to the history, and each
+  `updated` item is one line in the run report. An employer with their `opinion` (a decision, or a finding they stated:
+  `employer.py record ... --person`) gets one question for all its changed categories; a change their record already
+  holds needs none. Then `recheck-running`.
+  Example: "Shared list update for Acme Corp: Defence industry: flagged indirect -> flagged direct. Your setting:
+  allow since 2026-11-10. Allow, or exclude?"
 - **Running applications:** after a change that can move a verdict (the person's rules, a decision, new findings
   from a sync), `employer.py recheck-running` judges again every employer with a sent application that has not ended
   (rejected, closed, declined). It prints those whose verdict moved to exclude or discuss, or whose second check is

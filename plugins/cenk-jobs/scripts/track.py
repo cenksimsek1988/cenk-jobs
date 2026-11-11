@@ -230,8 +230,10 @@ def sync(journals):
                 except SystemExit as problem:
                     print(f"{name}: the second check of {cat} is not recorded: {problem}")
             # A second check that did not land leaves the category due: never an allow.
-            by_rules, reasons, _ = el.decide_due(env, name, el.lookup(env, name))
-            el.record(env, name, verdict=by_rules)
+            found = el.lookup(env, name)
+            by_rules, reasons, _ = el.decide_due(env, name, found)
+            # The records keep the verdict from the findings alone; the "discuss" of a due check only holds the jobs.
+            el.record(env, name, verdict=el.decide(env, name, found)[0])
             company["verdict"] = by_rules
             if by_rules == "allow":
                 attach_prep(company, newest(done, name, preps))
@@ -252,8 +254,9 @@ def sync(journals):
                     checks[cat].update(el.own_fields(rule_set, cat, k["own_level"], k.get("why", "")))
             company["checks"] = checks
             by_rules, reasons, _ = el.decide_due(env, name, checks)
+            saved = el.decide(env, name, checks)[0]  # never the "discuss" of a due second check (recheck_running)
             if env.get("EMPLOYER_CHECKS"):
-                el.record(env, name, checks, verdict="exclude" if x.get("verdict") == "exclude" else by_rules)
+                el.record(env, name, checks, verdict="exclude" if x.get("verdict") == "exclude" else saved)
             if x.get("verdict") != "exclude" and by_rules in ("exclude", "discuss"):
                 # The person's category settings: "exclude" excludes, "discuss" waits for their decision (no preparing).
                 company["verdict"] = by_rules

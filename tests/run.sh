@@ -567,14 +567,19 @@ employer recheck-running >"$T/lv-r1.json" 2>&1
 check "recheck-running: lists a running application whose second check is due; an ended one never" sh -c '
     "$1" -I "$2/q.py" "$3" 0.employer eq "Acme Corp" && "$1" -I "$2/q.py" "$3" 0.recheck.0 eq defence &&
     "$1" -I "$2/q.py" "$3" "" len 1' _ "$PY" "$T" "$T/lv-r1.json"
-check "recheck-running: while the second check is due the saved verdict is discuss" q "$F" "employers.Acme Corp.verdict" eq discuss
-employer own "Acme Corp" defence direct why="unnamed defence customers count as armed forces" >/dev/null 2>&1
+check "recheck-running: the discuss of a due second check is never saved" q "$F" "employers.Acme Corp.verdict" eq allow
+setrule indirect discuss
+employer own "Acme Corp" defence indirect why="sales to an army, no defence line" >/dev/null 2>&1
 employer recheck-running >"$T/lv-r2.json" 2>&1
+check "recheck-running: after the second check, a verdict at discuss for a real reason is listed" sh -c '
+    "$1" -I "$2/q.py" "$3" 0.now eq discuss && "$1" -I "$2/q.py" "$3" 0.saved eq allow && "$1" -I "$2/q.py" "$3" 0.recheck len 0' _ "$PY" "$T" "$T/lv-r2.json"
+employer own "Acme Corp" defence direct why="unnamed defence customers count as armed forces" >/dev/null 2>&1
+employer recheck-running >"$T/lv-r3.json" 2>&1
 check "recheck-running: a verdict that moved to exclude is listed with its running job" sh -c '
-    "$1" -I "$2/q.py" "$3" 0.now eq exclude && "$1" -I "$2/q.py" "$3" 0.saved eq discuss && "$1" -I "$2/q.py" "$3" 0.jobs.0.id eq R1' _ "$PY" "$T" "$T/lv-r2.json"
+    "$1" -I "$2/q.py" "$3" 0.now eq exclude && "$1" -I "$2/q.py" "$3" 0.saved eq discuss && "$1" -I "$2/q.py" "$3" 0.jobs.0.id eq R1' _ "$PY" "$T" "$T/lv-r3.json"
 check "recheck-running: the moved verdict is saved" q "$F" "employers.Acme Corp.verdict" eq exclude
-employer recheck-running >"$T/lv-r3.out" 2>&1
-check "recheck-running: the next run lists it only when it moves again" grep -q "nothing moved" "$T/lv-r3.out"
+employer recheck-running >"$T/lv-r4.out" 2>&1
+check "recheck-running: the next run lists it only when it moves again" grep -q "nothing moved" "$T/lv-r4.out"
 "$PY" -I "$S/usage.py" report --out "$T/lv-report.json" --env "$ENVF" >/dev/null 2>&1
 "$PY" -I "$S/employer.py" merge --from-checks --into "$T/lv-blacklist.json" --env "$ENVF" >/dev/null 2>&1
 check "the second check never leaves the person's files: not in the usage report, not in a merge" sh -c '
@@ -582,7 +587,11 @@ check "the second check never leaves the person's files: not in the usage report
 cp -R "$T/old" "$T/lv-sync"
 use "$T/lv-sync"
 echo "EMPLOYER_RULES=apply/employer-rules.json" >>"$H/job-search.env"
-cp "$T/lv/apply/employer-rules.json" "$H/apply/employer-rules.json"
+cat >"$H/apply/employer-rules.json" <<'EOF'
+{"categories": {"defence": {"action": "exclude", "indirect": "warn",
+                            "notes": "a defence product sold with no customer named counts as sold to armed forces"}},
+ "changes": []}
+EOF
 cat >"$H/apply/employer-checks.json" <<'EOF'
 {"employers": {"Epsilon Co": {"checks": {"defence": {"status": "flagged", "level": "indirect", "fact": "Epsilon sells software to an army",
                                                      "source_url": "https://example.com/e9", "checked": "2026-11-01"}},
@@ -609,11 +618,90 @@ check "sync: a known employer's second check alone is recorded, and its verdict 
 check "sync: a second-check result for a category with no notes of the person's is ignored" sh -c '
     "$1" -I "$2/q.py" "$3/apply/employer-checks.json" "employers.Acme Corp.checks.climate.status" eq flagged &&
     "$1" -I "$2/q.py" "$3/apply/employer-checks.json" "employers.Acme Corp.checks.climate.own_level" absent' _ "$PY" "$T" "$H"
-check "sync: a finding whose second check did not run is discuss, never allow" sh -c '
+check "sync: a finding whose second check did not run holds its jobs at discuss; the records keep the verdict from the findings" sh -c '
     "$1" -I "$2/q.py" "$3/apply/targets.json" "companies.name=Gamma Inc.verdict" eq discuss &&
-    "$1" -I "$2/q.py" "$3/apply/employer-checks.json" "employers.Gamma Inc.verdict" eq discuss' _ "$PY" "$T" "$H"
+    "$1" -I "$2/q.py" "$3/apply/employer-checks.json" "employers.Gamma Inc.verdict" eq allow' _ "$PY" "$T" "$H"
 check "withdrawal template: a version with the reason and one without it" sh -c '
     grep -q "^With the reason:" "$1" && grep -q "^Without the reason" "$1"' _ "$S/../templates/withdrawal-email.txt"
+
+# --- shared list updates: the copy last taken in, employers with the person's opinion asked, the rest updated ----------
+cp -R "$T/old" "$T/su-first"
+use "$T/su-first"
+echo '{"employers": {"Acme Corp": {"checks": {}, "verdict": "allow"}}}' >"$H/apply/employer-checks.json"
+cp "$H/apply/employer-checks.json" "$T/su-first-before.json"
+employer shared-update --apply >"$T/su-first.out" 2>&1
+check "shared-update the first time: saves the copy only" sh -c '
+    grep -q "first time" "$1" && [ -s "$2/apply/employers/shared-seen.json" ] && cmp -s "$3" "$2/apply/employer-checks.json"' _ "$T/su-first.out" "$H" "$T/su-first-before.json"
+cp -R "$T/old" "$T/su"
+use "$T/su"
+mkdir -p "$H/apply/employers"
+cat >"$H/apply/employer-checks.json" <<'EOF'
+{"employers": {
+ "Acme Corp": {"checks": {"defence": {"status": "clear", "fact": "no arms", "source_url": "https://example.com/s1", "checked": "2026-11-01"}}, "verdict": "allow"},
+ "Delta Inc": {"checks": {"defence": {"status": "flagged", "level": "indirect", "fact": "Delta sells to an army", "source_url": "https://example.com/s3", "checked": "2026-11-01"}},
+               "verdict": "allow", "decisions": [{"date": "2026-11-10", "verdict": "allow", "category": "defence"}]},
+ "Omega Ltd": {"checks": {"climate": {"status": "flagged", "level": "direct", "fact": "Omega was fined for dumping", "source_url": "https://example.com/s5", "checked": "2026-11-01"}}, "verdict": "discuss"},
+ "Sigma Co": {"checks": {"climate": {"status": "clear", "fact": "no finding", "source_url": "https://example.com/s6", "checked": "2026-11-01"}}, "verdict": "allow"},
+ "Nova": {"group": true, "checks": {"defence": {"status": "clear", "fact": "no arms", "source_url": "https://example.com/s12", "checked": "2026-11-01"}}, "verdict": "allow"},
+ "Kappa AG": {"checks": {"defence": {"status": "flagged", "level": "direct", "fact": "Kappa makes arms", "source_url": "https://example.com/s15", "checked": "2026-11-05"}},
+              "verdict": "exclude", "decisions": [{"date": "2026-11-05", "verdict": "exclude", "category": "defence"}]}}}
+EOF
+cat >"$T/su-old.json" <<'EOF'
+{"employers": [
+ {"name": "Acme Corp", "aliases": [], "checks": {"defence": {"status": "clear", "fact": "no arms", "source_url": "https://example.com/s1", "checked": "2026-11-01"}}},
+ {"name": "Delta Inc", "aliases": [], "checks": {"defence": {"status": "flagged", "level": "indirect", "fact": "Delta sells to an army", "source_url": "https://example.com/s3", "checked": "2026-11-01"},
+                                               "climate": {"status": "clear", "fact": "no finding", "source_url": "https://example.com/s17", "checked": "2026-11-01"}}},
+ {"name": "Kappa AG", "aliases": [], "checks": {"defence": {"status": "clear", "fact": "no arms", "source_url": "https://example.com/s14", "checked": "2026-11-01"}}},
+ {"name": "Omega Ltd", "aliases": [], "checks": {"climate": {"status": "flagged", "level": "direct", "fact": "Omega was fined for dumping", "source_url": "https://example.com/s5", "checked": "2026-11-01"}}},
+ {"name": "Sigma Co", "aliases": [], "checks": {"defence": {"status": "clear", "fact": "no arms", "source_url": "https://example.com/s7", "checked": "2026-11-01"}}},
+ {"name": "Zeta GmbH", "aliases": [], "checks": {"defence": {"status": "clear", "fact": "no arms", "source_url": "https://example.com/s8", "checked": "2026-11-01"}}}]}
+EOF
+cat >"$T/su-new.json" <<'EOF'
+{"employers": [
+ {"name": "Acme Corp", "aliases": [], "checks": {"defence": {"status": "flagged", "level": "direct", "fact": "Acme makes drones", "source_url": "https://example.com/s2", "checked": "2026-11-12"}}},
+ {"name": "Delta Inc", "aliases": [], "checks": {"defence": {"status": "flagged", "level": "direct", "fact": "Delta has a defence line", "source_url": "https://example.com/s4", "checked": "2026-11-12"},
+                                               "climate": {"status": "flagged", "level": "direct", "fact": "Delta was fined for dumping", "source_url": "https://example.com/s16", "checked": "2026-11-12"}}},
+ {"name": "Kappa AG", "aliases": [], "checks": {"defence": {"status": "flagged", "level": "direct", "fact": "Kappa makes arms", "source_url": "https://example.com/s15", "checked": "2026-11-12"}}},
+ {"name": "Omega Ltd", "aliases": [], "checks": {"climate": {"status": "clear", "fact": "the fine was overturned", "source_url": "https://example.com/s9", "checked": "2026-11-12"}}},
+ {"name": "Sigma Co", "aliases": [], "checks": {"defence": {"status": "flagged", "level": "indirect", "fact": "Sigma sells to an army", "source_url": "https://example.com/s10", "checked": "2026-11-12"},
+                                              "climate": {"status": "flagged", "level": "severe", "fact": "no source given", "checked": "2026-11-12"}}},
+ {"name": "Zeta GmbH", "aliases": [], "checks": {"defence": {"status": "flagged", "level": "direct", "fact": "Zeta makes arms", "source_url": "https://example.com/s11", "checked": "2026-11-12"}}},
+ {"name": "Nova Path", "aliases": [], "checks": {"defence": {"status": "flagged", "level": "direct", "fact": "Nova Path makes arms", "source_url": "https://example.com/s13", "checked": "2026-11-12"}}}]}
+EOF
+employer shared-update --from "$T/su-old.json" --apply >/dev/null 2>&1  # the first time: the old list's fingerprints
+cp "$H/apply/employer-checks.json" "$T/su-before.json"
+cp "$H/apply/employers/shared-seen.json" "$T/su-seen-before.json"
+employer shared-update --from "$T/su-new.json" >"$T/su-dry.out" 2>&1
+check "shared-update without --apply: a dry run that writes nothing" sh -c '
+    grep -q "dry run" "$1" && cmp -s "$2" "$3/apply/employer-checks.json" && cmp -s "$4" "$3/apply/employers/shared-seen.json"' _ "$T/su-dry.out" "$T/su-before.json" "$H" "$T/su-seen-before.json"
+employer shared-update --from "$T/su-new.json" --apply >"$T/su.out" 2>&1
+F="$H/apply/employer-checks.json"
+check "shared-update: an employer with no opinion of the person's takes the new finding; the old one goes to the history" sh -c '
+    "$1" -I "$2/q.py" "$3" "employers.Acme Corp.checks.defence.level" eq direct &&
+    "$1" -I "$2/q.py" "$3" "employers.Acme Corp.checks.defence.history.0.status" eq clear' _ "$PY" "$T" "$F"
+check "shared-update: an employer with the person's opinion gets one question for all its changed categories; its record stays" sh -c '
+    [ "$(grep -c "Shared list update for Delta Inc" "$1")" -eq 1 ] && grep "Shared list update for Delta Inc" "$1" | grep -q "Climate" &&
+    grep -q "allow since 2026-11-10" "$1" &&
+    "$2" -I "$3/q.py" "$4" "employers.Delta Inc.checks.defence.level" eq indirect' _ "$T/su.out" "$PY" "$T" "$F"
+check "shared-update: with no opinion of the person's, a retraction (flagged to clear) is followed too; the finding goes to the history" sh -c '
+    "$1" -I "$2/q.py" "$3" "employers.Omega Ltd.checks.climate.status" eq clear &&
+    "$1" -I "$2/q.py" "$3" "employers.Omega Ltd.checks.climate.history.0.status" eq flagged' _ "$PY" "$T" "$F"
+check "shared-update: a category with no own check, or an employer not in the records, is left to the shared list" sh -c '
+    "$1" -I "$2/q.py" "$3" "employers.Sigma Co.checks.defence" absent && "$1" -I "$2/q.py" "$3" "employers.Zeta GmbH" absent' _ "$PY" "$T" "$F"
+check "shared-update: a unit's new finding never rewrites the record of a group entry that covers it" q "$F" "employers.Nova.checks.defence.status" eq clear
+check "shared-update: no question when the person's record already holds the new finding" sh -c '! grep -q "Kappa AG" "$1"' _ "$T/su.out"
+check "shared-update: a malformed shared check (no source, an unknown level) never enters the records" sh -c '
+    "$1" -I "$2/q.py" "$3" "employers.Sigma Co.checks.climate.status" eq clear && grep -q "\"invalid\": 1" "$4"' _ "$PY" "$T" "$F" "$T/su.out"
+check "shared-update --apply: backs the records up and keeps only fingerprints of the new list" sh -c '
+    cmp -s "$1" "$(ls "$2"/apply/employer-checks.json.before-shared-update-*.json | head -n 1)" &&
+    grep -q "\"defence\": \"flagged direct [0-9a-f]\{12\}\"" "$2/apply/employers/shared-seen.json" &&
+    ! grep -q "Acme makes drones" "$2/apply/employers/shared-seen.json"' _ "$T/su-before.json" "$H"
+employer shared-update --from "$T/su-new.json" --apply >"$T/su2.out" 2>&1
+check "shared-update: the same version again has nothing to do" grep -q "nothing to do" "$T/su2.out"
+employer decide "Acme Corp" exclude defence >/dev/null 2>&1
+check "decide: the employer has the person's opinion from now on" q "$F" "employers.Acme Corp.opinion" present
+employer record "Sigma Co" sanctions clear fact="not on the lists" source=https://example.com/s18 --person >/dev/null 2>&1
+check "record --person: a finding the person stated gives the employer their opinion" q "$F" "employers.Sigma Co.opinion" present
 
 # --- searches ------------------------------------------------------------------------------------------------------------------
 use "$T/flat"

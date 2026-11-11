@@ -25,7 +25,10 @@ Files:
   EMPLOYER_CHECKS       the person's own summary: {employers: {name: entry}}. Their own checks win over the shared
                         list's. A decision is a value and a date, never a quote (older entries may hold "words"; they
                         are read, never written).
-  EMPLOYERS_DIR         beside EMPLOYER_CHECKS ("employers" by default): names.json and one folder per employer.
+  EMPLOYERS_DIR         beside EMPLOYER_CHECKS ("employers" by default): names.json, one folder per employer, and
+                        shared-seen.json (fingerprints of the shared list the person last took in; shared_update).
+An entry the person gave an opinion on has "opinion" (the date of the last one): a new version of the shared list
+asks them before it changes it; any other entry follows the new version.
 
 The layout, top-down (only this module knows it): names.json {names: {lookup key: entry name}, not_same: [[key, key]]}
 refers to the summary; the summary entry {verdict, verdict_date, group, aliases, decisions, status: {category:
@@ -648,7 +651,8 @@ def check_view(env, name, rule_set=None, full=False, employers=None):
     out = {"name": name, "match": how, "matched": entry_name or "", "verdict": verdict, "reasons": reasons,
            "checks": checks,
            "unknown": [c for c in rule_set["categories"] if checks.get(c, {}).get("status", "unknown") == "unknown"],
-           "recheck": recheck, "has_environment": saved or bool(shared.get("environment")), "possible": possible}
+           "recheck": recheck, "opinion": has_opinion(entry),
+           "has_environment": saved or bool(shared.get("environment")), "possible": possible}
     if full:
         out["environment"] = environment_of(env, name, own={"employers": employers})
     return out
@@ -663,8 +667,8 @@ def recheck_of(env, name, checks, rule_set):
 
 def decide_due(env, name, checks, rule_set=None):
     """(verdict, reasons, due): decide(), and while a second check is due (due: its categories) an "allow" is
-    "discuss": never an allow on a level the person's own rules have not judged yet. Every verdict goes through it:
-    check_view, recheck_running and track.py sync."""
+    "discuss": never an allow on a level the person's own rules have not judged yet. check_view and track.py sync use
+    it; recheck_running saves only decide()'s verdict and lists the due categories apart."""
     rule_set = rule_set or rules(env)
     verdict, reasons = decide(env, name, checks, rule_set)
     due = recheck_of(env, name, checks, rule_set)
@@ -711,7 +715,9 @@ def recheck_running(env, jobs, pipeline, write=True):
     """Every employer with a running application, judged again under the person's current rules and records:
     [{employer, saved, now, reasons, recheck, jobs: [{id, title, stage}]}] for those that need the person or a second
     check: the verdict moved to exclude or discuss, or a second check is due. A moved verdict is saved (write), so the
-    next run lists it only when it moves again; a move to allow is saved without a line."""
+    next run lists it only when it moves again; a move to allow is saved without a line. The verdict compared and
+    saved is the one from the findings and levels alone (decide): the "discuss" a due second check gives (decide_due)
+    is never saved, so a verdict that stays at "discuss" for a real reason after the second check is still listed."""
     rule_set = rules(env)
     employers = checks_file(env).get("employers", {})
     out = []
@@ -720,7 +726,10 @@ def recheck_running(env, jobs, pipeline, write=True):
             continue
         entry_name, entry = find_own(env, name, employers)
         checks = lookup(env, name, employers=employers)
-        verdict, reasons, recheck = decide_due(env, name, checks, rule_set)
+        verdict, reasons = decide(env, name, checks, rule_set)
+        recheck = recheck_of(env, name, checks, rule_set)
+        if recheck:
+            reasons = reasons + ["second check due: " + ", ".join(recheck)]
         saved = (entry or {}).get("verdict") or "allow"  # a sent application was allowed when it was sent
         if verdict != saved and write:
             record(env, entry_name or name, verdict=verdict)
@@ -729,6 +738,159 @@ def recheck_running(env, jobs, pipeline, write=True):
             out.append({"employer": name, "saved": saved, "now": verdict, "reasons": reasons, "recheck": recheck,
                         "jobs": [{"id": j.get("id", ""), "title": j.get("title", ""),
                                   "stage": pipeline_row(pipeline, j.get("id")).get("stage", "sent")} for j in jobs_of]})
+    return out
+
+
+# --- shared list updates: the fingerprints of the list the person last took in, and what a new version changes -------
+SHARED_SEEN = "shared-seen.json"  # in EMPLOYERS_DIR: the fingerprints of the shared list the person last took in
+SHARED_SEEN_ABOUT = ("The shared employer blacklist as the person last took it in (employer.py shared-update): per "
+                     "employer and category the check's status and a fingerprint of its fields as found (sha256, 12 "
+                     "hex). A new version is compared with it; the findings themselves stay in the plugin's list.")
+
+
+def has_opinion(entry):
+    """Whether the person gave an opinion on an employer: a decision (employer.py decide, or an answer on the
+    Questions page) or a finding they stated themselves (employer.py record --person), which set "opinion" (its date);
+    an older entry with a decision counts too."""
+    return bool((entry or {}).get("opinion") or (entry or {}).get("decisions"))
+
+
+def _found(check):
+    """A check's fields as found (no date, no second check): what a shared-list version is compared on."""
+    return {k: check[k] for k in FOUND_FIELDS if isinstance(check, dict) and check.get(k) not in (None, "")}
+
+
+def fingerprint(check):
+    """A shared check's fingerprint: '<status text> <sha256 of its fields as found, 12 hex>' ('flagged direct 1a2b...');
+    a refreshed date alone keeps it."""
+    found = json.dumps(_found(check), sort_keys=True, ensure_ascii=False)
+    return f"{status_text(check)} {hashlib.sha256(found.encode('utf-8')).hexdigest()[:12]}"
+
+
+def shared_fingerprints(shared):
+    """What shared-seen.json keeps of a version of the shared list: {_about, employers: {name: {aliases, checks:
+    {category: fingerprint}}}}."""
+    return {"_about": SHARED_SEEN_ABOUT,
+            "employers": {e.get("name", ""): {"aliases": list(e.get("aliases") or []),
+                                               "checks": {c: fingerprint(k) for c, k in (e.get("checks") or {}).items()}}
+                          for e in shared.get("employers", [])}}
+
+
+def shared_changes(seen, new):
+    """[(name, aliases, category, status text before ('none' when there was none), check now or None)] for every
+    category check whose fingerprint differs between the kept fingerprints (seen) and a version of the shared list."""
+    before = (seen or {}).get("employers") or {}
+    out = []
+    for e in new.get("employers", []):
+        name = e.get("name", "")
+        old = (before.get(name) or {}).get("checks") or {}
+        for cat in sorted(set(e.get("checks") or {}) | set(old)):
+            was, now = old.get(cat), (e.get("checks") or {}).get(cat)
+            if was != (fingerprint(now) if now else None):
+                out.append((name, list(e.get("aliases") or []), cat, _was_text(was), now))
+    names = {e.get("name", "") for e in new.get("employers", [])}
+    for name, old in before.items():
+        if name not in names:
+            out += [(name, list(old.get("aliases") or []), cat, _was_text(was), None)
+                    for cat, was in (old.get("checks") or {}).items()]
+    return out
+
+
+def _was_text(print_):
+    return print_.rsplit(" ", 1)[0] if print_ else "none"
+
+
+def _check_text(check):
+    return status_text(check) if check else "none"
+
+
+def valid_shared(cat, check):
+    """Whether a shared-list check may enter the person's records, by the rules merge applies: a shared category,
+    flagged or clear; a flagged one with a known level and its source link."""
+    if cat not in CATEGORIES or not isinstance(check, dict) or check.get("status") not in ("flagged", "clear"):
+        return False
+    return check["status"] == "clear" or (check.get("level", "direct") in LEVELS
+                                          and bool(SOURCE_URL.fullmatch(str(check.get("source_url") or ""))))
+
+
+def shared_update(env, new=None, apply=False):
+    """Take in a version of the shared list (new; default data/blacklist.json) against the fingerprints of the one the
+    person last took in (EMPLOYERS_DIR/shared-seen.json, shared_fingerprints). The first time there are none: only
+    they are saved. Then, per changed check of an employer in the person's records:
+      no opinion of theirs: the new check replaces their own one in that category, a retraction (flagged to clear)
+        too; the old one goes to the history and each updated item is one line in the run report. A check the
+        shared list dropped leaves theirs as it is (dropped);
+      their opinion: one ask item per employer (every changed category in it), with their setting and a question for
+        the Questions page; a change their record already holds needs no question.
+    Changes for employers not in their records, or (with no opinion of theirs) in a category they have no own check
+    in, need nothing: lookup reads the shared list (shared_only). An employer with their opinion is asked about a
+    change in any category. A check that fails valid_shared is left out (invalid). apply: write the
+    updates (EMPLOYER_CHECKS backed up first) and the new fingerprints. Returns {first, unchanged, updated, ask,
+    dropped, shared_only, invalid}."""
+    path, base = env_path(env, "EMPLOYER_CHECKS"), employers_dir(env)
+    if not path or not base:
+        raise SystemExit("EMPLOYER_CHECKS is not set in job-search.env")
+    seen_path = os.path.join(base, SHARED_SEEN)
+    new = blacklist() if new is None else new
+    seen, prints = load_json(seen_path, None), shared_fingerprints(new)
+    out = {"first": seen is None, "unchanged": seen == prints, "updated": [], "ask": [], "dropped": 0,
+           "shared_only": 0, "invalid": 0}
+    if seen is None or seen == prints:
+        if apply and seen is None:
+            save_json(seen_path, prints)
+        return out
+    rule_set = rules(env)
+    labels = {c: s.get("label", c) for c, s in rule_set["categories"].items()}
+    employers = checks_file(env).get("employers", {})
+    updates, asks = {}, {}
+    for name, aliases, cat, was, now in shared_changes(seen, new):
+        if now is not None and not valid_shared(cat, now):
+            out["invalid"] += 1  # never enters the records: no source, an unknown level or status, another category
+            continue
+        entry_name, entry = None, None
+        for n in [name] + aliases:
+            # Only the employer's own entry: a group entry covering a unit ("Acme" for "Acme Cloud") keeps its record.
+            entry_name, entry, how, _ = own_match(env, n, employers)
+            if how != "exact":
+                entry_name, entry = None, None
+            if entry:
+                break
+        if not entry:
+            out["shared_only"] += 1
+            continue
+        item = {"employer": entry_name, "category": cat, "was": was, "now": _check_text(now),
+                "fact": (now or {}).get("fact", ""), "source": (now or {}).get("source_url", "")}
+        own = entry_checks(env, entry).get(cat)
+        if own and _found(own) == _found(now):
+            continue  # their record holds this version already: nothing to update or ask
+        if has_opinion(entry):
+            asks.setdefault(entry_name, (entry, []))[1].append(item)
+            continue
+        if not own:
+            out["shared_only"] += 1
+            continue
+        if now is None:
+            out["dropped"] += 1  # the shared list says nothing now: their own check stays
+            continue
+        updates.setdefault(entry_name, {})[cat] = dict(_found(now), checked=now.get("checked") or today())
+        out["updated"].append(item)
+    # One question per employer with their opinion, naming every changed category: the page keeps one per employer.
+    for entry_name, (entry, items) in asks.items():
+        last = (entry.get("decisions") or [None])[-1]
+        setting = (f"{last.get('verdict')} since {last.get('date', '?')}" + (
+            f" ({last['category']})" if last.get("category") else "") if last
+                   else f"a finding you stated on {entry.get('opinion', '?')}")
+        changes = "; ".join(f"{labels.get(i['category'], i['category'])}: {i['was']} -> {i['now']}" for i in items)
+        out["ask"].append({"employer": entry_name, "category": items[0]["category"], "changes": items,
+                           "setting": setting, "fact": items[0]["fact"], "source": items[0]["source"],
+                           "question": f"Shared list update for {entry_name}: {changes}. Your setting: {setting}. "
+                                       f"Allow, or exclude?"})
+    if apply:
+        if updates:
+            backup_checks(path, "shared-update")
+        for entry_name, checks in updates.items():
+            record(env, entry_name, checks)
+        save_json(seen_path, prints)
     return out
 
 
@@ -965,8 +1127,10 @@ def decide(env, name, checks, rule_set=None):
     return verdict, reasons
 
 
-def record(env, name, checks=None, verdict=None, decided=False, category=None, group=False, environment=None):
+def record(env, name, checks=None, verdict=None, decided=False, category=None, group=False, environment=None,
+           person=False):
     """Write checks (and a verdict, or with decided=True the person's decision) for an employer into EMPLOYER_CHECKS.
+    person=True: the person stated these checks themselves, so the employer has their opinion (as with a decision).
     group=True: the entry also covers every name that starts with its own (the group's units).
     environment: an environment_finding(), which replaces the saved one (reviews 0 never replaces a rating) and gets
     today's date. A check that replaces a different one keeps the old as a history item with "until". In a split file
@@ -1008,11 +1172,14 @@ def record(env, name, checks=None, verdict=None, decided=False, category=None, g
         entry["verdict_date"] = today()
     if group:
         entry["group"] = True
+    if person:
+        entry["opinion"] = today()
     if decided:
         decision = {"date": today(), "verdict": verdict}
         if category:
             decision["category"] = category
         entry.setdefault("decisions", []).append(decision)
+        entry["opinion"] = today()  # a shared-list update asks before it changes anything here (shared_update)
     write_entry(env, data, found or name, entry)
     save_json(path, data)
     return entry

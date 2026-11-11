@@ -21,6 +21,16 @@ python -I employer.py recheck-running                   every employer with a ru
                                                         check is due, and saves each moved verdict
 python -I employer.py rules                             the person's rules as they apply: their file filled from the
                                                         plugin's (levels, state category, what); for the workflow
+python -I employer.py shared-update [--from <blacklist.json>] [--apply]
+                                                        take in a new version of the shared list against the
+                                                        fingerprints of the one the person last took in
+                                                        (EMPLOYERS_DIR/shared-seen.json):
+                                                        an employer with no opinion of theirs takes the new
+                                                        findings; one they gave an opinion on (a decision, or a
+                                                        record --person) is listed under ask, with a question for
+                                                        the Questions page. The first time only
+                                                        the fingerprints are saved. A dry run without --apply; --from: another
+                                                        file than the plugin's data/blacklist.json
 python -I employer.py alias "<saved name>" "<other name>"   the other name finds the saved employer from now on
                                                         (its keys go into names.json); refused when one of its
                                                         keys already points to another employer
@@ -30,7 +40,9 @@ python -I employer.py split [--apply]                   move each employer's che
                                                         (counts and bytes) without --apply; with it, a backup first,
                                                         every entry proved equal, and only then the summary replaced
 python -I employer.py record "<name>" <category> <flagged|clear|unknown> [level=direct|indirect] [fact="..."]
-                             [source=<url>]              write one category result (a flagged one needs source=)
+                             [source=<url>] [--person]   write one category result (a flagged one needs source=);
+                                                        --person: the person stated it themselves, so the employer
+                                                        has their opinion and a shared-list update asks first
 python -I employer.py environment "<name>" reviews=<n> [rating=<x>] [scale=5] [complaints="a; b"] [source=<url>]
                                                         save what employee reviews say (replaces the saved one, with
                                                         today's date); reviews=0: looked and found none, which
@@ -81,9 +93,11 @@ full_flag = "--full" in args
 args = [a for a in args if a != "--full"]
 not_flag = "--not" in args
 args = [a for a in args if a != "--not"]
+person_flag = "--person" in args
+args = [a for a in args if a != "--person"]
 IMPORTED_UNKNOWN = "imported from an older tracker: no fact or source recorded"
 if not args or args[0] not in ("check", "record", "environment", "decide", "repair-clear", "import-tracker", "merge",
-                               "alias", "split", "own", "recheck-running", "rules"):
+                               "alias", "split", "own", "recheck-running", "rules", "shared-update"):
     sys.exit(__doc__)
 cmd = args[0]
 
@@ -190,6 +204,22 @@ if cmd == "check":
     print(json.dumps(out, ensure_ascii=False, indent=1))
 elif cmd == "rules":
     print(json.dumps(el.rules(env), ensure_ascii=False, indent=1))
+elif cmd == "shared-update":
+    if "--from" in args and args.index("--from") + 1 >= len(args):
+        sys.exit("--from needs a file: employer.py shared-update --from <blacklist.json> [--apply]")
+    source = args[args.index("--from") + 1] if "--from" in args else ""
+    if source and not os.path.isfile(source):
+        sys.exit(f"no such file: {source}")
+    out = el.shared_update(env, el.load_json(source, {"employers": []}) if source else None, apply_flag)
+    if out["first"]:
+        print("first time: the shared list's fingerprints are " + ("saved; updates start with its next version"
+                                                                  if apply_flag else "not saved yet (dry run): add --apply"))
+    elif out["unchanged"]:
+        print("the shared list is the version you took in last: nothing to do")
+    else:
+        print(json.dumps(out, ensure_ascii=False, indent=1))
+        print("dry run: nothing written; add --apply" if not apply_flag else
+              f"{len(out['updated'])} updated, {len(out['ask'])} to ask; the fingerprints are saved")
 elif cmd == "own":
     if len(args) < 4:
         sys.exit(__doc__)
@@ -239,8 +269,8 @@ elif cmd == "record":
     if level not in el.LEVELS:
         sys.exit(f"level must be one of {', '.join(el.LEVELS)}")
     el.record(env, name, {cat: {"status": status, "level": level, "fact": extra.get("fact", ""),
-                                "source_url": extra.get("source", "")}})
-    print(name, cat, status, level)
+                                "source_url": extra.get("source", "")}}, person=person_flag)
+    print(name, cat, status, level, "(the person's own: a shared-list update asks first)" if person_flag else "")
 elif cmd == "environment":
     if len(args) < 3:
         sys.exit(__doc__)

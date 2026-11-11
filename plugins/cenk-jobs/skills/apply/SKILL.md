@@ -13,7 +13,9 @@ waits on the person.
 
 - Check the posting is still open and its link lands on the employer's own form (RULES.md, "Links"). A
   SuccessFactors apply link (`talentcommunity/apply/<id>`) opens the site's home page when signed out: not a closed
-  posting; open the job's own page.
+  posting; open the job's own page. Signing in there from a job's Apply link can submit at once by quick apply from
+  the stored profile, with no CV or answers: upload the CV to the profile first, or sign in from the site's home page,
+  then apply.
 - Check the form before writing a letter: many have no letter field (often Workable, Rippling, HiBob, Ashby, Lever).
   Ashby keeps no draft, so a form with an essay question waits until the person's answer is in the records.
 - Check the employer again if the last check is old (`employer.py check`).
