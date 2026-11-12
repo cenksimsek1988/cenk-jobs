@@ -52,7 +52,10 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
 - `python -I -m py_compile plugins/cenk-jobs/scripts/*.py`
 - `sh tests/run.sh` (a throwaway folder; never touches real records)
 - With the workbench: `sh <workbench>/scripts/check-plugin.sh --base main plugins/cenk-jobs` (the plugin folder: the
-  repository root has no plugin.json).
+  repository root has no plugin.json). From workbench 0.23.0 its personal-data check reads the person's profile for
+  the values it looks for; it prints none.
+- A test that runs the shared profile lookup without job-search.env pins `CLAUDE_PLUGIN_OPTION_PROFILE_PATH` to a
+  throwaway path: otherwise `drive_roots()` looks for the real `<letter>:\My Drive\claude\profile.json`.
 - `workflows/screen-and-prepare.js` parses with `node --check` only as a copy wrapped in `(async () => { ... })()`:
   it has a top-level `return`.
 - A test on a copy of a job-search folder: a short path; a deep one breaks `shutil.copytree` on Windows path length.
