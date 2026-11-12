@@ -8,7 +8,8 @@ What an application needs and the records do not answer is asked once, on the pe
 (`QUESTIONS_PAGE`: an artifact with a small database), then written into the records, so it is never asked again.
 - Claude adds each question when it meets it, with the job that needs it:
   - `questions.py add fact "<question>" key=<answer key> job=<id>`: a fact forms ask for; `personal=yes` for
-    health, family or identity. The same key again only adds the job. Example: `key=notice_period`.
+    health, family or identity. The same key again only adds the job. Example: `key=notice_period`. A fact about
+    the person themselves takes its profile key. Example: `key=person.birth_date`.
   - `questions.py add job "<question>" job=<id>`: an essay or a motivation answer for one application;
     `options="apply:Apply,decline:Don't apply"` asks whether to apply to that job (pay below target, a weak fit).
   - `questions.py add decision "<question>" employer="<name>" category=<category> job=<id>`: allow or exclude, for
@@ -37,14 +38,23 @@ What an application needs and the records do not answer is asked once, on the pe
 - Every handled question gets a note saying what happened and stays on the page under Done until the first build
   after 7 days. When its
   job moves on, a new note: `questions.py note <id> "Submitted on 8 Nov; the confirmation is in Gmail."`.
-- Where answers go: a fact into the master record's `form_answers`; a private fact into `PERSONAL_RECORD`; a job's
-  answer into that job's prepared answers; a decision through `employer.py decide`; "Don't
-  apply" makes the job `declined`; Allow on an excluded employer makes its jobs `pending` again.
+- Where answers go: a fact into the master record's `form_answers`; a `person.*` key and a private fact
+  (`private.<key>`) into the profile; a job's answer into that job's prepared answers; a decision through
+  `employer.py decide`; "Don't apply" makes the job `declined`; Allow on an excluded employer makes its jobs
+  `pending` again.
+- A profile answer never goes over another value: `record` lists it under "ask the person" and the question stays
+  open. Show the person both values (`profilelib.py get <key>`); their choice goes in with `questions.py answer <id>
+  "<answer>" replace=yes`. With no profile it is listed under "no profile": ask where to create it first.
 - Every button question also has **Discuss**, in the middle (Allow · Discuss · Exclude): nothing is recorded, the question stays open, and Claude brings it up
   with the person in the main session; what they decide there is recorded with `questions.py answer <id> <answer>`.
-- `PERSONAL_RECORD` holds health, family, identity and military-service answers: used only in a form field that asks
-  for one, never in a CV, letter, note or shared file. A private answer stays until the person changes it (the old
-  one goes into its `history`) or asks to erase it: then the fact and its history are deleted, with nothing kept.
+- The profile's `private` holds health, family, identity and military-service answers, each `{answer, words, date,
+  source}`: used only in a form field that asks for one, never in a CV, letter, note or shared file. A private
+  answer stays until the person changes it (the old one goes into the profile's `history`) or asks to erase it.
+- Erasing: `profilelib.py erase private.<key>` deletes the answer and its history. Google Drive still keeps the
+  earlier versions of the file, with the answer in them, for up to 30 days. After the person's yes (they cannot be
+  restored), the person deletes them: drive.google.com, signed in to the account that holds the profile, right-click
+  the file, File information, Manage versions, delete every version except the current one.
+  The move's backups it names may hold the value too: delete them after the person's yes.
 - An answer leaves the Questions page once it is recorded (its question stays as done, with a note; a private
   answer's note says only where it is kept); only the person can read the page's questions and answers.
 - A pay question shows the numbers, since only the person reads the page: the posted range, their target and band

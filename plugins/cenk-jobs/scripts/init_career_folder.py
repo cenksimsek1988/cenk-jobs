@@ -4,7 +4,9 @@ Usage: python -I init_career_folder.py "<main folder, e.g. G:/My Drive/Career/jo
 Creates in the main folder:
   job-search.env               every folder and file name the scripts use (edit the values, never the scripts)
   documents-inbox/             the person drops all their documents here as they are; Claude sorts them
-  career-records/career.json   the master record: every fact, decision and form answer, as JSON
+  career-records/career.json   the master record: CV wording, decisions and form answers, as JSON; the person's own
+                               facts (name, contact, private answers, referees, employment) go in their profile
+                               (profilelib.py)
   CVs/versions/                one JSON per CV version; build_cv.py prints them to PDF into CVs/
   certificates/ diplomas/ portfolio/   the person's documents (portfolio: e.g. an architect's project catalogue)
   job-applications/{pending,approved,rejected,not-applied}/   one folder per application
@@ -33,16 +35,16 @@ for d in ("documents-inbox", "career-records", os.path.join("career-records", "p
         made.append(path)
 
 SKELETON = {
-    "meta": {"about": "The person's master record: every fact, decision and form answer. Facts come only from the "
-                      "person or their documents; a claim nobody confirmed has \"status\": \"pending\" and never goes "
-                      "on a CV. Add each new fact at once, dated, as one fact line (no narrative, no quoted chat); "
-                      "a decision is a value and a date."},
-    "profile": {"name": name, "headline": "", "email": "", "phone": "", "linkedin": "", "location": "",
-                "citizenship": [], "work_authorisation": "", "languages": []},
+    "meta": {"about": "The person's master record: CV wording, decisions and form answers. Facts come only from "
+                      "the person or their documents; a claim nobody confirmed has \"status\": \"pending\" and never "
+                      "goes on a CV. Add each new fact at once, dated, as one fact line (no narrative, no quoted "
+                      "chat); a decision is a value and a date. The person's own facts (name, contact, nationality, "
+                      "languages, birth date, address, private answers, referees, the true employment dates) live only "
+                      "in their profile (profilelib.py)."},
+    "profile": {"_about": "How CVs and letters present the person (headline, the name as the CV shows it); the facts "
+                          "themselves are in the profile.", "headline": ""},
     "experience": [], "education": [], "certificates": [], "skills": {}, "volunteering": [], "interests": [],
     "portfolio": [],
-    "references": {"_about": "Referees the person named, each {name, role, relation, contact, agreed_on}; only with "
-                             "the person's word that the referee agreed. Never contacted by Claude."},
     "form_answers": {"_about": "Answers the person gave for application forms; add each new one with its date."},
     "preferences": {"locations": [], "work_modes": [], "pay": {"private": True, "rules": []},
                     "interview_scheduling": []},

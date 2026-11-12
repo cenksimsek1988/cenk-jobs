@@ -50,6 +50,9 @@ by step.
 - Fill `CONTACT_LINE`, `LETTER_TITLE`, the accounts and `PHOTO` in `job-search.env` with the person.
 - On their OK, add `JOB_SEARCH_ENV=<main folder>/job-search.env` to the `env` block of `~/.claude/settings.json`;
   it takes effect in sessions started after the change.
+- The profile (their own facts, shared with the other cenk-* plugins): `profilelib.py path`. None yet: ask where to
+  create it, suggesting the place `check_setup.py` names (`claude/profile.json` in their Google Drive's "My Drive"),
+  then `profilelib.py create <path>`. Ask how they want to be referred to, and save it: `set person.pronouns`.
 
 ## 4. The defaults: one choice
 
@@ -58,6 +61,9 @@ Show the defaults and ask: "Use these defaults? You can change any of them later
 - The search runs every day at 19:00 your local time (`SEARCH_TIME`; `/cenk-jobs:schedule` changes it).
 - Optional consents stay off: newsletters, talent pools, job alerts, marketing, SMS, AI analysis of interviews,
   extra data retention. A job alert you say yes to for a site is the exception: it replaces repeat searches.
+- Your birth date, references, criminal record and relatives at the company: a form asking for one waits for you,
+  unless you let forms answer it from your profile (`form_facts`). Example: "let forms answer my birth date" sets
+  `settings.cenk-jobs.form_facts` to `["birth_date"]`, after your yes to that key and value. ID numbers never.
 - Open free-text questions, essays and self-ratings are never filled for you: they wait for you on your
   Questions page, with every other question your records do not answer. Each answer goes into your records, so it
   is asked once.
@@ -106,7 +112,12 @@ in `changes`.
 - Read everything into the master record (`MASTER_RECORD`), facts only; a claim nobody confirmed gets
   `"status": "pending"`. Draw skills out of every source and ask a few short questions about their work, so skills
   they never wrote down end up in the record. Show what you found and what is missing.
-- References: record name, role, relation and contact only with the person's word that the referee agreed; never
+- The person's own facts go into the profile, not the master record: name, contact, nationality, languages, birth
+  date, address (`person.*`) and each job's true dates (`employment.<employer>-<start year>`: employer, role, start,
+  end, location, source). Show them first, then save each with `profilelib.py set` after the person's OK. The
+  master record keeps the CV's wording and dates.
+- References: a referee goes into the profile as `contacts.referee-<first name>` (name, role, relation, email,
+  phone, company, `agreed_on`), only with the person's word that the referee agreed (`agreed_on`: that day); never
   contact a referee. Never store ID numbers.
 
 ## 6. Where and how they will work

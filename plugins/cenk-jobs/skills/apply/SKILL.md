@@ -47,11 +47,14 @@ waits on the person.
   "Upload a CV" label does nothing; click the `span.addAttachments` icon with `javascript_tool`, and its in-page
   dialog holds `input[type=file]` (name `fileData1`) for `file_upload`. Start the next upload only after the last one
   has finished.
-- Every answer from the master record; a health, family or identity answer only from `PERSONAL_RECORD`, read by
-  the session that fills the form (never handed to a screen-and-prepare agent; an applier's brief carries the ones its form asks for). Anything
-  they do not answer goes to the Questions page with the job that needs it (`questions.py add`, RULES.md "Questions
-  for the person"); a question no option of which is true is asked, never ticked.
-- The home address only in the form's own address fields, never in a file or a message.
+- Every answer from the master record, and the person's own facts from their profile (`profilelib.py get <key>`):
+  a health, family or identity answer only from `private.<key>`, read by the session that fills the form (never
+  handed to a screen-and-prepare agent; an applier's brief carries the ones its form asks for). A prepared answer
+  "from the profile" is a guarded item the person's `form_facts` names: type their value from the profile (example:
+  `get person.birth_date`). Anything they do not answer goes to the Questions page with the job that needs it
+  (`questions.py add`, RULES.md "Questions for the person"); a question no option of which is true is asked, never
+  ticked.
+- The home address and the birth date only in the form's own fields, never in a file or a message.
 - A form that waits on the person (RULES.md, "Applications"): stop on that page and put the field in Do now. If
   the step expires (an emailed or SMS code, a CAPTCHA, a Submit waiting for their yes, a sign-in page), send one
   notification at once (RULES.md, "Urgent steps"), "At your PC:" or "From your phone:", and keep the tab open.

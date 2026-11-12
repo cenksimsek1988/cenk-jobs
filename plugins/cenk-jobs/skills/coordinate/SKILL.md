@@ -41,9 +41,11 @@ A session cannot be moved under a new coordinator: it is reached by message, and
 - Runs in the main folder and is titled **Job search coordinator**. It tells the person, at the start of each run,
   that this is their main session (RULES.md, "One main session").
 - **Is the only writer of the shared records**: `TRACKER`, `PIPELINE`, `LOGINS`, `MASTER_RECORD`,
-  `PERSONAL_RECORD`, `QUESTIONS`, `EMPLOYER_RULES`, `EMPLOYER_CHECKS`, `USAGE_LOG`, the application folders (through
+  `QUESTIONS`, `EMPLOYER_RULES`, `EMPLOYER_CHECKS`, `USAGE_LOG`, the application folders (through
   `build_app_folders.py`), the calendar category, the dashboard and the Questions page. Sub-sessions report; the coordinator records. Why: the files sync through Google Drive, and two
   sessions writing one file lose each other's changes.
+- The person's profile is not a shared record: any session saves a fact about the person there at once, by
+  compare-and-set (`profilelib.py set`, RULES.md "Keep learning about the person"), and its handoff names the key.
 - Never changes the plugin (RULES.md, "The plugin's own files"): a lesson is one line in `plugin-lessons.md`.
 - Each run: "run started", the handoff check, the shared-list update, `check_setup.py --needs`, the health check, then the pieces of the day (`/cenk-jobs:schedule` lists the order),
   one sub-session per piece; "run finished" and the short report at the end.
@@ -109,7 +111,7 @@ outside its own step folder or `apply/bodies` / `apply/letters` asks the coordin
 Written to `handoffs/<short name>.md` in the main folder, as fact lines, then one line to the coordinator and stop.
 Nothing the records already hold: a link instead. One block per job, by company and role: status (`submitted`, `needs-person`, `account-needed`, `skipped`, `closed`,
 `failed`); what was sent (CV file, letter file); the fields answered on the form, by name only (their values are in the records); new facts the person stated (one fact
-line each); hiring steps or deadlines seen (date, time, name, link); sign-ins seen; employee reviews looked up
+line each; a fact about the person themselves is already in the profile: only its key, such as `person.phone`); hiring steps or deadlines seen (date, time, name, link); sign-ins seen; employee reviews looked up
 (employer, rating, number of reviews, complaint topics, source). Nothing else.
 
 The coordinator records it: `track.py set`, `PIPELINE`, `MASTER_RECORD`, `logins.py set` and `sync`, `employer.py

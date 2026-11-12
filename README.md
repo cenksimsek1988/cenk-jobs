@@ -23,7 +23,10 @@ It also understands other languages, for example "iş arıyorum", "cerco lavoro"
 
 This repository holds **only the generic skills and their scripts**. Your own data (CVs, master record,
 applications) never comes here: it lives in a folder in your own Google Drive, which the plugin creates on its first
-run.
+run. Your own facts (name, contact, birth date, address, private answers, referees, the true dates of each job) live
+in one **profile**, `claude/profile.json` in your Google Drive's "My Drive" folder, shared with the other cenk-*
+plugins; Claude asks where to create it if there is none. It is a plain JSON file: Google stores it, and whoever
+can open your Drive can read it.
 
 ## What you need
 
@@ -106,6 +109,17 @@ anything is sent.
   or message without your go-ahead. Applications go out on their own (`APPLY_MODE=auto`) unless you choose review mode.
 - It ticks only the data-processing consent a form needs; optional consents (talent pools, marketing) stay off.
 - Your pay expectations stay private: never in a CV, letter or the dashboard.
+- Your birth date, references, criminal record and relatives at the company: a form that asks for one waits for
+  you, unless you let forms answer it from your profile. ID numbers never.
+
+## Settings in your profile
+
+Under `settings.cenk-jobs` in your profile (or `settings.common`, for every cenk-* plugin). Claude changes a setting
+only after your yes to its key and value, also one you asked for:
+
+| Setting | Default | Example |
+|---|---|---|
+| `form_facts` | none: each waits for you | `["birth_date"]`: forms answer your birth date from your profile. Allowed: `birth_date`, `address`, `references`, `criminal_record`, `relatives`, `health` |
 
 ## Employer rules and the shared blacklist
 
@@ -162,7 +176,8 @@ plugins/cenk-jobs/skills/<name>/SKILL.md setup, coordinate, search, plan, apply,
 plugins/cenk-jobs/scripts/               check_setup, init_career_folder, build_cv, make_letter_pdf, track,
                                          logins, build_app_folders, fetch_jd, export_dashboard, jsenv (reads
                                          job-search.env), trackerlib (shared tracker reading), employer and
-                                         employerlib (employer rules and checks), usage (usage log and report)
+                                         employerlib (employer rules and checks), usage (usage log and report),
+                                         profilelib (your profile), move_to_profile (moves your facts there once)
 plugins/cenk-jobs/workflows/             screen-and-prepare.js: screens new employers under your own employer
                                          rules (one check per category) and prepares the cleared jobs
 plugins/cenk-jobs/templates/             job-search.env.template, employer-rules.json (the default rules), an
@@ -194,6 +209,8 @@ Main commands (S = this skill's scripts folder, run from your job-search folder 
   python -I S/usage.py log <step> <ok|failed|stopped> ["<note>"]
   python -I S/usage.py due | report | mark-drafted   the weekly usage report (only with USAGE_SHARING=yes)
   python -I S/usage.py stats                         jobs turned down by your employer rules (for you; sends nothing)
+  python -I S/profilelib.py path | get [<plugin>] <key> | set <key> <json|-> [--old <json>] [--yes] | erase <key> [--yes] | create <path>
+  python -I S/move_to_profile.py [--apply [--confirm <key>] | --remove-old]   once: your facts into the profile
 For the developer: python -I S/employer.py merge <report.json> [...]   users' reports into data/blacklist.json
 ```
 

@@ -1,4 +1,5 @@
-"""Check that a person's job-search setup is healthy: the env file, folders, master record, CV versions, tracker.
+"""Check that a person's job-search setup is healthy: the env file, folders, profile, master record, CV versions,
+tracker.
 
 Usage: python -I check_setup.py [--env] [<job-search.env or main folder>]
        python -I check_setup.py --needs [--env] [...]    the programs, connectors, sign-ins and answers the next run
@@ -18,6 +19,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import jsenv  # noqa: E402  (jsenv.py sits next to this script)
+import profilelib as pl  # noqa: E402
 from trackerlib import flat_jobs, login_of, waits_on_person  # noqa: E402
 
 given = [a for a in sys.argv[1:] if a not in ("--env", "--needs")]
@@ -57,12 +59,58 @@ def needs():
         if logins.get(login, {}).get("status") not in fine:
             lines.append(f"sign in to {login}: {len(planned)} planned, first {planned[0].get('company')}, {planned[0].get('title')}")
     lines += [f"{n} job(s) wait: {status}" for status, n in sorted(waiting.items())]
+    lines += [f"profile: {detail}" for level, what, detail in profile_checks()
+              if level != "OK" and what.startswith("Profile")]
     questions = records("QUESTIONS", "questions")
     open_questions = [q for q in (questions.values() if isinstance(questions, dict) else questions) if q.get("status") == "open"]
     if open_questions:
         lines.append(f"{len(open_questions)} open question(s) on the Questions page")
     lines += [f"cannot read {key}: check it in job-search.env" for key in unread]
     print("\n".join(lines) if lines else "nothing needed from the person")
+
+
+def profile_checks():
+    """(level, what, detail) for the person's profile and the old copies of its facts. Names and paths only."""
+    out = []
+    prof = pl.load(env)
+    if not prof["exists"]:
+        out.append(("WARN", "Profile (the person's own facts)",
+                    f"none yet: ask the person where to create it, suggesting {prof['suggested']}; then "
+                    "profilelib.py create <path>"))
+    elif prof["error"]:
+        out.append(("FAIL", "Profile (the person's own facts)", f"cannot be read: {prof['path']} ({prof['error']})"))
+    else:
+        out.append(("OK", "Profile (the person's own facts)", prof["path"]))
+        shared = pl.locate(None)["path"]
+        if prof["scope"] == "env" and not (shared and os.path.normcase(os.path.abspath(shared))
+                                           == os.path.normcase(os.path.abspath(prof["path"]))):
+            out.append(("WARN", "Same profile for the other cenk-* plugins",
+                        f"PROFILE in job-search.env names it; the other cenk-* plugins look at {shared or 'none'}: "
+                        f"set the workbench setting profile_path to {prof['path']}"))
+        if not (prof["data"].get("person") or {}).get("name"):
+            out.append(("WARN", "Profile has person.name", "missing: ask the person, then profilelib.py set person.name"))
+        unknown = pl.form_facts(prof)[1]
+        if unknown:
+            out.append(("WARN", "Setting form_facts", f"not items forms may fill: {', '.join(unknown)} (allowed: "
+                        f"{', '.join(pl.FORM_FACTS)}; ID numbers, passwords and card numbers never)"))
+    old = env.path("PERSONAL_RECORD") if env.get("PERSONAL_RECORD") else         os.path.join(env.home, "career-records", "personal.json")
+    if os.path.exists(old):
+        out.append(("WARN", "Old private record", f"{old} still exists: move_to_profile.py, then --remove-old after "
+                    "the person's OK"))
+    try:
+        with open(env.path("MASTER_RECORD"), encoding="utf-8") as f:
+            master = json.load(f)
+    except (OSError, ValueError, SystemExit):
+        master = {}
+    profile = master.get("profile") if isinstance(master.get("profile"), dict) else {}
+    copies = [f"profile.{k}" for k in ("name", "pronouns", "email", "phone", "address", "birth_date",
+                                        "work_authorisation", "citizenship", "nationality", "languages", "contact")
+              if profile.get(k)] + (["references"] if master.get("references") and
+                                    any(k != "_about" for k in master["references"]) else [])
+    if copies:
+        out.append(("WARN", "Master record holds facts the profile keeps", f"{', '.join(copies)}: move_to_profile.py, "
+                    "then --remove-old after the person's OK"))
+    return out
 
 
 def programs():
@@ -154,10 +202,12 @@ else:
     report("WARN", "EMPLOYER_RULES", "not set: the plugin's defaults apply (every category: warn and ask)")
 if env.get("USAGE_SHARING", "").lower() not in ("yes", "no"):
     report("WARN", "USAGE_SHARING", "not set: ask the person once whether usage reports may go to the developer")
+for level, what, detail in profile_checks():
+    report(level, what, detail)
 master = load_json(env.path("MASTER_RECORD"), "Master record")
 if master is not None:
-    missing = [k for k in ("profile", "experience", "education") if not master.get(k)]
-    report("WARN" if missing else "OK", "Master record has profile, experience, education",
+    missing = [k for k in ("experience", "education") if not master.get(k)]
+    report("WARN" if missing else "OK", "Master record has experience, education",
            "still empty: " + ", ".join(missing) if missing else "")
     unfinished = [e for e in master.get("education", []) if isinstance(e, dict) and e.get("completed") is False]
     if unfinished:

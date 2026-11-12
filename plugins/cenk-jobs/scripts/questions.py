@@ -2,8 +2,9 @@
 page (QUESTIONS_PAGE: an artifact with a small database), and each answer written into the records.
 
 python -I questions.py add fact "<question>" key=<answer key> [job=<id>] [personal=yes] [detail="..."] [placeholder="..."]
-    a fact forms ask for; key: the form-answer key it becomes (example: notice_period). personal=yes: a private fact
-    (health, family, identity), kept only in PERSONAL_RECORD. The same key again adds the job to the same question.
+    a fact forms ask for; key: the form-answer key it becomes (example: notice_period), or a key in the person's
+    profile (person.birth_date, person.phone). personal=yes: a private fact (health, family, identity), kept only in
+    the profile's private.<key>. The same key again adds the job to the same question.
 python -I questions.py add job "<question>" job=<id> [job=<id> ...] [detail="..."] [options="yes:Yes,no:No"]
     writing only the person can do for one application (a motivation answer, an essay); with options, buttons
     instead of a reply box: the chosen label becomes each job's form answer, and "decline" (options
@@ -27,18 +28,21 @@ python -I questions.py record <answers dir>
     stays open, for Claude to read it: a plain answer is recorded with answer (spelling and grammar fixed, meaning
     unchanged), a question or remark to Claude is replied to. A button answer is recorded at once: a decision goes to
     employer.py decide (exclude: its jobs not sent yet become excluded), a fact into the master record's form_answers
-    or PERSONAL_RECORD, a job answer into that job's prepared answers. Each handled question gets a note saying what
+    or the profile, a job answer into that job's prepared answers. Each handled question gets a note saying what
     happened (example: "Allowed: Acme is cleared by your decision; 1 job goes on.") and stays on the page as done.
     Prints the jobs that can go on and the answers to delete on the page. "discuss" (the middle button on every
     allow-or-exclude and yes-or-no question) records nothing: the question stays open with a note, and is printed
     under "discuss", for Claude to bring up with the person in the chat.
-python -I questions.py answer <id> "<answer>" [typed="<their words>"]
+python -I questions.py answer <id> "<answer>" [typed="<their words>"] [replace=yes]
     record one answer the person gave in the chat (example: after discussing it), the same way as record;
     typed=: a page answer Claude read and corrected (spelling, grammar): the record keeps their words and the page
+    as its source. replace=yes: the profile holds another value and the person, shown both, chose this one.
+    A profile answer is never written over another value (it is printed under "ask the person", the question stays
+    open), nor without a profile (printed under "no profile"; the person chooses where it goes first).
 python -I questions.py note <id> "<text>"
     a new note on a question, to show how far its job got (example: "Submitted on 8 Nov; confirmation in Gmail.")
-Files: QUESTIONS (default apply/questions.json), PERSONAL_RECORD (default career-records/personal.json),
-MASTER_RECORD, TRACKER, PIPELINE. Add --env <job-search.env> anywhere to pick the env file.
+Files: QUESTIONS (default apply/questions.json), MASTER_RECORD, TRACKER, PIPELINE, and the person's profile
+(profilelib.py). Add --env <job-search.env> anywhere to pick the env file.
 """
 import datetime
 import glob
@@ -51,6 +55,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import jsenv  # noqa: E402
+import profilelib as pl  # noqa: E402
 from trackerlib import collapse_row, expand_row, flat_jobs, is_company_shape, json_indent  # noqa: E402
 
 DONE = ("submitted", "excluded", "skipped", "closed", "declined", "failed")  # job statuses
@@ -73,7 +78,14 @@ def path_of(key, default):
 
 
 QUESTIONS = path_of("QUESTIONS", "apply/questions.json")
-PERSONAL = path_of("PERSONAL_RECORD", "career-records/personal.json")
+PROFILE_SECTIONS = ("person.", "private.")  # a fact key starting with one of these is a key in the profile
+
+
+def profile_key(q):
+    """The profile key a fact's answer goes to, or None for the master record's form_answers."""
+    if q["key"].startswith(PROFILE_SECTIONS):
+        return q["key"]
+    return f"private.{q['key']}" if q.get("personal") else None
 
 
 def load(path, default):
@@ -301,9 +313,11 @@ elif args[0] == "build":
 else:  # record, answer
     if len(args) < (3 if args[0] == "answer" else 2):
         sys.exit(__doc__)
+    typed, replace = "", False
     if args[0] == "answer":
         # typed="<their words>": a page answer Claude read and corrected keeps its source and the person's wording.
         typed = next((a.split("=", 1)[1] for a in args[3:] if a.startswith("typed=")), "")
+        replace = "replace=yes" in args[3:]
         given = [(args[1], args[2], "Questions page, read by Claude" if typed else "chat")]
     else:
         given = [(os.path.basename(f)[:-5], (load(f, {}) or {}).get("answer", ""), "Questions page")
@@ -312,11 +326,8 @@ else:  # record, answer
     tracker = load(tracker_path, {})
     jobs = raw_jobs(tracker)
     master = load(env.path("MASTER_RECORD"), {})
-    personal = load(PERSONAL, {"_about": "Private facts the person gave for application forms (health, family, "
-                                         "identity): used only in forms, never in a CV, letter or shared file.",
-                               "facts": {}})
-    changed = {"tracker": False, "master": False, "personal": False}
-    go_on, delete, discuss, read_first = [], [], [], []
+    changed = {"tracker": False, "master": False}
+    go_on, delete, discuss, read_first, ask_person, no_profile = [], [], [], [], [], []
     names = labels(tracker)
 
     def titles(ids):
@@ -328,11 +339,20 @@ else:  # record, answer
             save(tracker_path, tracker)
         if changed["master"]:
             save(env.path("MASTER_RECORD"), master)
-        if changed["personal"]:
-            os.makedirs(os.path.dirname(PERSONAL), exist_ok=True)
-            save(PERSONAL, personal)
         save(QUESTIONS, data)
-        changed.update(tracker=False, master=False, personal=False)
+        changed.update(tracker=False, master=False)
+
+    def to_profile(key, value, private):
+        """Writes one answer into the profile by compare-and-set: (True, "") when it is there now, else (False, why):
+        "different", or why there is no readable profile. A private answer with the same answer counts as there."""
+        try:
+            current = pl.get(key, env)
+            if private and isinstance(current, dict) and current.get("answer") == value["answer"]:
+                return True, ""
+            pl.set_value(key, value, current if replace else pl.ABSENT, env)
+            return True, ""
+        except pl.ProfileError as e:
+            return False, ("different" if e.code == 3 else str(e))
 
     def call(script, *argv):
         """Run employer.py or track.py, which rewrite the tracker: flush first, then read the tracker back."""
@@ -390,19 +410,37 @@ else:  # record, answer
                         call("track.py", "set", job_id, "pending",
                             f"employer cleared: your decision ({source}, {q.get('category_label', '')}), {today}")
                     go_on.append(job_id)
+        elif q["kind"] == "fact" and profile_key(q):
+            # The person's own facts live only in their profile (profilelib.py), never written over another value.
+            key = profile_key(q)
+            private = key.startswith("private.")
+            value = (dict({k: v for k, v in entry.items() if k != "typed"}, words=typed or answer, question=q["text"])
+                     if private else answer)
+            ok, why = to_profile(key, value, private)
+            if not ok:
+                if why == "different":
+                    ask_person.append(f"{qid} ({key}): the profile holds another value; show the person both "
+                                      f"(profilelib.py get {key}) and record their choice with answer ... replace=yes")
+                    q.update(note="Your profile already holds another answer: Claude asks you which one is right.",
+                             noted_at=now)
+                else:
+                    no_profile.append(f"{qid} ({key}): {why}")
+                continue
+            go_on += q.get("jobs", [])
+            note = ("Kept in your profile, private; used only in a form field that asks for it." if private
+                    else f"Saved in your profile ({key}); forms take it from there. Waiting on it: "
+                         f"{titles(q.get('jobs', []))}.")
         elif q["kind"] == "fact":
-            store, key = (personal["facts"], "personal") if q.get("personal") else \
-                (master.setdefault("form_answers", {}), "master")
+            store = master.setdefault("form_answers", {})
             old = store.get(q["key"])
             if old:
                 entry["history"] = (old.get("history", []) if isinstance(old, dict) else []) + \
                     [{k: v for k, v in (old if isinstance(old, dict) else {"answer": old}).items() if k != "history"}]
             store[q["key"]] = dict(entry, question=q["text"])
-            changed[key] = True
+            changed["master"] = True
             go_on += q.get("jobs", [])
-            note = ("Kept in your private record; used only in a form field that asks for it." if q.get("personal")
-                    else f"Saved in your records: \"{answer[:80]}\". Forms take it from there; waiting on it: "
-                         f"{titles(q.get('jobs', []))}.")
+            note = (f"Saved in your records: \"{answer[:80]}\". Forms take it from there; waiting on it: "
+                    f"{titles(q.get('jobs', []))}.")
         elif q.get("options"):
             if answer not in [o["value"] for o in q["options"]]:
                 print(f"{qid}: skipped (not one of the options)")
@@ -450,5 +488,8 @@ else:  # record, answer
     print("go on with:", " ".join(go_on) or "none")
     print("delete these answers on the page (their questions stay as done; then run build):", " ".join(delete) or "none")
     print("discuss with the person:", "; ".join(discuss) or "none")
+    print("ask the person (not recorded; the answer stays on the page):", "; ".join(ask_person) or "none")
+    print("no profile (not recorded; ask the person where it goes, then profilelib.py create <path>):",
+          "; ".join(no_profile) or "none")
     print("read first (record each plain answer with answer, spelling and grammar fixed; reply to a question):")
     print("\n".join(read_first) or "none")

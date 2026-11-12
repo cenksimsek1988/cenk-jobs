@@ -59,7 +59,7 @@ outcome.
 
 | Script | Does |
 |---|---|
-| `check_setup.py` | health check of the env file, folders, master record, CV versions, tracker and the dashboard key; `--needs`: what the next run waits on |
+| `check_setup.py` | health check of the env file, folders, profile, master record, CV versions, tracker and the dashboard key; `--needs`: what the next run waits on |
 | `init_career_folder.py` | creates the main folder and `job-search.env` for a new person (never overwrites) |
 | `build_cv.py` | builds every CV PDF from its JSON (`--no-photo` for employers that ask for none) |
 | `make_letter_pdf.py` | builds one cover letter PDF from a body file, on the day it is sent |
@@ -68,12 +68,14 @@ outcome.
 | `fetch_jd.py` | saves a posting's full text as `job-description.md` |
 | `logins.py` | login state: set, sync, show |
 | `export_dashboard.py` | exports the dashboard's files: index, applications, steps, actions, logins, excluded |
-| `career_view.py` | one part of the master record: screen (rules and decisions), facts (what a letter or form may use) |
+| `career_view.py` | one part of the master record: screen (rules and decisions), facts (what a letter or form may use, with the profile's person facts but no address, birth date, private answers or contacts) |
+| `profilelib.py` | the person's profile: path, get, set (compare-and-set), erase, create; exit 3 when it holds another value; a key under `settings` only with `--yes`, after the person's yes |
+| `move_to_profile.py` | once: moves the person's facts from the master record and the old private record into the profile (dry run, `--apply`, `--confirm <key>`, then `--remove-old` after the person's OK) |
 | `searches.py` | saved searches: add, list, due, done, seen (is a posting new) |
 | `questions.py` | questions for the person: add, list, build (the Questions page's files), record (answers into the records) |
 | `employer.py` | employer checks: check (`--full`), record, environment, decide, alias (`--not`), split (`--apply`), repair-clear, import-tracker, merge |
 | `usage.py` | usage log (steps and runs) and the weekly usage report (due, report, mark-drafted) |
-| `trackerlib.py`, `employerlib.py` | shared code for the scripts above |
+| `trackerlib.py`, `employerlib.py` | shared code for the scripts above (`profilelib.py` too) |
 | `workflows/screen-and-prepare.js` | Workflow: screens a batch of employers and prepares the cleared jobs; never submits |
 
 Older records: the scripts also read a tracker kept before the plugin (`{companies: [...]}`). Optional keys:

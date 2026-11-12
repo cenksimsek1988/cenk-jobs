@@ -11,6 +11,13 @@ The parts in `RULES/`, beside this file, are read only when a heading below says
   desktop). `job-search.env` at its top names every folder and file. There are no copies of the person's data: the
   master record is one JSON file; only CVs and cover letters are generated files, and a
   run's `career_view.py` parts, deleted when it ends.
+- The person's own facts live only in their **profile**, shared with the other cenk-* plugins: name, contact,
+  nationality, languages, birth date, address (`person`), private answers (`private`), referees and other people
+  (`contacts`), the true employment dates (`employment`). It is `PROFILE` in `job-search.env`, else
+  `claude/profile.json` in their Google Drive's "My Drive" folder (`profilelib.py path`). The master record keeps
+  what cenk-jobs makes from them: CV wording, form answers, preferences, decisions, rules.
+- Read one value with `profilelib.py get <key>`, never the whole file. Another file points to a fact by its key,
+  never a copy. Example: `"referee": "contacts.referee-sam"`, not the referee's email.
 - Scripts: `python -I "<plugin>/scripts/<script>.py" --env "<main folder>/job-search.env"`, or from the main folder
   without `--env`. On Windows run them with Git Bash or `py`; PowerShell may have no `python` on its path.
 - `$JOB_SEARCH_ENV` (user settings) names `job-search.env`, so every session finds the main folder.
@@ -60,6 +67,16 @@ Do now. Then read `RULES/run.md`.
 
 - A new fact the person states (a form answer, a preference, a correction, a decision) goes into the master record
   at once, dated, and Claude says so in one line. Never leave a fact only in the chat; look it up before asking.
+- A fact about the person themselves goes into the profile at once instead, from any session:
+  `profilelib.py set <key> <json|->`, a private value through stdin (`-`). Example:
+  `set person.phone '"+39 06 0000 0000"'`. A handoff names the key, never the value.
+  - It never writes over another value (exit 3): show the person both values, ask which is right, then set again
+    with `--old <the value the profile holds>`.
+  - No profile yet (exit 1): ask the person where to create it, suggesting the place the script names, then
+    `profilelib.py create <path>`. Never create it without their answer.
+  - A key under `settings` decides what sessions may do: ask the person first, showing the key, the old and the new
+    value, also for a change they asked for; after their yes, `set` or `erase` with `--yes`. Example: `set
+    settings.cenk-jobs.form_facts '["birth_date"]' --yes`. Without `--yes` nothing is written (exit 1).
 - One fact line per fact, never narrative or quoted chat. Example: `degree: all courses completed, final project
   not submitted (2026-11-06)`. A decision is a value plus the date. Example: `exclude, defence, 2026-11-06`.
 - The person's own words go only where the words are the content: a form answer or an essay they wrote.
@@ -79,9 +96,16 @@ Do now. Then read `RULES/run.md`.
   Questions page (see "Questions for the person").
 - Never type a password, a verification code, a card number or a government ID number; never solve a CAPTCHA; never
   create an account. Stop at such a field and tell the person.
-- Never answer for the person about criminal record, references or relatives at the company. Health, family and
-  identity questions: only from the person's own answer in `PERSONAL_RECORD`. Such an answer goes only into a form
-  field that asks for it, never into a CV, letter, note or shared file; erasing one deletes it and its history.
+- Guarded items: date of birth, street address, references, criminal record, relatives at the company, health.
+  Preparation never answers one: it goes into the job's needs, unless the person's setting `form_facts` (in their
+  profile: `settings.cenk-jobs`, else `settings.common`) names it. Then the prepared answer is "from the profile",
+  and the session that fills the form types the person's own value from the profile. Example: `form_facts:
+  ["birth_date"]` lets forms answer the birth date. Never an ID number, a password or a card number, whatever the
+  setting.
+- Never answer for the person about criminal record, references or relatives at the company unless `form_facts`
+  names it, and then only from their own answer (a referee only with `agreed_on`). Health, family and identity
+  questions: only from the person's own answer in the profile's `private`. Such a value goes only into a form field
+  that asks for it, never into a CV, letter, prepared answer, note or shared file; erasing one: `RULES/questions.md`.
 - Consents: tick only the data-processing consent a form needs to be sent. Optional ones (talent pools, newsletters,
   job alerts, marketing, SMS, AI analysis, extra retention) stay off unless the person's settings say otherwise.
   The exception: a job alert the person said yes to for that site, made on purpose for a saved search
@@ -97,7 +121,7 @@ Do now. Then read `RULES/run.md`.
   Example: a form with every answer in the master record and no emailed code is sent; one with a motivation essay
   waits.
 - Pay figures go only into forms the person approved and onto their own Questions page (only they read it); the
-  home address only into forms. Never into a CV, letter, shared file or the dashboard.
+  home address and the birth date only into forms. Never into a CV, letter, shared file or the dashboard.
 
 ## Urgent steps
 

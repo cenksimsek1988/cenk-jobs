@@ -6,6 +6,48 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.29.0] - 2026-11-12
+
+The person's own facts live in one profile, shared with the other cenk-* plugins.
+
+### Added
+
+- `profilelib.py`: the person's profile (`claude/profile.json` in their Google Drive's "My Drive", or `PROFILE` in
+  `job-search.env`): `path`, `get <key>` (`[n]` picks a list item), `get <plugin> <key>` (a setting), `set <key>
+  <json|-> [--old <json>]` (compare-and-set: another value there changes nothing and exits 3), `erase <key>` (the value
+  and its history; then the earlier versions Google Drive keeps), `create <path>` (only at the path the person chose).
+  The writing rules match the workbench's `profile.js`. A key under `settings` changes only with `--yes`, given after
+  the person's yes to that key and value: without it, nothing is written, it exits 1 and names the key and both values.
+  `erase` also names the backups `move_to_profile.py --remove-old` left, which may still hold the value. With no
+  `job-search.env`, `create` refuses a path no lookup finds; after pinning `PROFILE`, it says the other cenk-* plugins
+  need the workbench setting `profile_path`.
+- `move_to_profile.py`: the one-time move of the person's facts from `MASTER_RECORD` and `PERSONAL_RECORD` into the
+  profile. A dry run by default; `--apply` adds what the profile lacks and never writes over another value;
+  `--confirm <key>` for a field to confirm (`pronouns_on_linkedin`); `--remove-old` after the person's OK removes
+  what the profile holds unchanged, after a backup. Field names and paths only, never a value. It lists for a hand
+  move the experience rows' true dates, referees without `agreed_on`, history entries about moved fields, and the
+  main-folder files that repeat a profile value.
+- The setting `form_facts` (`settings.cenk-jobs`, else `settings.common`, in the profile): the guarded items a form
+  may answer from the profile (`birth_date`, `address`, `references`, `criminal_record`, `relatives`, `health`).
+  Default none: each goes into the job's needs, as before. ID numbers never.
+- `check_setup.py`: the profile (found, readable, `person.name`), `form_facts` names that are no guarded item, and
+  old copies (`PERSONAL_RECORD`, person facts or referees in `MASTER_RECORD`); `--needs` names a missing profile. It
+  warns when `PROFILE` names another file than the one the other cenk-* plugins find.
+
+### Changed
+
+- `questions.py`: a private answer goes to the profile's `private.<key>` (`typed` is kept as `words`), a
+  `key=person.*` answer to `person`; never over another value (listed under "ask the person"; `answer ...
+  replace=yes` after the person chose) and never without a profile (listed under "no profile").
+- `career_view.py facts` adds the profile's `person` (only name, pronouns, contact, location, languages, links,
+  nationality and work authorisation: never address, birth date or a key added later), `employment` and the
+  `form_facts` names; never `private` or `contacts`.
+- The preparer marks a guarded item that `form_facts` names "from the profile", with no value; the session that fills
+  the form types it from the profile.
+- `PROFILE` replaces `PERSONAL_RECORD` in the env template; the new folder's `career.json` has no person facts or
+  references. Setup, coordinate, apply, `RULES.md` and `RULES/questions.md` name the profile: any session saves a fact
+  about the person there at once, and a handoff names the key.
+
 ## [0.28.0] - 2026-11-11
 
 Lessons from the job-search sessions of 11 Nov 2026: apply sites and the Questions page.

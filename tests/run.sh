@@ -5,7 +5,9 @@
 # Usage: sh tests/run.sh          (PYTHON=<python> sh tests/run.sh to pick the interpreter)
 # Exit 0: every check passed. 1: at least one failed. 2: the tests could not start.
 # Safety: every script runs with --env <throwaway folder>/<home>/job-search.env and JOB_SEARCH_ENV points there too,
-# from a working folder inside the throwaway folder, so no real job-search.env can be found. The folder is removed on exit.
+# from a working folder inside the throwaway folder, so no real job-search.env can be found. Every env names its own
+# PROFILE inside the throwaway folder and the Claude config folder is a throwaway one, so no real profile is read or
+# written; use() stops the tests when a profile path points anywhere else. The folder is removed on exit.
 set -u
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -27,6 +29,9 @@ win() { cygpath -m "$1" 2>/dev/null || echo "$1"; }
 T=$(win "$T")
 S=$(win "$(cd "$S" && pwd)")
 cd "$T" || exit 2
+CLAUDE_CONFIG_DIR="$T/claude-config"
+export CLAUDE_CONFIG_DIR
+unset CLAUDE_PLUGIN_OPTION_PROFILE_PATH
 
 PASSED=0
 FAILED=0
@@ -139,7 +144,7 @@ APPLICATIONS_DIR=job-applications
 LETTERS_DIR=apply/letters
 LETTER_BODIES_DIR=apply/bodies
 MASTER_RECORD=career-records/career.json
-PERSONAL_RECORD=career-records/personal.json
+PROFILE=profile/profile.json
 TRACKER=apply/targets.json
 PIPELINE=apply/pipeline.json
 LOGINS=apply/logins.json
@@ -148,6 +153,14 @@ SEARCHES=apply/searches.json
 EMPLOYER_CHECKS=apply/employer-checks.json
 EOF
     echo '{}' >"$h/apply/pipeline.json"
+    mkdir -p "$h/profile"
+    cat >"$h/profile/profile.json" <<EOF
+{"person": {"name": "Jane Doe", "email": "jane@example.com", "phone": "+39 06 0000 0000", "birth_date": "1990-01-02",
+            "address": "1 Example Street, Rome", "languages": [{"language": "English", "level": "native"}]},
+ "private": {"diet": {"answer": "vegetarian", "words": "veggie", "date": "2026-11-01", "source": "chat"}},
+ "contacts": {"referee-sam": {"name": "Sam Example", "role": "manager", "email": "sam@example.com",
+                              "agreed_on": "2026-11-01", "source": "chat"}}}
+EOF
     echo '{"logins": []}' >"$h/apply/logins.json"
     cat >"$h/career-records/career.json" <<EOF
 {"profile": {"name": "Jane Doe"}, "skills": ["Java"], "languages": ["English"],
@@ -188,8 +201,16 @@ EOF
     fi
 }
 
-# Every script gets its env file explicitly; JOB_SEARCH_ENV is only the second line of defence.
-use() { H=$1; ENVF="$H/job-search.env"; JOB_SEARCH_ENV=$ENVF; export JOB_SEARCH_ENV; }
+# Every script gets its env file explicitly; JOB_SEARCH_ENV is only the second line of defence. A home whose profile
+# lies outside the throwaway folder stops the tests before any script reads or writes it.
+use() {
+    H=$1; ENVF="$H/job-search.env"; JOB_SEARCH_ENV=$ENVF; export JOB_SEARCH_ENV
+    where=$("$PY" -I "$S/profilelib.py" --env "$ENVF" path | tr '\\' '/')
+    case "$where" in
+        "$T"/*) ;;
+        *) echo "stopped: the profile of $H is not inside the throwaway folder ($where)" >&2; exit 2 ;;
+    esac
+}
 track() { "$PY" -I "$S/track.py" "$@" --env "$ENVF"; }
 employer() { "$PY" -I "$S/employer.py" "$@" --env "$ENVF"; }
 questions() { "$PY" -I "$S/questions.py" "$@" --env "$ENVF"; }
@@ -729,10 +750,11 @@ echo '{"answer": "none needed"}' >"$T/qp-ans/answers/fact-adjustments.json"
 questions record "$T/qp-ans" >"$T/qp-rec2.out" 2>&1
 check "record: a private typed answer is marked [private] under read first" grep -q "^\[private\] fact-adjustments | " "$T/qp-rec2.out"
 questions answer fact-adjustments "None needed." typed="none needed" >/dev/null 2>&1
-check "answer typed=: the corrected answer keeps the person's words and the page as its source" sh -c '
-    "$1" -I "$2/q.py" "$3/career-records/personal.json" facts.adjustments.answer eq "None needed." &&
-    "$1" -I "$2/q.py" "$3/career-records/personal.json" facts.adjustments.typed eq "none needed" &&
-    "$1" -I "$2/q.py" "$3/career-records/personal.json" facts.adjustments.source eq "Questions page, read by Claude"' _ "$PY" "$T" "$H"
+check "answer typed=: a private answer goes into the profile with the person's words and the page as its source" sh -c '
+    "$1" -I "$2/q.py" "$3/profile/profile.json" private.adjustments.answer eq "None needed." &&
+    "$1" -I "$2/q.py" "$3/profile/profile.json" private.adjustments.words eq "none needed" &&
+    "$1" -I "$2/q.py" "$3/profile/profile.json" private.adjustments.source eq "Questions page, read by Claude" &&
+    [ ! -e "$3/career-records/personal.json" ]' _ "$PY" "$T" "$H"
 questions answer fact-notice-period "One month." >/dev/null 2>&1
 check "answer: the answer Claude read and checked is recorded" q "$H/career-records/career.json" form_answers.notice_period.answer eq "One month."
 
@@ -762,9 +784,294 @@ check "check_setup --needs: works on a split tracker" sh -c '! grep -q "Tracebac
 check "career_view screen: only the employer rules and the decisions" q keys "$T/screen.json" _about,preferences,decisions
 check "career_view screen: only the employer rules from the preferences" q "$T/screen.json" preferences.locations absent
 check "career_view facts: the facts a letter may use, not the rest" sh -c '
-    "$1" -I "$2/q.py" keys "$3" _about,profile,skills,languages,preferences,form_answers,cv_rules,never_claim &&
+    "$1" -I "$2/q.py" keys "$3" _about,profile,skills,languages,preferences,form_answers,cv_rules,never_claim,person,form_facts &&
     "$1" -I "$2/q.py" "$3" preferences.locations.0 eq Rome && "$1" -I "$2/q.py" "$3" preferences.employer_rules absent &&
     "$1" -I "$2/q.py" "$3" private_extra absent' _ "$PY" "$T" "$T/facts.json"
+
+# --- the profile: lookup order, compare-and-set, history, settings, erase, create -------------------------------------------
+cat >"$T/lookup.py" <<'PYEOF'
+import os
+import sys
+
+sys.path.insert(0, os.environ["SCRIPTS"])
+import jsenv  # noqa: E402
+import profilelib as pl  # noqa: E402
+
+base = sys.argv[1]
+os.environ.pop("CLAUDE_PLUGIN_OPTION_PROFILE_PATH", None)
+
+
+def make(path, text="{}"):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
+    return path
+
+
+r1, r2, r3 = (os.path.join(base, n, "My Drive") for n in ("d1", "d2", "d3"))
+for r in (r1, r2, r3):
+    os.makedirs(r, exist_ok=True)
+make(os.path.join(r1, "claude-profile", "profile.json"))  # the old name: never looked at
+cloud = make(os.path.join(r2, "claude", "profile.json"))
+cfg = os.path.join(base, "config")
+local = make(os.path.join(cfg, "claude", "profile.json"))
+chosen = os.path.join(base, "chosen.json").replace("\\", "/")
+fails = []
+
+
+def expect(name, got, want):
+    if os.path.normcase(str(got)) != os.path.normcase(str(want)):
+        fails.append(f"{name}: got {got}, want {want}")
+
+
+expect("a drive's claude/profile.json before the computer's", pl.locate(None, [r1, r2, r3], cfg)["path"], cloud)
+expect("the computer's when no drive has one", pl.locate(None, [r1, r3], cfg)["path"], local)
+setting = make(os.path.join(cfg, "settings.json"),
+               '{"pluginConfigs": {"cenk-workbench@cenk-workbench": {"options": {"profile_path": "%s"}}}}' % chosen)
+expect("the workbench setting before the drives", pl.locate(None, [r2], cfg)["path"], chosen)
+envfile = make(os.path.join(base, "home", "job-search.env"), "PROFILE=own/profile.json\n")
+expect("PROFILE in job-search.env before everything", pl.locate(jsenv.load(envfile), [r2], cfg)["path"],
+       os.path.join(base, "home", "own", "profile.json"))
+os.remove(setting)
+os.remove(local)
+none = pl.locate(None, [r1, r3], cfg)
+expect("none found: no path", none["path"], None)
+expect("none found: the first drive is suggested", none["suggested"], os.path.join(r1, "claude", "profile.json"))
+expect("no drive: the computer is suggested", pl.locate(None, [], cfg)["suggested"],
+       os.path.join(cfg, "claude", "profile.json"))
+print("\n".join(fails))
+sys.exit(1 if fails else 0)
+PYEOF
+check "profile lookup: the env, the workbench setting, a drive's claude/profile.json, then the computer's" "$PY" -I "$T/lookup.py" "$T/lk"
+
+pf() { "$PY" -I "$S/profilelib.py" --env "$ENVF" "$@"; }
+cp -R "$T/flat" "$T/pf"
+use "$T/pf"
+PF="$H/profile/profile.json"
+check "profile get: a string as it is; [n] picks a list item" sh -c '
+    [ "$("$1" -I "$2/profilelib.py" --env "$3" get person.name)" = "Jane Doe" ] &&
+    [ "$("$1" -I "$2/profilelib.py" --env "$3" get "person.languages[0].level")" = native ]' _ "$PY" "$S" "$ENVF"
+pf get person.nickname >/dev/null 2>&1
+check "profile get: a missing key exits 1" [ "$?" -eq 1 ]
+cp "$PF" "$T/pf-before.json"
+pf set person.phone '"+39 06 0000 0001"' >/dev/null 2>&1
+rc=$?
+check "profile set without --old: another value there changes nothing and exits 3" sh -c '[ "$1" -eq 3 ] && cmp -s "$2" "$3"' _ "$rc" "$PF" "$T/pf-before.json"
+pf set person.phone '"+39 06 0000 0001"' --old '"+39 06 0000 0000"' >/dev/null 2>&1
+check "profile set --old: the new value, and the old one in history" sh -c '
+    "$1" -I "$2/q.py" "$3" person.phone eq "+39 06 0000 0001" && "$1" -I "$2/q.py" "$3" history len 1 &&
+    "$1" -I "$2/q.py" "$3" history.0.field eq person.phone && "$1" -I "$2/q.py" "$3" history.0.old eq "+39 06 0000 0000"' _ "$PY" "$T" "$PF"
+pf set person.phone '"+39 06 0000 0001"' >"$T/pf-same.out" 2>&1
+rc=$?
+check "profile set: the value it holds already is done, with nothing written" sh -c '[ "$1" -eq 0 ] && grep -q "^unchanged" "$2"' _ "$rc" "$T/pf-same.out"
+printf '%s' '{"answer": "none", "words": "nothing", "date": "2026-11-12", "source": "chat"}' | pf set private.allergies - >/dev/null 2>&1
+check "profile set -: the value from stdin; a new key adds no history" sh -c '
+    "$1" -I "$2/q.py" "$3" private.allergies.answer eq none && "$1" -I "$2/q.py" "$3" history len 1' _ "$PY" "$T" "$PF"
+pf set history '[]' >/dev/null 2>&1
+rc1=$?
+pf set "person.languages[0].level" '"fluent"' >/dev/null 2>&1
+rc2=$?
+pf set person.phone 'not json' >/dev/null 2>&1
+rc3=$?
+check "profile set: history, a list index and a value that is not JSON are refused (exit 2)" sh -c '
+    [ "$1" -eq 2 ] && [ "$2" -eq 2 ] && [ "$3" -eq 2 ]' _ "$rc1" "$rc2" "$rc3"
+pf set settings.common.form_facts '["address"]' --yes >/dev/null 2>&1
+check "profile get <plugin> <key>: settings.common when the plugin has none" sh -c '
+    [ "$("$1" -I "$2/profilelib.py" --env "$3" get cenk-jobs form_facts)" = address ]' _ "$PY" "$S" "$ENVF"
+pf set settings.cenk-jobs.form_facts '["birth_date", "id_number"]' --yes >/dev/null 2>&1
+check "profile get <plugin> <key>: the plugin's own setting first, a list joined by commas" sh -c '
+    [ "$("$1" -I "$2/profilelib.py" --env "$3" get cenk-jobs form_facts)" = "birth_date, id_number" ]' _ "$PY" "$S" "$ENVF"
+cp "$PF" "$T/pf-before.json"
+pf set settings.common.form_facts '["address", "health"]' --old '["address"]' >/dev/null 2>"$T/pf-ask.err"
+rc=$?
+check "profile set under settings without --yes: nothing written, exit 1, the key and both values to ask about" sh -c '
+    [ "$1" -eq 1 ] && cmp -s "$2" "$3" && grep -qF "settings.common.form_facts is a setting" "$4" &&
+    grep -qF "old value ([\"address\"])" "$4" && grep -qF "new one ([\"address\", \"health\"])" "$4" &&
+    grep -qF -- "--yes" "$4"' _ "$rc" "$PF" "$T/pf-before.json" "$T/pf-ask.err"
+pf set settings.common.form_facts '["address", "health"]' --old '["address"]' --yes >/dev/null 2>&1
+rc1=$?
+pf set settings.common.form_facts '["address", "health"]' >"$T/pf-same2.out" 2>&1
+rc2=$?
+check "profile set under settings --yes: written, the old value in history; the value it holds already needs no yes" sh -c '
+    [ "$1" -eq 0 ] && "$2" -I "$3/q.py" "$4" settings.common.form_facts.1 eq health &&
+    grep -q "\"field\": \"settings.common.form_facts\"" "$4" && [ "$5" -eq 0 ] && grep -q "^unchanged" "$6"' \
+    _ "$rc1" "$PY" "$T" "$PF" "$rc2" "$T/pf-same2.out"
+cp "$PF" "$T/pf-before.json"
+pf erase settings.common.form_facts >/dev/null 2>"$T/pf-ask2.err"
+rc1=$?
+cp "$PF" "$T/pf-after-ask.json"
+pf erase settings.common.form_facts --yes >/dev/null 2>&1
+rc2=$?
+check "profile erase under settings: without --yes asks and writes nothing; with it the setting and its history go" sh -c '
+    [ "$1" -eq 1 ] && cmp -s "$2" "$3" && grep -qF "old value ([\"address\", \"health\"])" "$4" && [ "$5" -eq 0 ] &&
+    "$6" -I "$7/q.py" "$8" settings.common.form_facts absent && ! grep -q "settings.common.form_facts" "$8"' \
+    _ "$rc1" "$T/pf-after-ask.json" "$T/pf-before.json" "$T/pf-ask2.err" "$rc2" "$PY" "$T" "$PF"
+pf set private.allergies.words '"none at all"' --old '"nothing"' >/dev/null 2>&1
+printf '{}\n' >"$H/career-records/career.json.before-move-20261112-000000.json"
+pf erase private.allergies >"$T/pf-erase.out" 2>&1
+check "profile erase: the value and every history entry under it, nothing else" sh -c '
+    "$1" -I "$2/q.py" "$3" private.allergies absent && ! grep -q allergies "$3" && "$1" -I "$2/q.py" "$3" history len 1 &&
+    grep -q "^erased private.allergies" "$4" && ! grep -q "Manage versions" "$4"' _ "$PY" "$T" "$PF" "$T/pf-erase.out"
+check "profile erase: names the move's backups, which may still hold the value" \
+    grep -q "career.json.before-move-20261112-000000.json" "$T/pf-erase.out"
+rm -f "$H/career-records/career.json.before-move-20261112-000000.json"
+"$PY" -I "$S/career_view.py" facts --env "$ENVF" >"$T/pf-facts.json" 2>/dev/null
+check "career_view facts: person without address or birth date, form_facts names only, never private or contacts" sh -c '
+    "$1" -I "$2/q.py" "$3" person.name eq "Jane Doe" && "$1" -I "$2/q.py" "$3" person.birth_date absent &&
+    "$1" -I "$2/q.py" "$3" person.address absent && "$1" -I "$2/q.py" "$3" form_facts.0 eq birth_date &&
+    "$1" -I "$2/q.py" "$3" form_facts len 1 && "$1" -I "$2/q.py" "$3" private absent &&
+    "$1" -I "$2/q.py" "$3" contacts absent && ! grep -q "vegetarian\|1990-01-02\|Example Street\|sam@example.com" "$3"' _ "$PY" "$T" "$T/pf-facts.json"
+"$PY" -I "$S/check_setup.py" --env "$ENVF" >"$T/pf-setup.out" 2>&1
+check "check_setup: the profile is found; a form_facts name that is no guarded item is warned about" sh -c '
+    grep -q "^OK .*Profile (the person" "$1" && grep -q "^WARN.*form_facts.*id_number" "$1"' _ "$T/pf-setup.out"
+questions add fact "What is your date of birth?" key=person.birth_date job=F2 >/dev/null 2>&1
+questions answer fact-person-birth-date "1990-02-01" >"$T/pf-q1.out" 2>&1
+check "answer to a profile key holding another value: not recorded, asked, the question stays open" sh -c '
+    grep -q "^ask the person.*fact-person-birth-date" "$1" && "$2" -I "$3/q.py" "$4" person.birth_date eq 1990-01-02 &&
+    "$2" -I "$3/q.py" "$5/apply/questions.json" questions.fact-person-birth-date.status eq open' _ "$T/pf-q1.out" "$PY" "$T" "$PF" "$H"
+questions answer fact-person-birth-date "1990-02-01" replace=yes >/dev/null 2>&1
+check "answer replace=yes: the person's choice goes in, the old value into history" sh -c '
+    "$1" -I "$2/q.py" "$3" person.birth_date eq 1990-02-01 && grep -q "\"field\": \"person.birth_date\"" "$3" &&
+    "$1" -I "$2/q.py" "$4/apply/questions.json" questions.fact-person-birth-date.status eq answered' _ "$PY" "$T" "$PF" "$H"
+
+cp -R "$T/flat" "$T/gd"
+mkdir -p "$T/gd-drive/My Drive/claude"
+cp "$T/gd/profile/profile.json" "$T/gd-drive/My Drive/claude/profile.json"
+sed "s#^PROFILE=.*#PROFILE=$T/gd-drive/My Drive/claude/profile.json#" "$T/gd/job-search.env" >"$T/gd/env.tmp" &&
+    mv "$T/gd/env.tmp" "$T/gd/job-search.env"
+use "$T/gd"
+pf erase private.diet >"$T/gd-erase.out" 2>&1
+check "profile erase in a Google Drive: says the earlier versions still hold the value, and how to delete them" grep -q "Manage versions" "$T/gd-erase.out"
+
+cp -R "$T/flat" "$T/np"
+rm -rf "$T/np/profile"
+use "$T/np"
+pf set person.name '"Jane Doe"' >"$T/np-set.out" 2>&1
+rc=$?
+check "profile set with no profile: exits 1, creates nothing, says to ask the person where" sh -c '
+    [ "$1" -eq 1 ] && [ ! -e "$2/profile" ] && grep -q "Ask the person where to create it" "$3"' _ "$rc" "$H" "$T/np-set.out"
+"$PY" -I "$S/check_setup.py" --needs --env "$ENVF" >"$T/np-needs.out" 2>&1
+check "check_setup --needs: no profile yet, with the place to suggest" grep -q "^profile: none yet: ask the person where to create it" "$T/np-needs.out"
+questions add fact "Any dietary needs?" key=diet personal=yes job=F2 >/dev/null 2>&1
+questions answer fact-diet "None." >"$T/np-q.out" 2>&1
+check "answer with no profile: not recorded, listed under no profile, nothing created" sh -c '
+    grep -q "^no profile.*fact-diet" "$1" && "$2" -I "$3/q.py" "$4/apply/questions.json" questions.fact-diet.status eq open &&
+    [ ! -e "$4/profile" ] && [ ! -e "$4/career-records/personal.json" ]' _ "$T/np-q.out" "$PY" "$T" "$H"
+pf create "$H/elsewhere/profile.json" >/dev/null 2>&1
+check "profile create: the file at the path the person chose, and one PROFILE line naming it" sh -c '
+    [ -f "$1/elsewhere/profile.json" ] && grep -q "^PROFILE=.*elsewhere" "$1/job-search.env" &&
+    [ "$(grep -c "^PROFILE=" "$1/job-search.env")" -eq 1 ]' _ "$H"
+pf create "$H/third/profile.json" >/dev/null 2>&1
+rc=$?
+check "profile create: refused when a profile exists" sh -c '[ "$1" -eq 1 ] && [ ! -e "$2/third" ]' _ "$rc" "$H"
+# --- create with no job-search.env, and PROFILE against the lookup the other cenk-* plugins use ------------------
+# Each command pins the shared lookup to a throwaway path (profile_path), so no real drive folder is looked at.
+mkdir -p "$T/noenv"
+found=$(cd "$T/noenv" && unset JOB_SEARCH_ENV && "$PY" -I -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+import jsenv
+try:
+    print(jsenv.find(None, sys.argv[1] + "/profilelib.py"))
+except SystemExit:
+    pass' "$S" 2>/dev/null)
+if [ -n "$found" ]; then
+    fail "profile create with no job-search.env: not run, one is found from the throwaway folder ($found)"
+else
+    (cd "$T/noenv" && unset JOB_SEARCH_ENV &&
+        CLAUDE_PLUGIN_OPTION_PROFILE_PATH="$T/noenv-shared/profile.json" "$PY" -I "$S/profilelib.py" \
+            create "$T/noenv/lost/profile.json") >"$T/noenv.out" 2>&1
+    rc=$?
+    check "profile create with no job-search.env at a path no lookup finds: exits 1, creates nothing" sh -c '
+        [ "$1" -eq 1 ] && [ ! -e "$2/noenv/lost" ] && grep -q "^Nothing would find a profile" "$3"' \
+        _ "$rc" "$T" "$T/noenv.out"
+    (cd "$T/noenv" && unset JOB_SEARCH_ENV &&
+        CLAUDE_PLUGIN_OPTION_PROFILE_PATH="$T/noenv-shared/profile.json" "$PY" -I "$S/profilelib.py" \
+            create "$T/noenv-shared/profile.json") >"$T/noenv2.out" 2>&1
+    rc=$?
+    check "profile create with no job-search.env where the lookup looks: created, no PROFILE line" sh -c '
+        [ "$1" -eq 0 ] && [ -f "$2/noenv-shared/profile.json" ] && ! grep -q "PROFILE=" "$3"' \
+        _ "$rc" "$T" "$T/noenv2.out"
+fi
+CLAUDE_PLUGIN_OPTION_PROFILE_PATH="$T/other-profile/profile.json" \
+    "$PY" -I "$S/check_setup.py" --env "$ENVF" >"$T/split-setup.out" 2>&1
+CLAUDE_PLUGIN_OPTION_PROFILE_PATH="$H/elsewhere/profile.json" \
+    "$PY" -I "$S/check_setup.py" --env "$ENVF" >"$T/same-setup.out" 2>&1
+check "check_setup: warns when PROFILE is not the file the other cenk-* plugins read; silent when it is" sh -c '
+    grep -q "^WARN.*Same profile for the other cenk-.*profile_path" "$1" &&
+    ! grep -q "Same profile for the other" "$2"' _ "$T/split-setup.out" "$T/same-setup.out"
+
+# --- move_to_profile: the person's facts from the old records into the profile, once -----------------------------------
+cp -R "$T/flat" "$T/mv"
+use "$T/mv"
+P="$H/profile/profile.json"
+C="$H/career-records/career.json"
+echo '{"person": {"name": "Jane Doe", "email": "jane@example.com"}}' >"$P"
+cat >"$C" <<EOF
+{"profile": {"name": "Jane Doe", "headline": "Engineer", "citizenship": ["Italian"], "work_authorisation": "EU citizen",
+             "languages": [{"language": "Italian", "level": "native"}], "location": "Rome, Italy",
+             "pronouns_on_linkedin": "she/her",
+             "contact": {"email": "jane.doe@example.org", "phone": "+39 06 0000 0007",
+                         "linkedin": "https://www.linkedin.com/in/jane-example",
+                         "github": {"account": "jane-example", "on_cv": true}}},
+ "references": {"_about": "referees", "rows": [
+   {"name": "Sam Example", "email": "sam@example.com", "relation": "former manager", "company": "Acme Corp",
+    "worked_together_since": "2020", "agreed_on": "2026-11-01"},
+   {"name": "Alex Example", "phone": "+39 06 0000 0009", "relation": "colleague"}]},
+ "experience": [{"id": "acme", "employer": "Acme Corp", "dates": {"cv": "2020-2024"}}],
+ "employment_timeline": {"heading": "Timeline"},
+ "history": [{"date": "2026-10-01", "path": "profile.contact.phone", "old": "+39 06 0000 0006"}],
+ "skills": ["Java"], "form_answers": {}, "never_claim": []}
+EOF
+cat >"$H/career-records/personal.json" <<EOF
+{"_about": "private", "facts": {
+  "adjustments": {"answer": "None needed.", "typed": "none needed", "date": "2026-11-01", "source": "chat"},
+  "lawyer": {"name": "Jo Example", "email": "jo@example.com", "role": "employment lawyer"},
+  "self_id": {"gender": "woman", "date": "2026-11-01", "words": "woman"}}}
+EOF
+mkdir -p "$H/notes" "$H/job-applications/pending/acme"
+echo "Call me at +39 06 0000 0007" >"$H/notes/old.md"
+echo "not a real pdf" >"$H/notes/old.pdf"
+echo "+39 06 0000 0007" >"$H/job-applications/pending/acme/answers.md"
+cp "$P" "$T/mv-before.json"
+"$PY" -I "$S/move_to_profile.py" --env "$ENVF" >"$T/mv-dry.out" 2>&1
+rc=$?
+check "move dry run: what moves, what differs and what waits; nothing written; exit 3 for a different value" sh -c '
+    [ "$1" -eq 3 ] && cmp -s "$2" "$3" &&
+    grep -q "^add  *person.phone <- MASTER_RECORD profile.contact.phone" "$4" && grep -q "^done  *person.name" "$4" &&
+    grep -q "^different  *person.email" "$4" && grep -q "^confirm  *person.pronouns" "$4" &&
+    grep -q "^add  *contacts.referee-sam" "$4" && grep -q "^add  *contacts.lawyer <- PERSONAL_RECORD facts.lawyer" "$4" &&
+    grep -q "^add  *private.adjustments <- PERSONAL_RECORD facts.adjustments" "$4" &&
+    grep -q "^ask .*contacts.referee-alex" "$4" && grep -q "^by hand .*experience\[0..0\]" "$4" &&
+    grep -q "history: entries about profile.contact.phone" "$4"' _ "$rc" "$P" "$T/mv-before.json" "$T/mv-dry.out"
+check "move dry run: lists the main-folder files that repeat a value, never an application folder" sh -c '
+    grep -q "^  notes/old.md (person.phone)" "$1" && grep -q "^  notes/old.pdf (beside notes/old.md)" "$1" &&
+    ! grep -q "job-applications" "$1"' _ "$T/mv-dry.out"
+check "move: prints field names and paths, never a value" sh -c '
+    ! grep -q "0000 0007\|0000 0009\|sam@example.com\|None needed\|Italian\|she/her\|jane-example" "$1"' _ "$T/mv-dry.out"
+"$PY" -I "$S/move_to_profile.py" --env "$ENVF" --apply >"$T/mv-apply.out" 2>&1
+rc=$?
+check "move --apply: adds what the profile lacks, never writes over another value" sh -c '
+    [ "$1" -eq 3 ] && "$2" -I "$3/q.py" "$4" person.phone eq "+39 06 0000 0007" &&
+    "$2" -I "$3/q.py" "$4" person.email eq jane@example.com && "$2" -I "$3/q.py" "$4" person.links.github eq jane-example &&
+    "$2" -I "$3/q.py" "$4" person.location.city eq Rome && "$2" -I "$3/q.py" "$4" person.nationality.0 eq Italian &&
+    "$2" -I "$3/q.py" "$4" contacts.referee-sam.since eq 2020 && "$2" -I "$3/q.py" "$4" contacts.referee-sam.role eq referee &&
+    "$2" -I "$3/q.py" "$4" contacts.lawyer.email eq jo@example.com &&
+    "$2" -I "$3/q.py" "$4" private.adjustments.words eq "none needed" && "$2" -I "$3/q.py" "$4" private.self_id.gender eq woman &&
+    "$2" -I "$3/q.py" "$4" person.pronouns absent && "$2" -I "$3/q.py" "$4" history absent' _ "$rc" "$PY" "$T" "$P"
+"$PY" -I "$S/move_to_profile.py" --env "$ENVF" --apply --confirm person.pronouns >/dev/null 2>&1
+check "move --apply --confirm: a field to confirm moves only with the person's yes" q "$P" person.pronouns eq she/her
+"$PY" -I "$S/move_to_profile.py" --env "$ENVF" --apply --remove-old >/dev/null 2>&1
+check "move: --apply and --remove-old together are refused (exit 2)" [ "$?" -eq 2 ]
+"$PY" -I "$S/move_to_profile.py" --env "$ENVF" --remove-old >"$T/mv-rm.out" 2>&1
+check "move --remove-old: removes only what the profile holds unchanged, after a backup" sh -c '
+    "$1" -I "$2/q.py" "$3" profile.contact.phone absent && "$1" -I "$2/q.py" "$3" profile.contact.email eq jane.doe@example.org &&
+    "$1" -I "$2/q.py" "$3" profile.contact.github.on_cv eq True && "$1" -I "$2/q.py" "$3" profile.contact.github.account absent &&
+    "$1" -I "$2/q.py" "$3" profile.headline eq Engineer && "$1" -I "$2/q.py" "$3" profile.pronouns_on_linkedin absent &&
+    "$1" -I "$2/q.py" "$3" references absent && "$1" -I "$2/q.py" "$3" experience.0.employer eq "Acme Corp" &&
+    ls "$4"/career-records/career.json.before-move-*.json >/dev/null 2>&1' _ "$PY" "$T" "$C" "$H"
+check "move --remove-old: the old private record, all moved, is deleted; its backup is named for deleting" sh -c '
+    [ ! -e "$1/career-records/personal.json" ] && grep -q "personal.json.before-move-" "$2"' _ "$H" "$T/mv-rm.out"
 
 # --- review fixes ----------------------------------------------------------------------------------------------------
 track add J9 "Acme Corp" "Engineer" "https://boards.example.com/acme/jobs?gh_jid=111" >/dev/null 2>&1
