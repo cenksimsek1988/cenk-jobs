@@ -13,7 +13,8 @@ Read `../../RULES.md` first. This skill writes the plan into the tracker; it sen
    send. Leave out excluded, skipped, closed and declined ones.
 2. Order them: deadline first, then fit, then the sites the person is signed in to (`logins.py show`).
 3. For each job, the CV version that fits the role (`CV_VERSIONS_DIR`) and its letter template; the letter itself is
-   written now (`LETTER_BODIES_DIR`) and its PDF built on the day it is sent (`make_letter_pdf.py`).
+   written now (`LETTER_BODIES_DIR`), only for a form with a letter field (`apply`, "Before filling"), and its PDF
+   built on the day it is sent (`make_letter_pdf.py`).
 4. Group by sign-in: one group per site or hiring system. A group needs the person signed in before it can start.
 5. List what only the person can do, per job, as to-do items in the tracker (`todo`): sign-ins (`click`), answers
    and essays (`info`), with the link to the form. Open free-text questions are never filled for them.

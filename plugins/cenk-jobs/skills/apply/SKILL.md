@@ -16,8 +16,16 @@ waits on the person.
   posting; open the job's own page. Signing in there from a job's Apply link can submit at once by quick apply from
   the stored profile, with no CV or answers: upload the CV to the profile first, or sign in from the site's home page,
   then apply.
-- Check the form before writing a letter: many have no letter field (often Workable, Rippling, HiBob, Ashby, Lever).
-  Ashby keeps no draft, so a form with an essay question waits until the person's answer is in the records.
+- SuccessFactors behind a Career Site Builder front end: after sign-in, the Apply link lands on the portal's home
+  page. Open the job by its requisition id inside the signed-in portal (example: search its jobs for `12345`).
+- Read the form's questions before opening Chrome, from the board's public API:
+  - Ashby: a POST to `https://jobs.ashbyhq.com/api/non-user-graphql?op=ApiJobPosting` (Python; WebFetch only gets),
+    variables `organizationHostedJobsPageName` and `jobPostingId`: `applicationForm` sections, each field in
+    `fieldEntries` with `isRequired`.
+  - Greenhouse: `https://boards-api.greenhouse.io/v1/boards/<board>/jobs/<id>?questions=true`.
+- Write a letter only for a form with a letter field: many have none (often Workable, Rippling, HiBob, Ashby, Lever).
+  Each essay question goes to the Questions page before filling. Ashby keeps no draft, so a form with an essay
+  question waits until the person's answer is in the records.
 - Check the employer again if the last check is old (`employer.py check`).
 - The person must be signed in to the site. Ask them to tick "Keep me signed in" or "Remember me" where the site
   offers it, and to keep Chrome's "clear cookies when you close all windows" off.
@@ -41,6 +49,11 @@ waits on the person.
 - LinkedIn Easy Apply fills screening answers saved from earlier applications (example: 3 years of a skill, where the
   record says 6): check every prefilled number against the record before Review. Its salary fields take a number
   only: `50000`, not "EUR 50,000 a year" ("Invalid input").
+- LinkedIn Easy Apply has no file input behind its upload buttons: it sends only a CV already stored on LinkedIn.
+  Check the stored CV's date against the CV version the plan chose; an older one: ask the person once to upload the
+  current CVs to LinkedIn.
+- Easy Apply's work-experience page blocks Next on an entry without dates. Never invent dates or delete an entry:
+  the job waits (`needs-person`) and the person fixes the entry on LinkedIn.
 - The CV version the plan chose, and the letter built today: `make_letter_pdf.py --company .. --role .. --body
   <body file> --variant "<CV variant>" --out-dir <letter folder>`. Claude in Chrome `file_upload` reads only files
   this session may read: copy both into the session's scratchpad and upload from there. SuccessFactors: the visible

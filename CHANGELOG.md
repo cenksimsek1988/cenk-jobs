@@ -8,7 +8,7 @@ the version changes.
 
 ## [0.29.0] - 2026-11-12
 
-The person's own facts live in one profile, shared with the other cenk-* plugins.
+The person's own facts live in one profile, shared with the other cenk-* plugins; four lessons from applying.
 
 ### Added
 
@@ -33,6 +33,12 @@ The person's own facts live in one profile, shared with the other cenk-* plugins
 - `check_setup.py`: the profile (found, readable, `person.name`), `form_facts` names that are no guarded item, and
   old copies (`PERSONAL_RECORD`, person facts or referees in `MASTER_RECORD`); `--needs` names a missing profile. It
   warns when `PROFILE` names another file than the one the other cenk-* plugins find.
+- `apply`: SuccessFactors behind a Career Site Builder front end lands on the portal's home page after sign-in: the
+  job is opened by its requisition id inside the signed-in portal.
+- `apply`: LinkedIn Easy Apply sends only a CV stored on LinkedIn (no file input behind its upload buttons): the
+  stored CV's date is checked, and the person is asked once to upload the current CVs.
+- `apply`: Easy Apply blocks Next on a work-experience entry without dates: no date is invented and no entry deleted;
+  the person fixes it.
 
 ### Changed
 
@@ -44,6 +50,9 @@ The person's own facts live in one profile, shared with the other cenk-* plugins
   `form_facts` names; never `private` or `contacts`.
 - The preparer marks a guarded item that `form_facts` names "from the profile", with no value; the session that fills
   the form types it from the profile.
+- A form's questions are read before Chrome opens, from Ashby's `non-user-graphql` (`ApiJobPosting`) or Greenhouse's
+  `?questions=true`: `apply`, `plan` and the preparer write a letter only for a form with a letter field, and the
+  preparer puts each essay question into needs, so it reaches the Questions page in the same run.
 - `PROFILE` replaces `PERSONAL_RECORD` in the env template; the new folder's `career.json` has no person facts or
   references. Setup, coordinate, apply, `RULES.md` and `RULES/questions.md` name the profile: any session saves a fact
   about the person there at once, and a handoff names the key.
