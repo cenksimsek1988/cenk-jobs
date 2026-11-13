@@ -27,6 +27,9 @@ For each new step, in its step folder: `prep.md` (from the posting and the maste
 (keyword lines only: facts, numbers, names of things; never scripted sentences, since the person reads it in the
 minutes before the call).
 
+When the study starts, read `prep.md` again against the posting and the records as they are now, and correct it
+first: a prep written days before goes stale. Example: a prep of 9 Nov names a CV version replaced on 12 Nov.
+
 ## Studying with the person
 
 1. **Brief first**, in short sections for a phone: the company (what it sells, size, owners, recent news, with

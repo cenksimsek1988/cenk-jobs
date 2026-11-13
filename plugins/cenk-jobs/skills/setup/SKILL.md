@@ -58,7 +58,8 @@ by step.
 
 Show the defaults and ask: "Use these defaults? You can change any of them later by just saying so."
 
-- The search runs every day at 19:00 your local time (`SEARCH_TIME`; `/cenk-jobs:schedule` changes it).
+- The search runs on weekdays (Monday to Friday) at 19:00 your local time (`SEARCH_TIME`, `SEARCH_DAYS`;
+  `/cenk-jobs:schedule` changes it, also to every day).
 - Optional consents stay off: newsletters, talent pools, job alerts, marketing, SMS, AI analysis of interviews,
   extra data retention. A job alert you say yes to for a site is the exception: it replaces repeat searches.
 - Your birth date, references, criminal record and relatives at the company: a form asking for one waits for you,
@@ -160,6 +161,7 @@ reports. Keep job-search work out of other sessions." From here on it runs `cenk
 
 ## 10. The schedule and the first search
 
-With the defaults accepted, create the daily run with `/cenk-jobs:schedule` (19:00 local time), then run the first
-search now with `/cenk-jobs:search`. Job sites that need an account come out of that search: the person creates each
+With the defaults accepted, create the scheduled run with `/cenk-jobs:schedule` (weekdays at 19:00 local time), then run the first
+search now with `/cenk-jobs:search`: it saves one search per site and query and offers the sites' free email alerts
+(`search`, "Saved searches"), so later runs read only what is new. Job sites that need an account come out of that search: the person creates each
 account and leaves its profile empty, because Claude fills it when applying.

@@ -12,7 +12,8 @@ tracker, and nothing is prepared or sent.
 
 1. Read the person's rules from the master record: where they will work (cities, remote, relocation), the pay
    rule, the roles they want, the languages they work in, and `EMPLOYER_RULES`.
-2. `searches.py due` lists the saved searches due today. For each, the cheapest source that covers it, in this order.
+2. `searches.py due` lists the saved searches due today: a run reads only these, never every site again. With none
+   saved it says so: create them first ("Saved searches"). For each, the cheapest source that covers it, in this order.
    Keep only postings that match the roles and the location rule; drop what the tracker has (`searches.py seen --file
    <links file>`, one link per line, never typed into a command).
    - Alert emails: Gmail `search_threads` with the row's `gmail` query, `pageSize` 10; open only messages newer than
@@ -23,6 +24,8 @@ tracker, and nothing is prepared or sent.
    - A job board's public JSON (the addresses in `workflows/screen-and-prepare.js`), or `fetch_jd.py`.
    - LinkedIn guest search only for a search no alert covers: 4 s between calls, in the background, each result
      written as it comes (example: 269 calls took 32 minutes).
+   - A site without an alert: newest first, and stop at the first posting older than the row's last check or already
+     in the tracker. Example: last check 6 Nov; the list reaches a posting of 5 Nov: stop there.
    - A browser last, only for a search nothing else covers. Read each page with `find`, `read_page` or `get_page_text`; never a screenshot
      (RULES.md, "Claude in Chrome").
    After each: `searches.py done <id> found=<n>`. A posting's date comes from the employer's board, since a job
@@ -47,15 +50,31 @@ tracker, and nothing is prepared or sent.
 5. Record every finding as found (RULES.md, "Employer rules"). Postings that closed: `track.py set <id> closed`.
 6. `build_app_folders.py` and the dashboard refresh.
 
+## Saved searches
+
+Every search has a row in `SEARCHES` (`searches.py`), so the next run starts from the row's last check.
+- None saved: one row per site and query, from the person's roles and locations. A person with a tracker and no
+  rows: `searches.py sites` lists the sites of their jobs that have none; add a row for each.
+- A site searched without a row gets its row in the same run. Example: a posting found on a new board:
+  `searches.py add "Acme careers" "engineering" alert=no`.
+- A row with an alert is read at every run. A site without one is searched at every weekday run, from its last
+  check on, and never on a weekend: a check that falls there is due on Monday. `every=7` makes it weekly.
+
 ## Alerts
 
 One email alert per saved search, on each site that offers one, so the search is read from email in the background.
+- For each site, check once whether it offers a free email alert, and record what was found. Ask the person in one
+  question that lists every such site; their yes covers the list. Example: "LinkedIn and Acme careers offer a free
+  daily email for your searches. Create both alerts?" Without one: `alert=no note="no alert offered, 2026-11-13"`.
+- An alert email that lists no postings and only links to the site is a signal: search that site in the same run,
+  from the row's last check on. Record it on the row: `note="the alert only links to the site"`.
 - Greenhouse boards offer one per employer ("Create a Job Alert" on a posting): for an employer the person follows.
-- Each site needs the person's yes. Never create an account: a site without one is `alert=no`, checked on a schedule.
+- No alert without the person's yes for its site. Never create an account: a site that needs a new one is `alert=no`,
+  checked on a schedule.
 - Create it once, signed in, with the site's own alert setting: in the built-in browser when the person has signed
   in there, else in Chrome. Never through a tick-box on an application form.
 - Then record it. Example: `searches.py add LinkedIn "Backend engineer, remote" alert=yes
-  gmail="from:jobalerts-noreply@linkedin.com newer_than:2d"`. A site with no alerts: `alert=no every=7`.
+  gmail="from:jobalerts-noreply@linkedin.com newer_than:2d"`. A site with no alerts: `alert=no`.
 
 ## Report
 

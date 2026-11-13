@@ -6,8 +6,9 @@ python -I logins.py show                                   one line per login
 Statuses: connected (a connector that answered), signed-in (a site the person is signed in to), needs-sign-up (no
 account yet: the person creates it), expired (the person was signed in and the session ended: a sign-in page where
 a form was), needs-sign-in, needs-reconnect, blocked (a bot check or terms page waiting on the person), excluded (the
-site of an employer the person's rules exclude: no sign-in needed; sync sets it, and the employers themselves are in
-the dashboard's Excluded tab, not in this file), unknown (older rows only; the dashboard shows it as "not signed
+site of an employer the person's rules exclude: no sign-in needed; sync sets it, whatever the site's last state, by
+its name, the part after "·" or the employers of the jobs on it; the employers themselves are in the dashboard's
+Excluded tab, not in this file), unknown (older rows only; the dashboard shows it as "not signed
 in"). sync makes new site rows needs-sign-in; Claude sets needs-sign-up and expired with `set`.
 A site no job waits on keeps its last state, with the reason in its note: signed-in, or needs-sign-in (shown as
 "not signed in"). Example: `set "Acme Jobs" signed-in "no open job: the offer closed, 6 Nov 2026"`.
@@ -90,8 +91,12 @@ if args[0] == "sync":
     import employerlib as el
     pipeline = el.load_json(env.path("PIPELINE"), {}) if env.get("PIPELINE") else {}
     excluded = el.excluded_list(env, flat_jobs(tracker), pipeline)
+    on_site = {}  # login id -> the employers of the tracker's jobs on it
+    for job in flat_jobs(tracker):
+        on_site.setdefault(login_of(job), set()).add(job.get("company", ""))
     for site in [r for r in rows.values() if r.get("kind") == "site" and not r.get("jobs")]:
-        hit = next((x for x in excluded if any(el.keys(site.get("name", "")) & el.keys(n) for n in x["names"])), None)
+        # Whatever its last state: "Workday · Acme", expired, is Acme's own site (employerlib.excluded_site).
+        hit = el.excluded_site(site, excluded, on_site.get(site["id"], ()))
         note = f"employer excluded: {hit['employer']}, see the Excluded tab" if hit else ""
         if hit and (site.get("status"), site.get("note")) != ("excluded", note):
             site.setdefault("history", []).append({k: site[k] for k in ("checked", "status", "note") if k in site})

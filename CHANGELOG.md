@@ -6,6 +6,77 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.30.0] - 2026-11-14
+
+The dashboard shows only what the person does, lists the sessions in the order to answer them, and every export says
+what disagrees with the records; searches are saved and read from where the last one stopped.
+
+### Added
+
+- `track.py todo <id> add <kind> "<text>" [where= due= link= login= session= since=]`, `todo <id> done
+  <n>|all|kind=<kind>|session=<id>`, `todo <id> list`: to-dos are no longer edited by hand. The kind `waiting`: the
+  next move is the employer's; never in Do now, shown in Hiring steps with since when.
+- `sessions.py` and the record `SESSIONS` (default `apply/sessions.json`): `sync <list.json>` (the app's session
+  list), `set <id|name> state= waits= jobs= due= tab= steps= name=`, `order <id|name> ...|auto`, `show`. The order of
+  the sessions that wait on the person: the ones `order` names, urgent, the nearest fixed date, a form held open in
+  a browser tab, the fewest steps left, the longest wait.
+- The dashboard's Sessions tab and dataset (`sessions.json`, the seventh file), and one numbered "Answer first" row
+  per waiting session in Do now; a to-do with `session=<id>` is on its session's row.
+- The cross-check: every export ends with one `check:` line per mismatch between the records and the page, then
+  `check: <n> mismatches`; `export_dashboard.py --check` prints them and writes nothing. Example: `check: to-do on
+  an ended job: J3 (rejected 2026-11-10), 2 to-do(s) -> track.py todo J3 done all`.
+- `export_dashboard.py --uploaded <dir>` records what is on the page (`dashboard-uploads.json`); every export ends
+  with `upload:` and `unchanged:`, so only a changed file is uploaded.
+- Do now kinds `late` ("Past due", never Urgent) and `queued` ("Claude's next": open jobs nobody owns).
+- `searches.py sites` (the tracker's sites with no saved search), `add ... note="<text>"`, `--today <date>`; `due`
+  with no saved search prints one line that says so.
+- `SEARCH_DAYS` in `job-search.env` (`weekdays`, `daily`, `none`, or the days as text), `SESSIONS`, `SESSION_MODEL`
+  (the model new sessions start with).
+- A hiring step with `"proposed": true` in `PIPELINE` reads "Proposed" and is no task; `"done": "<date>"` marks a
+  step done.
+- `questions.py build` writes `checked` and `open` into `status/run.json`: the Questions page shows when Claude last
+  checked, also before any answer.
+
+### Changed
+
+- The scheduled run is on weekdays at 19:00 by default ("Job search: weekday run", cron `0 19 * * 1-5`); every day
+  only when the person asks. The dashboard header reads `SEARCH_DAYS` and `SEARCH_TIME` ("Next: weekdays at 19:00."),
+  and each run corrects the two keys from the task's real schedule. A task that runs every day stays so.
+- Search: every search has a saved row, created by the plugin (none saved: one per site and query; a person with a
+  tracker and no rows: from `searches.py sites`). Each site is checked once for a free email alert and the person is
+  asked in one question for all of them. A site without an alert is searched at every weekday run, newest first,
+  up to its last check, and never on a weekend (`every=7` makes it weekly; it was every 7 days). An alert email
+  that only links to the site starts a search of that site in the same run.
+- Logins: a "connected" or "signed in" last checked before the run started reads "not checked since <time>" and is
+  not counted as working, connectors too (no run recorded: older than 3 days). The coordinator re-checks each
+  connector before every export.
+- `track.py set` into submitted or an ended status drops the job's to-dos, prints them and keeps them in the
+  history row (`todo_dropped`).
+- The export: one application row per job id; a step's date, due, done and cancelled come from `PIPELINE`; no to-do
+  of an ended job, except one set on or after a sent job's end date; an open step of a job that is over is "ended",
+  never upcoming or past due; an excluded employer's own site leaves the Logins tab (`employerlib.excluded_site`).
+- Hiring steps tab: the State column (Upcoming, Proposed, Done, Past, Cancelled, Ended, Waiting since); what is
+  ahead first, the nearest first; the steps behind only under "All steps", the latest first.
+- Coordinate: keeps `SESSIONS`; a sub-session's title follows its state at once; the person may answer a session's
+  one-line question in the main chat; each run compares the calendar with the records and reads every dashboard
+  tab in the browser.
+- Lessons: the main session sends new `plugin-lessons.md` lines, with their line numbers, to the session titled
+  "Coordinator · cenk-jobs" when one is open; a job-search session never starts a session in the plugin's
+  repository. A lesson line names no employer and quotes nobody.
+- Apply, prepare and the essays round: a later answer beats a prepared one; a hypothetical form question is
+  explained first; a public form gets no keep-alive tab; a code step in a held tab is found by the tab's new title;
+  a form left at the review page says that Submit sends it as it is; a prep is reread when the study starts; a
+  session that drafts answers checks the posting is open before each round of approvals.
+- Mail while the connector is down: read and labelled in the person's signed-in Chrome, one-time codes masked.
+
+### Fixed
+
+- A sent job with a kept `not-applied` folder was counted twice.
+- A step already done, or due last week, stayed Urgent.
+- `logins.py sync` never matched a per-employer site ("Workday · Acme") to its excluded employer.
+- A `same_as` application without its own stage was filed under Waiting for a reply.
+- With no saved search, a run searched every site again: `searches.py due` printed nothing.
+
 ## [0.29.0] - 2026-11-12
 
 The person's own facts live in one profile, shared with the other cenk-* plugins; four lessons from applying.

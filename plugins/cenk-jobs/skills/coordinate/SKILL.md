@@ -26,7 +26,7 @@ ended or is ending; create it if missing.
 2. A session active since the previous "run started" row in `USAGE_LOG` (at the first check: every session): one message (`SendMessage` to
    its `local_...` id): "Write your handoff to handoffs/<short name>.md, then stop." A running session finishes first.
 3. Read every file in `handoffs/`, oldest first. Each fact goes into its record, as in "The handoff" below; each
-   open item into the job's `todo` or the Questions page.
+   open item into the job's to-dos (`track.py todo`) or the Questions page.
 4. Safe-end each session that is idle, has its file recorded and leaves no filled form waiting at Submit
    (`archive_session`, by `ARCHIVE_SESSIONS`). The older coordinator goes last: archiving it also archives its finished
    sub-sessions. One the app will not archive, or one the person still uses, stays and is named in Do now.
@@ -40,13 +40,15 @@ A session cannot be moved under a new coordinator: it is reached by message, and
 
 - Runs in the main folder and is titled **Job search coordinator**. It tells the person, at the start of each run,
   that this is their main session (RULES.md, "One main session").
-- **Is the only writer of the shared records**: `TRACKER`, `PIPELINE`, `LOGINS`, `MASTER_RECORD`,
+- **Is the only writer of the shared records**: `TRACKER`, `PIPELINE`, `LOGINS`, `SESSIONS`, `MASTER_RECORD`,
   `QUESTIONS`, `EMPLOYER_RULES`, `EMPLOYER_CHECKS`, `USAGE_LOG`, the application folders (through
   `build_app_folders.py`), the calendar category, the dashboard and the Questions page. Sub-sessions report; the coordinator records. Why: the files sync through Google Drive, and two
   sessions writing one file lose each other's changes.
 - The person's profile is not a shared record: any session saves a fact about the person there at once, by
   compare-and-set (`profilelib.py set`, RULES.md "Keep learning about the person"), and its handoff names the key.
-- Never changes the plugin (RULES.md, "The plugin's own files"): a lesson is one line in `plugin-lessons.md`.
+- Never changes the plugin and never starts a session in its repository (RULES.md, "The plugin's own files"): a
+  lesson is one line in `plugin-lessons.md`, a sub-session's lesson too, and the new lines go in one message to the
+  session titled "Coordinator · cenk-jobs" when one is open.
 - Each run: "run started", the handoff check, the shared-list update, `check_setup.py --needs`, the health check, then the pieces of the day (`/cenk-jobs:schedule` lists the order),
   one sub-session per piece; "run finished" and the short report at the end.
 - Each run, before the pieces: read the Questions page's answers and record them (`questions.py record`, RULES.md
@@ -58,9 +60,17 @@ A session cannot be moved under a new coordinator: it is reached by message, and
 - After every change that can move an employer's verdict (the person's rules, a decision, a sync, a shared-list
   update): `employer.py recheck-running`, and each employer it lists goes to the person (RULES/employers.md, "Running
   applications").
-- Urgent steps (RULES.md): when a report names one, add the job's Urgent to-do (`"kind": "urgent"`, `"where":
-  "pc"` or `"phone"`) and remove it once done or expired; the sub-session already sent the notification. At the end
-  of each run, one notification for deadlines today or tomorrow.
+- Urgent steps (RULES.md): when a report names one, add the job's Urgent to-do (`track.py todo <id> add urgent
+  "<what to do>" where=pc`, or `where=phone`) and remove it once done or expired; the sub-session already sent the
+  notification. At the end of each run, one notification for deadlines today or tomorrow.
+- Each run, after the health check: the calendar check (RULES/hiring-steps.md, "Calendar"). After each dashboard
+  refresh: every `check:` line of the export is fixed, or named in the run report (RULES/run.md, "Dashboard").
+- Each run, after the last refresh: open the dashboard in the browser and read every tab against the records (Do
+  now, Sessions, Calendar, Logins, Excluded employers, Hiring steps, All applications, and the header's run line).
+  What differs is fixed in the records and exported again, or named in the run report. Example: the Calendar tab
+  lists an invitation the person declined: uncolour it after their yes (RULES/hiring-steps.md, "Calendar").
+- A hiring step that is done: `"done": "<date>"` on its `PIPELINE` step, and what is awaited next as a to-do.
+  Example: `track.py todo J1 add waiting "feedback on the take-home"`.
 - "I'm at my PC": list every step waiting at the PC (Urgent to-dos with `"where": "pc"`) and have each session go
   on, one at a time (example: press Submit, so the emailed code arrives now).
 - Watches the Questions page (a new coordinator starts the watch at once, with `ArtifactComments`), so its "Send my answers to Claude" and Discuss messages reach this session: handle
@@ -75,9 +85,22 @@ A session cannot be moved under a new coordinator: it is reached by message, and
 - A sub-session's application or letter that waits only on the person's go-ahead: the coordinator submits it after
   finding, in that session's transcript, the person's own go-ahead for that exact version (example: "send it" under
   the final letter). A go-ahead for an earlier draft does not count, and an email stays a draft (`send_mode`).
-- A sub-session's title starts with its state, renamed when the state changes: "You · " (waits on the person's
-  answer or study), "Ready · " (goes on alone), "Done · " (recorded; archived by `ARCHIVE_SESSIONS`).
-  Example: "You · Acme open questions".
+- Keeps the sessions record (`SESSIONS`), which the dashboard's Answer first rows and Sessions tab read. After
+  every start, change of state and handoff: save the app's session list as a file (`list_sessions`, limit 200,
+  archived included: it lists 20 by default), `sessions.py sync <file>`, then `sessions.py set <name>
+  state=you|ready|done waits="<what it waits on>" jobs=<ids, the one in hand first> due=<a fixed date>
+  tab=yes|no steps=<n>` (`tab`: it holds a filled form open in a browser tab; `steps`: the person's steps left to
+  finish). `sessions.py show` gives the order to answer them; `sessions.py order <name> ...` overrides it.
+  Example: `sessions.py set apply-acme state=you waits="your yes to send 2 forms" jobs=J1,J2 tab=yes steps=1`.
+- A sub-session's title starts with its state and follows it at once: "You · " (waits on the person's answer or
+  study), "Ready · " (goes on alone), "Done · " (its jobs are sent or rejected, or its step is past; recorded;
+  archived by `ARCHIVE_SESSIONS`). The record's state comes first; `sessions.py show` names each title to set.
+  Example: "You · Acme open questions" becomes "Done · Acme open questions" when both forms are sent.
+- The person may answer a session's one-line question in this chat: forward their words, quoted, to that session
+  (a message to its id). Essays and study stay in their own session. Example: "yes, send both" goes to `apply-acme`
+  as: The person wrote: "yes, send both".
+- New sessions start with `SESSION_MODEL` when it is set (`start_session`'s `model`). The app takes the main
+  session's model or a cheaper one and ignores a higher one: then say so to the person.
 
 ## Pieces
 
@@ -99,9 +122,15 @@ review page and the go-ahead is forwarded to it by message).
 | Search sweep | `/cenk-jobs:search`; one row per posting. | `search-2026-11-06` |
 | Essays round | The person studies a site's open questions and writes the answers in their own words; the session gives facts from the record and feedback where the employer's rules allow. Feedback aims at a calm, experienced voice: no essay words, no selling the employer's own product ("I led two migrations like yours", not "I am passionate about your innovative platform"). | `greenhouse-answers` |
 
-In progress: when a piece starts, add a `working` to-do to each of its jobs in the tracker; remove it when the
-piece's handoff is recorded. Example: `Claude: filling the Workday form; wait` or `In session "Greenhouse open
-questions": essays`.
+An essays round, and every session that drafts answers for a form, checks that the posting is still open at the
+start of the session and again before each round of approvals, not only before filling. Approved answers of a
+posting that closed are kept in that job's prepared answers, each with its question and date, for reuse.
+Example: six essays approved over two days; the posting closed on the first day: the check before the second round names it.
+
+In progress: a piece in a sub-session has its jobs in the sessions record (`sessions.py set <name> jobs=<ids>`), not
+in to-dos. Work inside the coordinator (a subagent) gets a `working` to-do on each job, removed when its report is
+recorded. Example: `track.py todo J1 add working "Claude: filling the Workday form; wait"`. A to-do that belongs to
+a session names it by id (`session=<id>`), never by its title.
 
 Limits: at most `APPLY_PARALLEL` (default 2) sessions or subagents use the browser at once, each only in tabs it opened. A piece that needs a file
 outside its own step folder or `apply/bodies` / `apply/letters` asks the coordinator first.
@@ -115,8 +144,8 @@ line each; a fact about the person themselves is already in the profile: only it
 (employer, rating, number of reviews, complaint topics, source). Nothing else.
 
 The coordinator records it: `track.py set`, `PIPELINE`, `MASTER_RECORD`, `logins.py set` and `sync`, `employer.py
-record`, `environment` or `decide`, `usage.py log`, `build_app_folders.py`, calendar events, the `working` to-do removed, and the
-dashboard refresh.
+record`, `environment` or `decide`, `usage.py log`, `build_app_folders.py`, calendar events, the `working` to-do
+removed, the session's state and title (`sessions.py set <name> state=done`), and the dashboard refresh.
 
 ## Ending
 

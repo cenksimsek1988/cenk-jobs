@@ -24,6 +24,15 @@ title prefix `CALENDAR_PREFIX` ("Job search · ").
 - Every event the person owns holds the step's own link (meeting, test, booking, interview page) and the email's
   Gmail link; the same two go into the step's `link` and `mail` in `PIPELINE`.
 - An online interview without a video link: draft a request for it to the recruiter the day before (a draft).
+- Each run, compare the category's coming events with the records. An event of an excluded or withdrawn employer,
+  or an invitation the person declined that still has the color, is named to the person; after their yes, an event
+  they own is deleted and an invitation loses its color. Example: Acme was excluded on 12 Nov; "Job search · Acme
+  interview" on 18 Nov is named.
+- A date an employer proposed and nobody confirmed is a step with `"proposed": true` in `PIPELINE`: Hiring steps
+  reads "Proposed", and it is no task in Do now. Confirmed: remove the field. Example: a recruiter offers a call
+  on 18 Nov at 10:00 and the person has not answered.
+- A deadline event follows its to-do or step: a new due date moves it; a step marked done, or a to-do removed,
+  removes it.
 
 ## Mail
 
@@ -38,3 +47,7 @@ A job-search message whose action is done gets the Gmail label `GMAIL_DONE_LABEL
 - Gmail's list shows a thread with the label when any of its messages has it; a new reply shows there as unread.
 - Setup creates the label (`create_label`, purple; parents are created with it). Missing at a run: create it.
 - Never remove the person's own labels, never archive a message, mark it read or move it to another tab.
+- The mail connector is down: read and label the mail in the person's signed-in Chrome instead, say so, and keep
+  asking for the reconnect. Search `newer_than:1d -label:<GMAIL_DONE_LABEL>`; to label, tick the handled rows, open
+  the Labels menu, type the label, press Enter. A mail's snippet can show a one-time code: mask every code in what
+  is printed. Example: `security code: ******`.

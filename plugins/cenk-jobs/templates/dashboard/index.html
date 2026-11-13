@@ -52,7 +52,7 @@
 <div class="ja">
   <header class="ja-head">
     <h1>Job applications</h1>
-    <p><b data-draw="h-urgent" data-source="index" data-field="n" data-where="key=actions:urgent">—</b> urgent (do it now: it expires). <b data-draw="h-working" data-source="index" data-field="n" data-where="key=actions:working">—</b> in progress (Claude or a session with you is on it: wait). You can do <b data-draw="h-todo" data-source="index" data-field="n" data-where="key=actions:click">—</b> sign-ins and clicks, <b data-draw="h-todo2" data-source="index" data-field="n" data-where="key=actions:todo">—</b> other things to do, and answer <b data-draw="h-info" data-source="index" data-field="n" data-where="key=actions:info">—</b> questions now, with <b data-draw="h-task" data-source="index" data-field="n" data-where="key=actions:task">—</b> tasks on a deadline. Built from your job-search folder on <b data-draw="h-generated" data-source="index" data-field="label" data-where="key=meta:generated">—</b>.</p>
+    <p><b data-draw="h-urgent" data-source="index" data-field="n" data-where="key=actions:urgent">—</b> urgent (do it now: it expires). <b data-draw="h-session" data-source="index" data-field="n" data-where="key=actions:session">—</b> sessions wait on your answer (Answer first, in that order). <b data-draw="h-working" data-source="index" data-field="n" data-where="key=actions:working">—</b> in progress (Claude or a session with you is on it: wait). You can do <b data-draw="h-todo" data-source="index" data-field="n" data-where="key=actions:click">—</b> sign-ins and clicks, <b data-draw="h-todo2" data-source="index" data-field="n" data-where="key=actions:todo">—</b> other things to do, and answer <b data-draw="h-info" data-source="index" data-field="n" data-where="key=actions:info">—</b> questions now, with <b data-draw="h-task" data-source="index" data-field="n" data-where="key=actions:task">—</b> tasks on a deadline and <b data-draw="h-late" data-source="index" data-field="n" data-where="key=actions:late">—</b> past due (tell Claude: done, or missed). <b data-draw="h-waiting" data-source="index" data-field="n" data-where="key=actions:waiting">—</b> wait on an employer (see Hiring steps); <b data-draw="h-queued" data-source="index" data-field="n" data-where="key=actions:queued">—</b> are Claude's next. Built from your job-search folder on <b data-draw="h-generated" data-source="index" data-field="label" data-where="key=meta:generated">—</b>.</p>
     <p class="ja-run"><b data-draw="h-run" data-source="index" data-field="label" data-where="key=meta:run">—</b></p>
     <p data-draw="h-questions" data-source="index" data-field="label" data-where="key=meta:questions"></p>
   </header>
@@ -77,6 +77,7 @@
 
   <nav class="ja-tabs" role="tablist" aria-label="Sections">
     <button type="button" class="ja-tab" role="tab" data-tab="do-now" aria-selected="true">Do now</button>
+    <button type="button" class="ja-tab" role="tab" data-tab="sessions" aria-selected="false">Sessions</button>
     <button type="button" class="ja-tab" role="tab" data-tab="calendar" aria-selected="false">Calendar</button>
     <button type="button" class="ja-tab" role="tab" data-tab="logins" aria-selected="false">Logins</button>
     <button type="button" class="ja-tab" role="tab" data-tab="excluded" aria-selected="false">Excluded employers</button>
@@ -86,21 +87,35 @@
 
   <section class="ja-card ja-page" id="do-now">
     <h2>Do now</h2>
-    <p class="ja-note">Urgent first: do it now, it expires (a code, a CAPTCHA, a deadline within 24 hours). Then in progress: Claude, or a session with you, is on it, so wait for it. Then everything waiting on you, deadlines first: sign-ins to click, questions only you can answer, and tasks such as online tests or AI interviews. When one is done, tell Claude.</p>
+    <p class="ja-note">Urgent first: do it now, it expires (a code, a CAPTCHA, a deadline within 24 hours). Then Answer first: one row per session that waits on you, numbered in the order to answer them, with its applications; a one-line answer can go to your main session. Then in progress: Claude, or a session with you, is on it, so wait for it. Then everything waiting on you, deadlines first (a past one on top: tell Claude whether it was done), then the longest-waiting first: sign-ins to click, questions only you can answer, and tasks such as online tests or AI interviews. When one is done, tell Claude. Last, Claude's next: applications that wait on nobody but Claude. A wait on an employer is not here: see Hiring steps.</p>
     <p class="ja-note" data-draw="q-link" data-source="index" data-field="label" data-where="key=meta:questions"></p>
     <div class="ja-tools">
       <button type="button" class="ja-chip ja-kind" data-kind="all" aria-pressed="true">All</button>
       <button type="button" class="ja-chip ja-kind" data-kind="urgent" aria-pressed="false">Urgent</button>
+      <button type="button" class="ja-chip ja-kind" data-kind="session" aria-pressed="false">Answer first</button>
       <button type="button" class="ja-chip ja-kind" data-kind="working" aria-pressed="false">In progress</button>
+      <button type="button" class="ja-chip ja-kind" data-kind="late" aria-pressed="false">Past due</button>
       <button type="button" class="ja-chip ja-kind" data-kind="task" aria-pressed="false">Tasks</button>
       <button type="button" class="ja-chip ja-kind" data-kind="click" aria-pressed="false">Sign-ins and clicks</button>
       <button type="button" class="ja-chip ja-kind" data-kind="todo" aria-pressed="false">To do</button>
       <button type="button" class="ja-chip ja-kind" data-kind="info" aria-pressed="false">Questions for you</button>
+      <button type="button" class="ja-chip ja-kind" data-kind="queued" aria-pressed="false">Claude's next</button>
     </div>
     <div class="ja-scroll">
       <table data-source="do_now" data-row-key="key">
         <thead><tr><th data-field="kind">Kind</th><th data-field="text">What to do</th><th data-field="for">For</th><th data-field="link">Link</th></tr></thead>
         <tbody data-draw="do-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="ja-card ja-page" id="sessions" hidden>
+    <h2>Sessions</h2>
+    <p class="ja-note">Every open session with Claude: the ones that wait on you, in the order to answer them and why (urgent, a fixed date, a form held open in a browser tab, the fewest steps left, then the longest wait); the ones that work alone; and the ones done. Find a session by its title in the Claude app's sidebar.</p>
+    <div class="ja-scroll">
+      <table data-source="sessions_view" data-row-key="id">
+        <thead><tr><th data-field="rank">#</th><th data-field="title">Session</th><th data-field="waits">Waits on</th><th data-field="jobs">Applications</th><th data-field="why">Why here</th><th data-field="since" class="ja-wide">Since</th></tr></thead>
+        <tbody data-draw="session-rows"></tbody>
       </table>
     </div>
   </section>
@@ -148,10 +163,14 @@
 
   <section class="ja-card ja-page" id="steps" hidden>
     <h2>Hiring steps</h2>
-    <p class="ja-note">Every step of the applications moving forward; upcoming ones first. Prep notes and feedback are in each step's folder.</p>
+    <p class="ja-note">The steps ahead of you, the nearest first (a date an employer proposed and nobody confirmed reads Proposed), then what waits on an employer and since when. All steps adds the ones behind you, the latest first. Prep notes and feedback are in each step's folder.</p>
+    <div class="ja-tools">
+      <button type="button" class="ja-chip ja-steps" data-steps="open" aria-pressed="true">Upcoming and waiting</button>
+      <button type="button" class="ja-chip ja-steps" data-steps="all" aria-pressed="false">All steps</button>
+    </div>
     <div class="ja-scroll">
       <table data-source="steps_view" data-row-key="key">
-        <thead><tr><th data-field="date">Date</th><th data-field="company">Company</th><th data-field="step">Step</th><th data-field="detail" class="ja-wide">Details</th><th data-field="upcoming">Upcoming</th></tr></thead>
+        <thead><tr><th data-field="date">Date</th><th data-field="company">Company</th><th data-field="step">Step</th><th data-field="detail" class="ja-wide">Details</th><th data-field="state">State</th></tr></thead>
         <tbody data-draw="step-rows"></tbody>
       </table>
     </div>
@@ -223,8 +242,11 @@ dash.calc('do_now', {
     return actions.map((x) => {
       const a = app.get(x.app);
       const l = login.get(x.login);
-      return {key: x.key, due: x.due, kind: x.kind, where: x.where || '', text: x.text, link: x.link || (l ? l.link : ''), login: x.login || '',
-              for: a ? a.company + ' – ' + a.role : l ? l.name : ''};
+      // A row for several applications (Claude's next) names each, the first six in full.
+      const many = (x.apps || []).map((id) => app.get(id)).filter(Boolean).map((j) => j.company + ' – ' + j.role);
+      return {key: x.key, due: x.due, kind: x.kind, rank: x.rank || 0, where: x.where || '', text: x.text, link: x.link || (l ? l.link : ''), login: x.login || '',
+              for: many.length ? many.slice(0, 6).join('; ') + (many.length > 6 ? ` and ${many.length - 6} more` : '')
+                : a ? a.company + ' – ' + a.role : l ? l.name : ''};
     });
   },
 });
@@ -232,22 +254,51 @@ dash.calc('do_now', {
 dash.calc('steps_view', {
   inputs: ['steps', 'applications'],
   title: 'Hiring steps with their company',
-  description: 'Each hiring step with its company, looked up by the application id; upcoming first.',
+  description: 'Each hiring step with its company, looked up by the application id, and its state in words; upcoming and proposed first, then waits on an employer, then the steps behind, the latest first.',
   fn: (steps, applications) => {
     const app = new Map(applications.map((a) => [a.id, a]));
-    return steps.map((s) => ({key: s.key, date: s.date, company: (app.get(s.app) || {}).company || '', step: s.step,
-                              detail: s.detail, upcoming: s.upcoming}))
-      .sort((x, y) => (y.upcoming === 'yes') - (x.upcoming === 'yes') || x.date.localeCompare(y.date));
+    const RANK = {upcoming: 0, proposed: 0, waiting: 1};
+    return steps.map((s) => {
+      const a = app.get(s.app) || {};
+      // A shared process (the same steps for two applications): the row names every role on it.
+      const also = (s.also || []).map((id) => (app.get(id) || {}).role).filter(Boolean);
+      const st = s.state || (s.upcoming === 'yes' ? 'upcoming' : 'past');
+      const state = st === 'done' ? 'Done' + (s.done ? ' ' + s.done : '')
+          + (s.awaits ? ' · awaiting ' + s.awaits + (s.since ? ' since ' + s.since : '') : '')
+        : st === 'waiting' ? 'Waiting' + (s.since ? ' since ' + s.since : '')
+        : st.charAt(0).toUpperCase() + st.slice(1);
+      return {key: s.key, date: s.date || '', company: (a.company || '') + (also.length ? ': ' + [a.role].concat(also).filter(Boolean).join('; ') : ''),
+              step: s.step, detail: s.detail, state,
+              // A done step that still awaits the employer's answer is a wait, not a step behind.
+              rank: st in RANK ? RANK[st] : st === 'done' && s.awaits ? 1 : 2};
+      // What is ahead, the nearest first; what is behind (done, past, cancelled, ended), the latest first.
+    }).sort((x, y) => x.rank - y.rank || (x.rank === 2 ? y.date.localeCompare(x.date) : (x.date === '') - (y.date === '') || x.date.localeCompare(y.date)));
   },
 });
 
-window.jaState = {kind: 'all', stage: 'all', q: '', how: 'all', xq: ''};
-const KIND = {urgent: 'Urgent', working: 'In progress', task: 'Task', click: 'Sign-in / click', todo: 'To do', info: 'Question'};
+dash.calc('sessions_view', {
+  inputs: ['sessions', 'applications'],
+  title: 'Sessions with their applications',
+  description: 'Each session with the applications it works on, looked up by id: the ones that wait on the person first, in the order to answer them.',
+  fn: (sessions, applications) => {
+    const app = new Map(applications.map((a) => [a.id, a]));
+    return sessions.map((s) => ({id: s.id, rank: s.rank, state: s.state, title: s.title, waits: s.waits || '',
+      jobs: (s.apps || []).map((id) => app.get(id)).filter(Boolean).map((a) => a.company + ' – ' + a.role).join('; '),
+      why: s.why || '', since: s.since || ''}));
+  },
+});
+
+window.jaState = {kind: 'all', stage: 'all', q: '', how: 'all', xq: '', steps: 'open'};
+const KIND = {urgent: 'Urgent', working: 'In progress', task: 'Task', click: 'Sign-in / click', todo: 'To do', info: 'Question',
+              late: 'Past due', queued: "Claude's next", session: 'Answer first'};
+// The Sessions tab in groups, in this order, each state in words.
+const SESSION_GROUPS = [{name: 'Wait on you', state: 'you'}, {name: 'Work alone', state: 'ready'}, {name: 'Done', state: 'done'}];
 const PILL = {'Moving forward': 'forward', 'Waiting for reply': '', 'Not sent': 'notsent', 'Rejected': 'rejected',
               'Closed': 'notsent', 'Declined': 'notsent',
               connected: 'ok', 'signed-in': 'ok', 'needs-sign-up': 'warn', expired: 'warn', 'needs-sign-in': 'warn',
               'needs-reconnect': 'bad', blocked: 'bad', unknown: 'muted', 'not-signed-in': 'muted', excluded: 'rejected',
-              task: 'task', click: 'warn', todo: 'warn', info: 'warn', working: 'forward', urgent: 'bad'};
+              task: 'task', click: 'warn', todo: 'warn', info: 'warn', working: 'forward', urgent: 'bad',
+              late: 'bad', queued: 'muted', session: 'task'};
 // The Logins tab in groups, in this order; each state with its label, so state is never told by color alone.
 // A site nobody waits on is "Not signed in", not "Needs you". Excluded employers are in their own tab.
 const LOGIN_GROUPS = [
@@ -274,6 +325,7 @@ const indexValue = (key, field) => (el) => {
  ['h-todo', 'actions:click'], ['h-info', 'actions:info'], ['h-task', 'actions:task'], ['t-forward', 'stage:Moving forward'],
  ['t-waiting', 'stage:Waiting for reply'], ['t-notsent', 'stage:Not sent'], ['t-rejected', 'stage:Rejected'],
  ['t-closed', 'stage:Closed'], ['t-declined', 'stage:Declined'],
+ ['h-late', 'actions:late'], ['h-waiting', 'actions:waiting'], ['h-queued', 'actions:queued'], ['h-session', 'actions:session'],
  ['t-task', 'actions:task'], ['t-logins', 'logins:action']].forEach(([name, key]) => dash.draw(name, indexValue(key, 'n')));
 dash.draw('h-generated', indexValue('meta:generated', 'label'));
 // Is a run going? Started and finished rows from the usage log, and the next scheduled run.
@@ -367,11 +419,38 @@ dash.draw('do-rows', (tbody) => {
     // A click that is not a login (a filled form waiting on a CAPTCHA, say) is "Click", never "Sign in".
     // An Urgent row says where it can be done: at the PC (in the Chrome form) or from the phone.
     const where = r.kind === 'urgent' || r.kind === 'todo' ? ({pc: ' · at your PC', phone: ' · from your phone'}[r.where] || '') : '';
-    const label = (r.kind === 'click' ? (r.login ? 'Sign in' : 'Click') : (KIND[r.kind] || r.kind)) + where;
-    // No Due column: only tasks have one, and their text says it; one that does not gets it added.
-    const text = r.due && !String(r.text).includes(r.due) ? `${r.text} · due ${r.due}` : r.text;
+    // A session that waits on the person carries its number: the order to answer them.
+    const label = (r.kind === 'click' ? (r.login ? 'Sign in' : 'Click') : (KIND[r.kind] || r.kind)) + where
+      + (r.kind === 'session' && r.rank ? ' · ' + r.rank : '');
+    // No Due column: only tasks have one, and their text says it; one that does not gets it added. A date that
+    // passed reads "was due": the person says whether it was done.
+    const text = r.due && !String(r.text).includes(r.due) ? `${r.text} · ${r.kind === 'late' ? 'was due' : 'due'} ${r.due}` : r.text;
     pill(tr, label, PILL[r.kind]); cell(tr, text); cell(tr, r.for); link(tr, r.link, 'Open');
     tbody.appendChild(tr);
+  });
+});
+
+dash.draw('session-rows', (tbody) => {
+  const d = dash.data('sessions_view');
+  tbody.replaceChildren();
+  if (d.status !== 'ok') return;
+  SESSION_GROUPS.forEach((g) => {
+    const rows = d.data.filter((r) => r.state === g.state);
+    if (!rows.length) return;
+    const head = document.createElement('tr');
+    head.className = 'ja-group';
+    const td = document.createElement('td');
+    td.colSpan = 6;
+    td.textContent = `${g.name} · ${rows.length}`;
+    head.appendChild(td);
+    tbody.appendChild(head);
+    rows.forEach((r) => {
+      const tr = document.createElement('tr');
+      tr.dataset.key = r.id;
+      cell(tr, r.rank ? String(r.rank) : '', 'ja-when'); cell(tr, r.title); cell(tr, r.waits); cell(tr, r.jobs);
+      cell(tr, r.why, 'ja-muted'); cell(tr, r.since, 'ja-wide ja-when');
+      tbody.appendChild(tr);
+    });
   });
 });
 
@@ -408,7 +487,9 @@ dash.draw('login-rows', (tbody) => {
     rows.forEach((r) => {
       const tr = document.createElement('tr');
       tr.dataset.key = r.id;
-      cell(tr, r.name); cell(tr, r.kind); pill(tr, LOGIN_LABEL[state(r)], PILL[state(r)]);
+      // A sign-in nobody checked for days may have ended: the pill says since when, and is no longer green.
+      cell(tr, r.name); cell(tr, r.kind);
+      pill(tr, LOGIN_LABEL[state(r)] + (r.stale ? ' · not checked since ' + String(r.checked).slice(0, 16) : ''), r.stale ? 'muted' : PILL[state(r)]);
       cell(tr, r.jobs ? String(r.jobs) : '', 'ja-when');
       cell(tr, r.checked, 'ja-wide ja-when'); cell(tr, r.fix || r.note, 'ja-wide ja-muted'); link(tr, r.link, 'Open');
       tbody.appendChild(tr);
@@ -458,10 +539,10 @@ dash.draw('step-rows', (tbody) => {
   const d = dash.data('steps_view');
   tbody.replaceChildren();
   if (d.status !== 'ok') return;
-  d.data.forEach((r) => {
+  d.data.filter((r) => window.jaState.steps === 'all' || r.rank < 2).forEach((r) => {
     const tr = document.createElement('tr');
     tr.dataset.key = r.key;
-    cell(tr, r.date, 'ja-when'); cell(tr, r.company); cell(tr, r.step); cell(tr, r.detail, 'ja-wide'); cell(tr, r.upcoming);
+    cell(tr, r.date, 'ja-when'); cell(tr, r.company); cell(tr, r.step); cell(tr, r.detail, 'ja-wide'); cell(tr, r.state);
     tbody.appendChild(tr);
   });
 });
@@ -510,6 +591,11 @@ document.querySelectorAll('#dash-root .ja-kind').forEach((btn) => btn.addEventLi
   window.jaState.kind = btn.getAttribute('data-kind');
   document.querySelectorAll('#dash-root .ja-kind').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
   dash.draw('do-rows');
+}));
+document.querySelectorAll('#dash-root .ja-steps').forEach((btn) => btn.addEventListener('click', () => {
+  window.jaState.steps = btn.getAttribute('data-steps');
+  document.querySelectorAll('#dash-root .ja-steps').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+  dash.draw('step-rows');
 }));
 document.querySelectorAll('#dash-root .ja-stage').forEach((btn) => btn.addEventListener('click', () => {
   window.jaState.stage = btn.getAttribute('data-stage');

@@ -20,6 +20,15 @@ login_of(job)        the id of the sign-in a job waits on: the job's own "login"
                      apply link's site. Why: the apply link is often a LinkedIn page that only forwards to the
                      employer's site, so the link alone names the wrong login.
 
+A job's own to-do items are its "todo" list, kept in the summary row: [{kind, text, where, link, due, login, since,
+session}]. TODO_KINDS names the kinds; "waiting" means the next move is the employer's.
+pipeline_entry(pipeline, id) a job's PIPELINE entry; one with "same_as" takes the stage, date and steps of the entry
+                     it names, where it has none of its own.
+ended(job, pipeline) (how, date) when a job is over, else ("", ""): by its tracker status (ENDED_STATUS; no date,
+                     the row holds none) or, for a sent job, by its PIPELINE stage (ENDED_STAGE) with that date.
+step_done(step)      the date a PIPELINE step was done ("yes" when no date is known), "" when it is not done: its
+                     "done" field, else a "how" that says done (older records).
+
 A split tracker (track.py split) keeps one summary row per job and per company; the rest sits in a detail file
 named by the row's "details" key (a path relative to the tracker's folder). Only this module knows that layout:
 read_detail(path, row)       the detail of a row, {} when the row has no "details" key (an unsplit tracker).
@@ -102,6 +111,44 @@ def no_pay(text):
 
 def waits_on_person(status):
     return status == "account-needed" or (status or "").startswith("needs-")
+
+
+# A job's to-do kinds. "waiting": the next move is the employer's (shown in Hiring steps, never in Do now).
+TODO_KINDS = ("urgent", "working", "task", "click", "todo", "waiting")
+ENDED_STATUS = ("excluded", "closed", "declined", "skipped", "failed")  # tracker statuses: over before it was sent
+ENDED_STAGE = ("rejected", "closed", "declined")  # PIPELINE stages: over after it was sent
+ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+# "done" as a word in a step's "how" (older records), not "not done" or "to be done".
+_DONE_WORD = re.compile(r"(?i)(?<!not )(?<!to be )\bdone\b")
+
+
+def pipeline_entry(pipeline, job_id):
+    own = (pipeline or {}).get(job_id) or {}
+    shared = (pipeline or {}).get(own.get("same_as")) or {} if own.get("same_as") else {}
+    return dict(shared, **own) if shared else own
+
+
+def ended(job, pipeline=None):
+    status = job.get("status") or ""
+    if status in ENDED_STATUS:
+        return status, ""
+    entry = pipeline_entry(pipeline, job.get("id"))
+    if entry.get("stage") in ENDED_STAGE:
+        rejected = entry.get("rejected") if isinstance(entry.get("rejected"), dict) else {}
+        return entry["stage"], str(entry.get("date") or rejected.get("date") or "")[:10]
+    return "", ""
+
+
+def step_done(step):
+    done = step.get("done")
+    if done:
+        found = ISO_DATE.search(str(done))
+        return found.group(0) if found else str(step.get("date") or "yes")[:10]
+    said = _DONE_WORD.search(step.get("how") or "")
+    if said:
+        found = ISO_DATE.search(step["how"][said.end():])
+        return found.group(0) if found else str(step.get("date") or "yes")[:10]
+    return ""
 
 
 def flat_jobs(tracker):

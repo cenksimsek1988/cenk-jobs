@@ -326,8 +326,12 @@ textarea { min-height: 7rem; resize: vertical; }
     $('tally').textContent = open.length ? `${open.length} open question${open.length === 1 ? '' : 's'} · ${answered} answered`
       + (done.length ? ` · ${done.length} done` : '') : (done.length ? `${done.length} done` : '');
     const s = state.status;
-    $('handled').hidden = !(s && s.at);
-    if (s && s.at) $('handled').textContent = `Last handled by Claude: ${day(s.at)}` + (s.summary ? ' · ' + s.summary : '');
+    // checked: Claude's last look at this page (each run); at: the last recorded answer. A status written before
+    // "checked" existed shows the older line.
+    $('handled').hidden = !(s && (s.checked || s.at));
+    if (s && s.checked) $('handled').textContent = `Last checked by Claude: ${day(s.checked)} · ${s.open || 0} open question${s.open === 1 ? '' : 's'}`
+      + (s.at ? ` · last answer recorded ${day(s.at)}` + (s.summary ? ` (${s.summary})` : '') : '');
+    else if (s && s.at) $('handled').textContent = `Last handled by Claude: ${day(s.at)}` + (s.summary ? ' · ' + s.summary : '');
     const dash = s && /^https:\/\/claude\.ai\//.test(s.dashboard || '') ? s.dashboard : '';
     $('dash-link').hidden = !dash;
     if (dash) $('dash-link').querySelector('a').href = dash;

@@ -17,7 +17,7 @@ installs on its own). Skills:
 | `cenk-jobs:plan` | putting the applications in order, with the CV and letter for each: "what should I apply to today?" |
 | `cenk-jobs:apply` | filling and sending applications, on their own or after your go-ahead (`APPLY_MODE`): "apply to these jobs" |
 | `cenk-jobs:prepare` | interviews and hiring steps: "prepare my interview", "let's practise" |
-| `cenk-jobs:schedule` | the daily run: "run it every day at 19:00", "stop the daily run" |
+| `cenk-jobs:schedule` | the scheduled run: "run it on weekdays at 19:00", "run it every day", "stop the daily run" |
 
 It also understands other languages, for example "iş arıyorum", "cerco lavoro", "Jobsuche", "buscar trabajo".
 
@@ -80,8 +80,9 @@ Then start a new session and say **"set up my job search"** (or type `/cenk-jobs
    passwords);
 5. creates your two private pages on claude.ai and gives you their links:
    - the **dashboard**: what you can do now (sign-ins, clicks, tasks such as online tests or AI interviews), your
-     interviews and deadlines (live from Google Calendar, where job-search events get their own color), which logins
-     work and which need you, the employers you excluded and why, every hiring step and every application;
+     open sessions with Claude in the order to answer them, your interviews and deadlines (live from Google
+     Calendar, where job-search events get their own color), which logins work and which need you, the employers
+     you excluded and why, the hiring steps ahead of you and every application;
    - the **Questions page**: what your applications need and your records don't hold. Answer there, press **Send my
      answers to Claude**, and a note under each question shows what happened. Each is asked once.
 
@@ -93,7 +94,7 @@ Then start a new session and say **"set up my job search"** (or type `/cenk-jobs
 Every later session starts with the same health check. Say "check my applications", "apply to new jobs" or
 "prepare my interview with ...".
 
-**Daily run:** with your OK, Claude sets up a scheduled task that runs your job search every day at **19:00 your
+**Daily run:** with your OK, Claude sets up a scheduled task that runs your job search on weekdays at **19:00 your
 local time** (emails, calendar, a fresh search, applications sent). Ask for another time whenever
 you like.
 
@@ -202,7 +203,10 @@ Main commands (S = this skill's scripts folder, run from your job-search folder 
   python -I S/fetch_jd.py <id> [...]                 save the full posting as job-description.md
   python -I S/make_letter_pdf.py --company .. --role .. --body .. --variant "<CV variant>"
   python -I S/build_cv.py [--no-photo]               build the CV PDFs
-  python -I S/export_dashboard.py <out dir>          the dashboard's files
+  python -I S/export_dashboard.py <out dir>          the dashboard's files, then what disagrees with the records
+  python -I S/export_dashboard.py --check            only those "check:" lines; writes nothing
+  python -I S/sessions.py show                       your open sessions, in the order to answer them
+  python -I S/searches.py due                        the saved searches due today
   python -I S/track.py sync <journal.jsonl> [...]    merge a screen-and-prepare run into the tracker
   python -I S/employer.py check "<name>" [...]       what is known about an employer, and the verdict by your rules
   python -I S/employer.py decide "<name>" <exclude|allow> [<category>]

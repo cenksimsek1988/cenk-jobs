@@ -53,8 +53,15 @@ A skill cannot choose the folder a session starts in, so a session started anywh
 
 - A job-search session never edits the plugin's files, by any tool: no Edit, no Write, no shell command.
 - A lesson about the plugin is one line in `plugin-lessons.md` in the main folder, and the work goes on. It holds
-  no personal data: no names, employers, pay or answers.
+  no personal data: no names, employers, pay or answers. It names no employer and quotes nobody: "a sent job", "the
+  person asked".
   Example: `2026-11-10, apply: a Workday form times out after 15 minutes`.
+- The route of a lesson, an update or a fix: a sub-session sends it to the main session, which writes the line. The
+  main session then sends the new lines, each with its line number, in one message to the open session titled
+  "Coordinator · cenk-jobs", else to "Coordinator · workbench"; a line that holds for any plugin is marked general.
+  Neither is open (always so for a person who does not develop the plugin): the file keeps the lines.
+  Example: `Lessons 56 and 57 for cenk-jobs; 57 is general.`
+- A job-search session never starts a session in the plugin's repository: the plugin's coordinator does.
 - Only a session opened in the plugin's own repository changes the plugin.
 
 ## Every run: health check and status

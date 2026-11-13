@@ -6,9 +6,13 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
 
 ## Owner
 
-- Only a session opened in this repository with cenk-workbench loaded changes the plugin. Job-search sessions never
-  edit here: they write one-line lessons into `plugin-lessons.md` in the person's main folder, and a session here
-  applies each with `/cenk-workbench:teach`.
+- Only a session opened in this repository with cenk-workbench loaded changes the plugin: the session titled
+  "Coordinator · cenk-jobs", started by "Coordinator · workbench", and the sessions it starts. Job-search sessions
+  never edit here and never start a session here: their main session writes one-line lessons into
+  `plugin-lessons.md` in the person's main folder and sends the new lines, with their line numbers, to
+  "Coordinator · cenk-jobs", which applies each with `/cenk-workbench:teach`.
+- "Coordinator · cenk-jobs" keeps the lessons in two groups: the plugin's own, built here; and the general ones
+  (true for any plugin), sent to "Coordinator · workbench" as a brief and never built here.
 - The job-search folder's `.claude/settings.local.json` denies file edits on this repository (one `Edit(...)` rule, which also covers Write). It does not cover
   edits made through a shell command: `RULES.md` forbids those. The manifest has no workbench dependency: this
   plugin is public, the workbench private.
@@ -59,6 +63,16 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
 - `workflows/screen-and-prepare.js` parses with `node --check` only as a copy wrapped in `(async () => { ... })()`:
   it has a top-level `return`.
 - A test on a copy of a job-search folder: a short path; a deep one breaks `shutil.copytree` on Windows path length.
+- `tests/run.sh` covers `export_dashboard.py`, `sessions.py`, `searches.py` and `track.py todo` on a made-up folder,
+  and parses both page scripts with `node --check` on the extracted `<script>` (without node: one line, skipped).
+- `export_dashboard.py --check` writes nothing: safe on a copy of a real folder, and on the real one.
+- A fixture with a non-ASCII character (the middle dot of "Workday · Acme") is written by a Python heredoc with the
+  escape `\u00b7`, never passed in argv: Git Bash on Windows mangles it. A script that prints one calls
+  `sys.stdout.reconfigure(errors="replace")` first: a cp1252 console raises otherwise.
+- An edit that holds a backslash (a regex, `\n` in a test) is made with the Edit tool or a script file, never a
+  Python heredoc in the Bash tool: the escape can reach the file as a control character (seen: `\b` as 0x08).
+- The page: `python -m http.server <port>` on a made-up export with a stub of the Dashboard runtime, read as text;
+  the built-in browser shows a `file://` page as a static snapshot. Stop the server afterwards.
 
 ## Release
 

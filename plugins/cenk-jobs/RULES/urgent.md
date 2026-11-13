@@ -20,6 +20,8 @@ desktop, and the phone when Remote Control is on) and an Urgent row at the top o
   the person clears them in one sitting.
 - One notification per step, from the session that hit it (a sub-session sends its own; the coordinator does not
   repeat it). Never for what can wait, never twice for the same step.
-- The Urgent row: a `todo` on the job with `"kind": "urgent"` and `"where": "pc"` or `"phone"`; the coordinator
-  removes it once the step is done or expired. A step due within 24 hours is Urgent on its own (`export_dashboard.py`).
+- The Urgent row: `track.py todo <id> add urgent "<what to do>" where=pc` (or `where=phone`); the coordinator
+  removes it (`track.py todo <id> done kind=urgent`) once the step is done or expired. A step due within 24 hours is
+  Urgent on its own (`export_dashboard.py`) until it has `"done"` in `PIPELINE`; a due date that passed reads Past
+  due, never Urgent.
 - The daily run: deadlines today or tomorrow get one notification at the end of the run, all in one message.

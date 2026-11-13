@@ -32,8 +32,9 @@ Reads TRACKER (either shape, see trackerlib.py), PIPELINE, CVS_DIR and PERSON_NA
   TRACKER_SETTINGS      a JSON file; this script reads "cv_names": [[<regex>, <CV file name>], ...] for notes that
                         name a CV in words ("sent with the TD CV"), and "cv_copied_when_note_has": a phrase in a sent
                         job's note meaning its CV is the current one in CVS_DIR rather than one in _cv-versions/.
-Pipeline entries: {"stage": "approved", "steps": [{date, time, name, with, how, due, link, mail}], "same_as": <job id>,
-"reminder": ...} or {"stage": "rejected", "date": ..., "reason": ...} ("rejected": {date, reason} works too), or
+Pipeline entries: {"stage": "approved", "steps": [{date, time, name, with, how, due, link, mail, done, cancelled}],
+"same_as": <job id>, "reminder": ...} (a step's "done" is the date it was done: it leaves Next steps and its line says
+so; an entry with "same_as" and no stage of its own takes the stage, date and reason of the entry it names) or {"stage": "rejected", "date": ..., "reason": ...} ("rejected": {date, reason} works too), or
 {"stage": "closed", "date": ..., "reason": ...} (the role closed, was filled or put on hold), or {"stage": "declined",
 "date": ..., "why": ethics|relocation|pay|other, "reason": ...} (the person said no).
 A step's link is its own page (meeting, test, booking, interview) and mail the Gmail link of the email that set it;
@@ -51,7 +52,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import employerlib as el  # noqa: E402
 import jsenv  # noqa: E402
 from trackerlib import (applied_on, companies, expand, is_company_shape, load_settings, needs_of, note_key,  # noqa: E402
-                        waits_on_person)
+                        pipeline_entry, step_done, waits_on_person)
 
 args = sys.argv[1:]
 env = jsenv.load(args[args.index("--env") + 1] if "--env" in args else None, __file__)
@@ -266,7 +267,8 @@ before = set(os.listdir(pending_dir))
 folders = {}  # job id -> (stage, folder), for links between applications that share one process
 for company, job in companies(data):
     if job.get("status") == "submitted":
-        stage = (pipeline.get(job["id"]) or {}).get("stage", "pending")
+        # An application that shares another's process ("same_as") is in that one's stage unless it has its own.
+        stage = pipeline_entry(pipeline, job["id"]).get("stage", "pending")
         stage = stage if stage in STAGES else "pending"
         folders[job["id"]] = (stage, safe(f"{applied(job)} {company['name']} - {job.get('title') or ''}"))
 
@@ -281,7 +283,10 @@ for company, job in companies(data):
         continue
     # The older tracker keeps what was prepared in "prep"; a flat job row holds those fields itself.
     prep = job.get("prep") or ({} if COMPANY_SHAPE else job)
-    info = pipeline.get(job["id"]) or {}
+    info = pipeline_entry(pipeline, job["id"])
+    if info.get("same_as"):
+        # The shared entry gives the stage, date and reason; the steps stay in the application that owns them.
+        info = {k: v for k, v in info.items() if k != "steps"}
     title = job.get("title") or prep.get("title") or ""
     date = applied(job) if sent else ""
     if sent:
@@ -330,8 +335,12 @@ for company, job in companies(data):
                       if step.get(key)]
             links = " · ".join(links)
             due = f", due {step['due']}" if step.get("due") else ""
-            lines.append(f"{n}. **{step.get('name', 'Step')}** - {when}{due}, {clean(step.get('with', ''))}. {links}")
-            if (step.get("due") or step.get("date", "")) >= today:
+            done = step_done(step)
+            closed = (", cancelled" if step.get("cancelled") else
+                      f", done {done}" if done and done != "yes" else ", done" if done else "")
+            lines.append(f"{n}. **{step.get('name', 'Step')}** - {when}{due}{closed}, {clean(step.get('with', ''))}. {links}")
+            # A step that is done or cancelled is no next step, whatever its date.
+            if not closed and (step.get("due") or step.get("date", "")) >= today:
                 how = step.get("how", "") + (f" **Reminder: {info['reminder']}**" if info.get("reminder") else "")
                 upcoming.append((step.get("due") or step.get("date", ""),
                                  "deadline" if step.get("due") else step.get("time", ""), company["name"],

@@ -760,6 +760,10 @@ check "answer: the answer Claude read and checked is recorded" q "$H/career-reco
 
 # --- searches ------------------------------------------------------------------------------------------------------------------
 use "$T/flat"
+searches due >"$T/due0.out" 2>&1
+check "searches due: with no saved search, one line says so" sh -c '[ "$(wc -l <"$1")" -eq 1 ] && grep -q "^no saved search" "$1"' _ "$T/due0.out"
+searches sites >"$T/sites0.out" 2>&1
+check "searches sites: every site of the tracker without a saved search" sh -c 'grep -q "^example.com | 1 job " "$1" && grep -q "^linkedin.com | 1 job " "$1"' _ "$T/sites0.out"
 searches add LinkedIn "Java lead, remote" alert=yes gmail="from:alerts@example.com newer_than:2d" >"$T/s1.out" 2>&1
 searches add "Acme careers" "engineering" alert=no every=7 >"$T/s2.out" 2>&1
 check "searches add: two rows with their ids" sh -c 'grep -q "^1 LinkedIn" "$1" && grep -q "^2 Acme careers" "$2"' _ "$T/s1.out" "$T/s2.out"
@@ -771,6 +775,26 @@ check "searches done: the search read today is no longer due" sh -c '[ "$(wc -l 
 searches seen "https://www.linkedin.com/jobs/view/1234567890/?trackingId=other&refId=zzz" "https://example.com/new-job" >"$T/seen.out" 2>&1
 check "searches seen: a LinkedIn link with other tracking parameters is known" grep -q "^known https://www.linkedin.com" "$T/seen.out"
 check "searches seen: a link nobody saw is new" grep -q "^new https://example.com/new-job" "$T/seen.out"
+searches sites >"$T/sites1.out" 2>&1
+check "searches sites: a site with a saved search is left out" sh -c '! grep -q linkedin "$1"' _ "$T/sites1.out"
+# 2026-11-06 is a Friday, 2026-11-12 a Thursday, 2026-11-14 a Saturday, 2026-11-16 a Monday.
+searches done 1 --today 2026-11-06 >/dev/null 2>&1
+searches done 2 --today 2026-11-06 >/dev/null 2>&1
+searches due --today 2026-11-12 >"$T/due3.out" 2>&1
+check "searches due: a site search of every 7 days is not due after 6; the alert is" sh -c 'grep -q LinkedIn "$1" && ! grep -q "Acme careers" "$1"' _ "$T/due3.out"
+searches due --today 2026-11-14 >"$T/due4.out" 2>&1
+check "searches due: on a Saturday the site search waits, the alert is read" sh -c 'grep -q LinkedIn "$1" && ! grep -q "Acme careers" "$1"' _ "$T/due4.out"
+searches due --today 2026-11-16 >"$T/due5.out" 2>&1
+check "searches due: the site search is due on the Monday after" sh -c 'grep -q LinkedIn "$1" && grep -q "Acme careers" "$1"' _ "$T/due5.out"
+searches add "Beta board" "analyst" alert=no note="no alert offered, 2026-11-13" >/dev/null 2>&1
+searches list >"$T/list.out" 2>&1
+check "searches add note=: the list shows why a site has no alert" grep -q "Beta board .*| no alert offered, 2026-11-13" "$T/list.out"
+searches done 3 --today 2026-11-12 >/dev/null 2>&1
+searches due --today 2026-11-13 >"$T/due6.out" 2>&1
+check "searches due: a site without an alert is due on the next weekday by default" grep -q "Beta board" "$T/due6.out"
+searches done 3 --today 2026-11-13 >/dev/null 2>&1
+searches due --today 2026-11-14 >"$T/due7.out" 2>&1
+check "searches due: and not on the Saturday after a Friday check" sh -c '! grep -q "Beta board" "$1"' _ "$T/due7.out"
 
 # --- check_setup --needs ---------------------------------------------------------------------------------------------------------
 "$PY" -I "$S/check_setup.py" --needs --env "$ENVF" >"$T/needs.out" 2>&1
@@ -1072,6 +1096,489 @@ check "move --remove-old: removes only what the profile holds unchanged, after a
     ls "$4"/career-records/career.json.before-move-*.json >/dev/null 2>&1' _ "$PY" "$T" "$C" "$H"
 check "move --remove-old: the old private record, all moved, is deleted; its backup is named for deleting" sh -c '
     [ ! -e "$1/career-records/personal.json" ] && grep -q "personal.json.before-move-" "$2"' _ "$H" "$T/mv-rm.out"
+
+# --- to-dos: track.py todo, and the to-dos a sent or ended job loses ---------------------------------------------------
+day() { "$PY" -I -c 'import datetime, sys; print((datetime.date.today() + datetime.timedelta(days=int(sys.argv[1]))).isoformat())' "$1"; }
+D0=$(day 0)
+cp -R "$T/flat" "$T/todo-flat"
+use "$T/todo-flat"
+TF="$H/apply/targets.json"
+track todo F1 add waiting "reply on the interview date" >/dev/null 2>&1
+check "todo add: the kind, the text and today as since" sh -c '
+    "$1" -I "$2/q.py" "$3" jobs.0.todo.0.kind eq waiting && "$1" -I "$2/q.py" "$3" jobs.0.todo.0.since eq "$4" &&
+    "$1" -I "$2/q.py" "$3" jobs.0.todo.0.text eq "reply on the interview date"' _ "$PY" "$T" "$TF" "$D0"
+check "todo add: an unknown kind is refused and nothing is written" sh -c '
+    ! "$1" -I "$2/track.py" todo F1 add someday "x" --env "$3" >/dev/null 2>&1 && "$1" -I "$4/q.py" "$5" jobs.0.todo len 1' \
+    _ "$PY" "$S" "$ENVF" "$T" "$TF"
+check "todo add: a due that is no date is refused" sh -c '! "$1" -I "$2/track.py" todo F1 add task "x" due=tomorrow --env "$3" >/dev/null 2>&1' \
+    _ "$PY" "$S" "$ENVF"
+track todo F1 add todo "approve the letter" session=local_a1 where=pc >/dev/null 2>&1
+check "todo add: a to-do names its session by id" q "$TF" jobs.0.todo.1.session eq local_a1
+track todo F1 list >"$T/todo-list.out" 2>&1
+check "todo list: numbered, with the kind" sh -c 'grep -q "^ 1 waiting " "$1" && grep -q "^ 2 todo .*approve the letter" "$1"' _ "$T/todo-list.out"
+track todo F1 done 1 >/dev/null 2>&1
+check "todo done <n>: that one goes, the other stays" sh -c '
+    "$1" -I "$2/q.py" "$3" jobs.0.todo len 1 && "$1" -I "$2/q.py" "$3" jobs.0.todo.0.text eq "approve the letter"' _ "$PY" "$T" "$TF"
+track set F1 needs-person "still waiting" >/dev/null 2>&1
+check "set: a status that does not end the job keeps its to-dos" q "$TF" jobs.0.todo len 1
+track set F1 submitted "sent in the test" >"$T/todo-set.out" 2>&1
+check "set submitted: the to-dos are dropped, printed and kept in the history" sh -c '
+    grep -q "dropped 1 to-do(s): approve the letter" "$1" && "$2" -I "$3/q.py" "$4" jobs.0.todo absent &&
+    "$2" -I "$3/q.py" "$4" "jobs.0.history.status=submitted.todo_dropped.0.text" eq "approve the letter"' \
+    _ "$T/todo-set.out" "$PY" "$T" "$TF"
+track todo F1 add task "book the interview" >/dev/null 2>&1
+track set F1 submitted "a new note, the same status" >/dev/null 2>&1
+check "set: the same status again drops nothing" q "$TF" jobs.0.todo len 1
+track todo F2 add click "sign in" >/dev/null 2>&1
+track todo F2 add click "open the page" >/dev/null 2>&1
+track todo F2 add todo "answer" >/dev/null 2>&1
+track todo F2 done kind=click >/dev/null 2>&1
+check "todo done kind=: every to-do of that kind" sh -c '
+    "$1" -I "$2/q.py" "$3" jobs.1.todo len 1 && "$1" -I "$2/q.py" "$3" jobs.1.todo.0.kind eq todo' _ "$PY" "$T" "$TF"
+track set F2 excluded "employer excluded in the test" >/dev/null 2>&1
+check "set excluded: the to-dos are dropped too" q "$TF" jobs.1.todo absent
+cp -R "$T/old" "$T/todo-split"
+use "$T/todo-split"
+track split --apply >/dev/null 2>&1
+track todo J1 add urgent "type the emailed code" where=pc >/dev/null 2>&1
+check "todo on a split tracker, the older shape: the to-do is in the summary row, not the detail" sh -c '
+    "$1" -I "$2/q.py" "$3/apply/targets.json" companies.0.jobs.0.todo.0.kind eq urgent &&
+    "$1" -I "$2/q.py" "$3/apply/details/jobs/J1.json" todo absent' _ "$PY" "$T" "$H"
+track set J1 submitted "sent in the test" >/dev/null 2>&1
+check "set submitted on a split tracker: dropped from the row, kept in the detail's history" sh -c '
+    "$1" -I "$2/q.py" "$3/apply/targets.json" companies.0.jobs.0.todo absent &&
+    "$1" -I "$2/q.py" "$3/apply/details/jobs/J1.json" "history.status=submitted.todo_dropped.0.text" eq "type the emailed code"' \
+    _ "$PY" "$T" "$H"
+
+# --- the dashboard export: ended jobs, steps from PIPELINE, one row per job, Claude's next, logins -------------------
+# A made-up search. D1 moves forward (a take-home done, a test coming, a questionnaire past due); D2 shares D1's
+# process; D3 was rejected and D4 declined after sending; D5 waits on the person; D6's site is signed in; D7 is found;
+# D8 is excluded; D9 is sent, with its old not-applied folder kept.
+mkhome "$T/dash" flat
+use "$T/dash"
+cat >"$T/mkdash.py" <<'PYEOF'
+import datetime
+import json
+import sys
+
+home = sys.argv[1]
+day = lambda n: (datetime.date.today() + datetime.timedelta(days=n)).isoformat()  # noqa: E731
+now = datetime.datetime.now().replace(microsecond=0)
+job = lambda i, company, title, status, **more: dict(  # noqa: E731
+    {"id": i, "company": company, "title": title, "url": f"https://example.com/{i.lower()}", "status": status,
+     "note": "made up"}, **more)
+jobs = [
+    job("D1", "Acme Corp", "Engineer", "submitted", applied=day(-5),
+        todo=[{"kind": "waiting", "text": "feedback on the take-home", "since": day(-1)}]),
+    job("D2", "Acme Corp", "Staff Engineer", "submitted", applied=day(-5)),
+    job("D3", "Beta Ltd", "Analyst", "submitted", applied=day(-5),
+        todo=[{"kind": "todo", "text": "approve the letter", "since": day(-5)},
+              {"kind": "todo", "text": "a to-do without a date"}]),
+    job("D4", "Gamma Inc", "Designer", "submitted", applied=day(-5),
+        todo=[{"kind": "todo", "text": "send the withdrawal email", "since": day(-1)},
+              {"kind": "todo", "text": "press Submit", "since": day(-5)}]),
+    job("D5", "Delta GmbH", "Tester", "needs-person",
+        todo=[{"kind": "todo", "text": "the newer to-do", "since": day(-1)},
+              {"kind": "todo", "text": "the older to-do", "since": day(-5)},
+              {"kind": "task", "text": "call the recruiter", "due": day(-3), "since": day(-5)},
+              {"kind": "task", "text": "send the form", "due": day(1), "since": day(-1)},
+              {"kind": "waiting", "text": "the recruiter's reply", "since": day(-3)},
+              {"kind": "todo", "text": "a to-do from before the since date"}]),
+    job("D6", "Epsilon Co", "Developer", "account-needed", platform="Workday"),
+    job("D7", "Zeta Works", "Architect", "found"),
+    job("D8", "Eta Labs", "Lead", "excluded", platform="Workday",
+        todo=[{"kind": "todo", "text": "a to-do left on an excluded job", "since": day(0)}]),
+    job("D9", "Theta AG", "Manager", "needs-person"),
+]
+pipeline = {
+    "D1": {"stage": "approved", "steps": [
+        {"date": day(-3), "due": day(1), "name": "Take-home task", "with": "the team", "done": day(0)},
+        {"date": day(5), "due": day(5), "name": "Online test", "with": "the recruiter",
+         "mail": "https://mail.example.com/1"},
+        {"date": day(-5), "due": day(-3), "name": "Questionnaire", "with": "the recruiter"}]},
+    "D2": {"same_as": "D1"},
+    "D3": {"stage": "rejected", "date": day(-3), "reason": "made up"},
+    "D4": {"stage": "declined", "date": day(-1), "why": "other", "reason": "made up"},
+}
+site = lambda i, status, checked, **more: dict(  # noqa: E731
+    {"id": i, "name": i, "kind": "site", "status": status, "checked": checked.isoformat(), "note": "made up",
+     "jobs": []}, **more)
+logins = [
+    site("Workday · Epsilon Co", "signed-in", now),
+    site("Workday · Eta Labs", "expired", now, fix="sign in again"),
+    site("Greenhouse", "signed-in", now - datetime.timedelta(days=6)),
+    site("Lever", "signed-in", now - datetime.timedelta(hours=1)),
+]
+for name, data in (("targets", {"jobs": jobs}), ("pipeline", pipeline), ("logins", {"logins": logins})):
+    with open(f"{home}/apply/{name}.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+PYEOF
+"$PY" -I "$T/mkdash.py" "$H"
+build() { "$PY" -I "$S/build_app_folders.py" --env "$ENVF"; }
+export_dash() { "$PY" -I "$S/export_dashboard.py" "$@" --env "$ENVF"; }
+build >/dev/null 2>&1
+# D9 is sent; its not-applied folder holds a file that cannot move (the new folder has one of that name), so it stays.
+STALE="$H/job-applications/not-applied/Theta AG - Manager"
+track set D9 submitted "sent in the test" >/dev/null 2>&1
+mkdir -p "$H/job-applications/pending/$D0 Theta AG - Manager"
+echo "my notes" >"$STALE/notes.md"
+echo "newer notes" >"$H/job-applications/pending/$D0 Theta AG - Manager/notes.md"
+build >"$T/dash-build.out" 2>&1
+check "build_app_folders: the sent job's old folder is kept for its notes" sh -c '[ -f "$1/notes.md" ] && grep -q "kept, as they hold other files" "$2"' \
+    _ "$STALE" "$T/dash-build.out"
+check "build_app_folders: an application that shares a process is filed in that one's stage" sh -c 'ls "$1/job-applications/approved" | grep -q "Acme Corp - Staff Engineer"' _ "$H"
+check "build_app_folders: a done step says so and is no next step; the coming one is" sh -c '
+    grep -q "Take-home task.*done $2" "$1"/job-applications/approved/*"Acme Corp - Engineer"/overview.md &&
+    ! grep "^- \*\*" "$1/job-applications/README.md" | grep -q "Take-home task" &&
+    grep "^- \*\*" "$1/job-applications/README.md" | grep -q "Online test"' _ "$H" "$D0"
+OUT="$T/dash-out"
+export_dash "$OUT" >"$T/dash-export.out" 2>&1
+check "export: runs and writes the seven files" sh -c 'grep -q "applications, " "$1" && for f in index applications steps actions logins excluded sessions; do [ -f "$2/$f.json" ] || exit 1; done' \
+    _ "$T/dash-export.out" "$OUT"
+# dq.py <file> <expression>: PASS when the expression is true; R is the file, K a list's rows by key (or id).
+cat >"$T/dq.py" <<'PYEOF'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as f:
+    R = json.load(f)
+K = {r.get("key", r.get("id")): r for r in R} if isinstance(R, list) else {}
+pos =lambda text: next(i for i, r in enumerate(R) if r.get("text") == text)  # noqa: E731
+sys.exit(0 if eval(sys.argv[2]) else 1)
+PYEOF
+dq() { "$PY" -I "$T/dq.py" "$@"; }
+check "export: one application row per job; the kept not-applied folder of a sent job is not counted" dq "$OUT/applications.json" \
+    'len(R) == len(K) == 8 and K["D9"]["stage"] == "Waiting for reply"'
+check "export: the stage counts follow" dq "$OUT/index.json" \
+    'K["stage:Not sent"]["n"] == 3 and K["stage:Waiting for reply"]["n"] == 1 and K["stage:Moving forward"]["n"] == 2'
+check "export: the header names weekdays when no days are set" dq "$OUT/index.json" 'K["meta:run"]["label"].endswith("Next: weekdays at 19:00.")'
+for d in daily none "Mon, Wed"; do
+    { cat "$ENVF"; echo "SEARCH_DAYS=$d"; echo "SEARCH_TIME=08:30"; } >"$H/days.env"
+    "$PY" -I "$S/export_dashboard.py" "$T/dash-days" --env "$H/days.env" >/dev/null 2>&1
+    cp "$T/dash-days/index.json" "$T/days-$(echo "$d" | tr -d ' ,').json"
+done
+rm -f "$H/days.env"
+check "export: the header follows SEARCH_DAYS and SEARCH_TIME" sh -c '
+    "$1" -I "$2/dq.py" "$2/days-daily.json" "K[\"meta:run\"][\"label\"].endswith(\"Next: every day at 08:30.\")" &&
+    "$1" -I "$2/dq.py" "$2/days-none.json" "K[\"meta:run\"][\"label\"].endswith(\"No run scheduled.\")" &&
+    "$1" -I "$2/dq.py" "$2/days-MonWed.json" "K[\"meta:run\"][\"label\"].endswith(\"Next: Mon, Wed at 08:30.\")"' _ "$PY" "$T"
+check "export: a waiting to-do is never in Do now" dq "$OUT/actions.json" 'not any("take-home" in r["text"] or "reply" in r["text"] for r in R)'
+check "export: the wait is on the last done step, with since" dq "$OUT/steps.json" \
+    'K["D1#1"]["state"] == "done" and K["D1#1"]["awaits"] == "feedback on the take-home" and K["D1#1"]["since"] != ""'
+check "export: a job without steps gets a waiting row of its own" dq "$OUT/steps.json" \
+    'K["D5#wait"]["state"] == "waiting" and K["D5#wait"]["date"] == K["D5#wait"]["since"] != ""'
+check "export: the waits are counted" dq "$OUT/index.json" 'K["actions:waiting"]["n"] == 2'
+check "export: a rejected job lists no older to-do" dq "$OUT/actions.json" '"D3:1" not in K and "D3:2" not in K'
+check "export: a to-do set on the day a sent job ended stays; an older one goes" dq "$OUT/actions.json" \
+    'K["D4:1"]["text"] == "send the withdrawal email" and "D4:2" not in K'
+check "export: a job ended by its tracker status lists no to-do" dq "$OUT/actions.json" '"D8:1" not in K'
+check "export: a past due date is late, never urgent; one due tomorrow is urgent" dq "$OUT/actions.json" \
+    'K["D5:3"]["kind"] == "late" and K["D5:4"]["kind"] == "urgent"'
+check "export: a done step due tomorrow makes no row; the coming test makes one task" dq "$OUT/actions.json" \
+    '"D1#1:do" not in K and K["D1#2:do"]["kind"] == "task" and K["D1#2:do"]["link"] == "https://mail.example.com/1"'
+check "export: a step past its due date without done is late" dq "$OUT/actions.json" \
+    'K["D1#3:do"]["kind"] == "late" and "was due" in K["D1#3:do"]["text"]'
+check "export: the step states come from PIPELINE" dq "$OUT/steps.json" \
+    'K["D1#2"]["state"] == "upcoming" and K["D1#3"]["state"] == "past" and K["D1#1"]["due"] > K["D1#1"]["done"] != ""'
+check "export: a shared process is on the steps of the application that owns it, once" dq "$OUT/steps.json" \
+    'K["D1#2"]["also"] == ["D2"] and not any(r["app"] == "D2" for r in R)'
+check "export: the order is urgent, then dates with the past due first, then the older to-do first" dq "$OUT/actions.json" \
+    'R[0]["kind"] == "urgent" and pos("call the recruiter") < pos("the older to-do") < pos("the newer to-do")'
+check "export: a job whose site is signed in is Claude's next" dq "$OUT/actions.json" \
+    'any(r["kind"] == "queued" and r["apps"] == ["D6"] and "ready to send" in r["text"] for r in R)'
+check "export: a found job nobody owns is Claude's next, last in the list" dq "$OUT/actions.json" \
+    'K["queued:new"]["apps"] == ["D7"] and R[-1]["kind"] == "queued"'
+check "export: the new kinds are counted" dq "$OUT/index.json" 'K["actions:late"]["n"] == 2 and K["actions:queued"]["n"] == 2'
+check "export: an excluded employer's own site is left out, whatever its state" sh -c '
+    "$1" -I "$2/dq.py" "$3/logins.json" "not any(\"Eta Labs\" in r[\"id\"] for r in R) and len(R) == 3" &&
+    "$1" -I "$2/dq.py" "$3/actions.json" "not any(r[\"key\"].startswith(\"login:\") for r in R)"' _ "$PY" "$T" "$OUT"
+check "export: a sign-in checked 6 days ago is stale and not counted as working" sh -c '
+    "$1" -I "$2/dq.py" "$3/logins.json" "K[\"Greenhouse\"][\"stale\"] == \"yes\" and K[\"Lever\"][\"stale\"] == \"\"" &&
+    "$1" -I "$2/dq.py" "$3/index.json" "K[\"logins:ok\"][\"n\"] == 2"' _ "$PY" "$T" "$OUT"
+# A proposed date is no task; a step left open on a job that is over is "ended", never past due.
+cp "$H/apply/pipeline.json" "$T/pipeline.bak"
+cat >"$T/mkprop.py" <<'PYEOF'
+import json
+import sys
+
+path, how = sys.argv[1], sys.argv[2]
+with open(path, encoding="utf-8") as f:
+    p = json.load(f)
+if how == "proposed":
+    p["D1"]["steps"][1]["proposed"] = True
+else:
+    p["D1"].update(stage="rejected", date=sys.argv[3])
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(p, f, indent=2)
+PYEOF
+"$PY" -I "$T/mkprop.py" "$H/apply/pipeline.json" proposed
+export_dash "$T/dash-prop" >/dev/null 2>&1
+check "export: a proposed step reads proposed and is no task in Do now" sh -c '
+    "$1" -I "$2/dq.py" "$2/dash-prop/steps.json" "K[\"D1#2\"][\"state\"] == \"proposed\"" &&
+    "$1" -I "$2/dq.py" "$2/dash-prop/actions.json" "\"D1#2:do\" not in K"' _ "$PY" "$T"
+cp "$T/pipeline.bak" "$H/apply/pipeline.json"
+"$PY" -I "$T/mkprop.py" "$H/apply/pipeline.json" over "$(day 0)"
+export_dash "$T/dash-over" >"$T/over-export.out" 2>&1
+check "export: an open step of a job that is over is ended: not upcoming, not past due" sh -c '
+    "$1" -I "$2/dq.py" "$2/dash-over/steps.json" "K[\"D1#2\"][\"state\"] == \"ended\" and K[\"D1#3\"][\"state\"] == \"ended\" and K[\"D1#1\"][\"state\"] == \"done\"" &&
+    "$1" -I "$2/dq.py" "$2/dash-over/actions.json" "\"D1#2:do\" not in K and \"D1#3:do\" not in K" &&
+    ! grep -q "^check: past due: D1 step" "$3"' _ "$PY" "$T" "$T/over-export.out"
+cp "$T/pipeline.bak" "$H/apply/pipeline.json"
+# With a run recorded, a state from before the run started was not looked at in it: connectors too.
+cp "$H/apply/logins.json" "$T/logins.bak"
+cat >"$T/mkrun.py" <<'PYEOF'
+import datetime
+import json
+import sys
+
+home = sys.argv[1]
+now = datetime.datetime.now().replace(microsecond=0)
+with open(f"{home}/apply/logins.json", encoding="utf-8") as f:
+    data = json.load(f)
+for r in data["logins"]:
+    if r["id"] == "Lever":
+        r["note"] = "create the account first"
+data["logins"].append({"id": "gmail", "name": "Gmail", "kind": "connector", "status": "connected",
+                       "checked": (now - datetime.timedelta(hours=2)).isoformat(), "note": "answered", "jobs": []})
+with open(f"{home}/apply/logins.json", "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=2)
+with open(f"{home}/apply/usage-log.jsonl", "w", encoding="utf-8") as f:
+    f.write(json.dumps({"time": (now - datetime.timedelta(minutes=30)).isoformat(), "step": "run", "result": "started"}) + chr(10))
+PYEOF
+"$PY" -I "$T/mkrun.py" "$H"
+export_dash "$T/dash-run" >"$T/run-export.out" 2>&1
+check "export: with a run recorded, a state from before its start reads not checked, a connector too" sh -c '
+    "$1" -I "$2/dq.py" "$2/dash-run/logins.json" "K[\"Lever\"][\"stale\"] == \"yes\" and K[\"gmail\"][\"stale\"] == \"yes\" and K[\"Workday · Epsilon Co\"][\"stale\"] == \"\"" &&
+    "$1" -I "$2/dq.py" "$2/dash-run/index.json" "K[\"logins:ok\"][\"n\"] == 1"' _ "$PY" "$T"
+check "check: a connector not checked in this run" grep -q "^check: connectors not checked in this run: Gmail (last " "$T/run-export.out"
+check "check: a row that reads signed in while its note asks for an account" grep -q "^check: reads signed in or connected, but its note asks for a sign-in or an account: Lever " "$T/run-export.out"
+check "check: only a sign-in older than 3 days is named as old" sh -c 'grep "^check: sign-ins not checked for more than 3 days" "$1" | grep -q "Greenhouse" && ! grep "^check: sign-ins not checked for more than 3 days" "$1" | grep -q "Lever"' _ "$T/run-export.out"
+cp "$T/logins.bak" "$H/apply/logins.json"
+rm -f "$H/apply/usage-log.jsonl"
+# The cross-check: one line per mismatch between the records and the page; it changes nothing and never fails a run.
+files_of() { find "$1" -type f | sort | cksum; }
+BEFORE=$(files_of "$H")
+export_dash --check >"$T/check1.out" 2>&1
+check "export --check: exits 0 and writes no file" sh -c '[ "$1" = 0 ] && [ "$2" = "$3" ]' _ "$?" "$BEFORE" "$(files_of "$H")"
+has() { grep -q "^check: $1" "$T/${2:-check1.out}"; }
+check "check: a second folder of one job" has "duplicate folder: D9 in pending and not-applied (the second is not counted)"
+check "check: to-dos on a rejected job, with the command that removes them" has "to-do on an ended job: D3 (rejected $(day -3)), 2 to-do(s) -> track.py todo D3 done all"
+check "check: to-dos on a job ended by its status, and on one where a later to-do stays" sh -c '
+    grep -q "^check: to-do on an ended job: D8 (excluded), 1 to-do(s) -> track.py todo D8 done all" "$1" &&
+    grep -q "^check: to-do on an ended job: D4 (declined .*), 1 to-do(s) -> track.py todo D4 done <n>" "$1"' _ "$T/check1.out"
+check "check: the jobs with to-dos without since, in one line" has "to-dos without since: D5 (1) -> track.py todo"
+check "check: a past due to-do and a past due step" sh -c '
+    grep -q "^check: past due: D5 \"call the recruiter\", due $2" "$1" && grep -q "^check: past due: D1 step \"Questionnaire\", due $2" "$1"' \
+    _ "$T/check1.out" "$(day -3)"
+check "check: a job whose site is signed in and that nobody started" has "ready, not started: D6 (Workday .* Epsilon Co is signed in)"
+check "check: a found job without an owner" has "no owner: D7 (found or pending; no to-do, question or session)"
+check "check: sign-ins not checked for days" has "sign-ins not checked for more than 3 days: Greenhouse (6 days)"
+check "check: an excluded employer without a source" has "excluded employers without a source: Eta Labs"
+check "check: the last line counts them" grep -q "^check: 1[0-9] mismatches" "$T/check1.out"
+cp -R "$T/flat" "$T/clean"
+use "$T/clean"
+track set F2 skipped "does not fit" >/dev/null 2>&1
+build >/dev/null 2>&1
+export_dash --check >"$T/check0.out" 2>&1
+check "export --check on records that agree with the page: 0 mismatches, nothing else" sh -c '
+    grep -q "^check: 0 mismatches" "$1" && [ "$(wc -l <"$1")" -eq 1 ]' _ "$T/check0.out"
+use "$T/dash"
+"$PY" -I "$S/logins.py" sync --env "$ENVF" >/dev/null 2>&1
+check "logins sync: an excluded employer's own site is marked excluded, also from expired" dq "$H/apply/logins.json" \
+    'next(r for r in R["logins"] if "Eta Labs" in r["id"])["status"] == "excluded" and next(r for r in R["logins"] if r["id"] == "Greenhouse")["status"] == "signed-in"'
+# The older tracker shape, unsplit and split (built further up): the same rows from both.
+for h in build-flat build-split; do
+    use "$T/$h"
+    track todo J1 add click "sign in to the site" since="$D0" >/dev/null 2>&1
+    build >/dev/null 2>&1
+    export_dash "$T/dash-$h" >/dev/null 2>&1
+done
+check "export on the older tracker shape: the to-do is a row" dq "$T/dash-build-flat/actions.json" 'K["J1:1"]["kind"] == "click" and K["J1:1"]["since"] != ""'
+check "export: the same rows from a split tracker" sh -c 'for f in applications steps actions logins excluded sessions; do cmp -s "$1/$f.json" "$2/$f.json" || exit 1; done' \
+    _ "$T/dash-build-flat" "$T/dash-build-split"
+use "$T/dash"
+questions add fact "What is your notice period?" key=notice_two job=D7 >/dev/null 2>&1
+questions build "$T/dash-q" >/dev/null 2>&1
+check "questions build: the status has the time of this check and the open count" sh -c '
+    "$1" -I "$2/q.py" "$3" checked ne "" && "$1" -I "$2/q.py" "$3" open eq 1 && "$1" -I "$2/q.py" "$3" at eq ""' \
+    _ "$PY" "$T" "$T/dash-q/status/run.json"
+# --- sessions: the record from the app's list, the order to answer them, and their rows on the dashboard --------------
+use "$T/dash"
+sessions() { "$PY" -I "$S/sessions.py" "$@" --env "$ENVF"; }
+SF="$H/apply/sessions.json"
+check "export without a sessions record: an empty sessions file" dq "$OUT/sessions.json" 'R == []'
+# The app's session list as its tool returns it; the second one archives a session, leaves one out and renames one.
+cat >"$T/mklist.py" <<'PYEOF'
+import json
+import sys
+
+home, out, second = sys.argv[1], sys.argv[2], sys.argv[3] in ("2", "3")
+row = lambda i, name, title, cwd=home, **more: dict(  # noqa: E731
+    {"sessionId": i, "name": name, "title": title, "cwd": cwd, "isArchived": False, "isRunning": False,
+     "lastActivityAt": "2026-11-13T08:40:30.321Z", "link": "claude://example/" + i}, **more)
+rows = [
+    row("local_a1", "apply-delta", "You · Delta open questions" + (" (2 left)" if second else "")),
+    row("local_b2", "study-acme", "You · Acme test study"),
+    row("local_c3", "answers-zeta", "You · Zeta answers"),
+    row("local_d4", "essays-eps", "You · Epsilon essays"),
+    row("local_f6", "prep-old", "Done · Old prep", isArchived=second),
+    row("local_g7", "job-coordinator", "Job search coordinator"),
+    row("local_h8", "elsewhere", "You · Another project", cwd=home + "-other"),
+]
+if not second:
+    rows.append(row("local_e5", "search-today", "Search sweep", isRunning=True))
+if sys.argv[3] == "3":  # the second list again, with a session whose title names an employer that said no
+    rows.append(row("local_i9", "beta-follow-up", "You · Beta Ltd follow-up"))
+with open(out, "w", encoding="utf-8") as f:
+    json.dump(rows, f, ensure_ascii=False)
+PYEOF
+"$PY" -I "$T/mklist.py" "$H" "$T/list1.json" 1
+sessions sync "$T/list1.json" >"$T/sync1.out" 2>&1
+check "sessions sync: the main folder's sessions come in; the main session and another folder's do not" sh -c '
+    grep -q "^6 sessions: 6 added" "$1" &&
+    "$2" -I "$3/dq.py" "$4" "sorted(s[\"id\"] for s in R[\"sessions\"]) == [\"local_a1\", \"local_b2\", \"local_c3\", \"local_d4\", \"local_e5\", \"local_f6\"]"' \
+    _ "$T/sync1.out" "$PY" "$T" "$SF"
+check "sessions sync: the state is the title's prefix; a title without one is ready" dq "$SF" \
+    '{s["name"]: s["state"] for s in R["sessions"]} == {"apply-delta": "you", "study-acme": "you", "answers-zeta": "you", "essays-eps": "you", "search-today": "ready", "prep-old": "done"}'
+sessions set apply-delta jobs=D5 waits="your yes to send the form" >/dev/null 2>&1
+sessions set study-acme jobs=D1,D2 >/dev/null 2>&1
+sessions set answers-zeta jobs=D7 steps=1 >/dev/null 2>&1
+sessions set essays-eps jobs=D6 >/dev/null 2>&1
+check "sessions set: waits and jobs, the job in hand first" dq "$SF" \
+    'next(s for s in R["sessions"] if s["name"] == "study-acme")["jobs"] == ["D1", "D2"] and next(s for s in R["sessions"] if s["name"] == "apply-delta")["waits"] == "your yes to send the form"'
+check "sessions set: a job the tracker does not know is refused" sh -c '! "$1" -I "$2/sessions.py" set essays-eps jobs=NOPE --env "$3" >/dev/null 2>&1' \
+    _ "$PY" "$S" "$ENVF"
+check "sessions set: a session the record does not know is refused" sh -c '! "$1" -I "$2/sessions.py" set nobody state=done --env "$3" >/dev/null 2>&1' \
+    _ "$PY" "$S" "$ENVF"
+sessions show >"$T/show1.out" 2>&1
+check "sessions show: urgent, then the fixed date, then the fewest steps left, then the rest" sh -c '
+    grep -q "^ 1 you   apply-delta .*urgent" "$1" && grep -q "^ 2 you   study-acme .*by $2" "$1" &&
+    grep -q "^ 3 you   answers-zeta .*1 step left" "$1" && grep -q "^ 4 you   essays-eps .*waiting since" "$1"' _ "$T/show1.out" "$(day 5)"
+sessions set essays-eps tab=yes >/dev/null 2>&1
+sessions show >"$T/show1b.out" 2>&1
+check "sessions show: a form held open in a tab comes before the fewest steps left" sh -c '
+    grep -q "^ 3 you   essays-eps .*form open in a tab" "$1" && grep -q "^ 4 you   answers-zeta .*1 step left" "$1"' _ "$T/show1b.out"
+sessions set essays-eps tab=no >/dev/null 2>&1
+check "sessions set: quick is refused and names steps= and tab=" sh -c '"$1" -I "$2/sessions.py" set essays-eps quick=yes --env "$3" 2>&1 | grep -q "steps=1"' \
+    _ "$PY" "$S" "$ENVF"
+cat >"$T/oldquick.py" <<'PYEOF'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as f:
+    d = json.load(f)
+for s in d["sessions"]:
+    if s["name"] == "answers-zeta":
+        s.pop("steps", None)
+        s["quick"] = True
+with open(sys.argv[1], "w", encoding="utf-8") as f:
+    json.dump(d, f)
+PYEOF
+"$PY" -I "$T/oldquick.py" "$SF"
+sessions show >"$T/show1c.out" 2>&1
+check "sessions show: a quick flag of an older record reads as one step left" grep -q "^ 3 you   answers-zeta .*1 step left" "$T/show1c.out"
+sessions set answers-zeta steps=1 >/dev/null 2>&1
+sessions order essays-eps >/dev/null 2>&1
+sessions show >"$T/show2.out" 2>&1
+check "sessions order: the named one first, the rule for the rest" sh -c '
+    grep -q "^ 1 you   essays-eps .*set by Claude" "$1" && grep -q "^ 2 you   apply-delta" "$1"' _ "$T/show2.out"
+sessions order auto >/dev/null 2>&1
+check "sessions order auto: the rule alone again" dq "$SF" 'R["order"] == []'
+sessions set study-acme state=done >/dev/null 2>&1
+sessions show >"$T/show3.out" 2>&1
+check "sessions show: a title whose prefix differs from the state is named for a rename; so is one without a prefix" sh -c '
+    grep -q "^rename local_b2 to: Done .* Acme test study" "$1" && grep -q "^rename local_e5 to: Ready .* Search sweep" "$1" &&
+    ! grep -q "^rename local_a1" "$1"' _ "$T/show3.out"
+sessions set study-acme state=you >/dev/null 2>&1
+"$PY" -I "$T/mklist.py" "$H" "$T/list2.json" 2
+sessions sync "$T/list2.json" >"$T/sync2.out" 2>&1
+check "sessions sync again: an archived one is dropped, a missing one stays and is named" sh -c '
+    grep -q "1 archived and dropped, 1 not in the list" "$1" && grep -q "^dropped: prep-old" "$1" &&
+    grep -q "^not in the list.*: search-today" "$1"' _ "$T/sync2.out"
+check "sessions sync again: a known one takes its new title and keeps its state, jobs and waits" dq "$SF" \
+    'len(R["sessions"]) == 5 and [(s["title"].endswith("(2 left)"), s["state"], s["jobs"]) for s in R["sessions"] if s["id"] == "local_a1"] == [(True, "you", ["D5"])]'
+# On the dashboard: D6's to-do names its session; D5 gets an urgent one that names its session; D10 waits on the
+# person with no to-do, in a session; D9 has an old to-do outside every session.
+track add D10 "Iota BV" "Planner" "https://example.com/d10" >/dev/null 2>&1
+track set D10 needs-person "waits on you" >/dev/null 2>&1
+sessions set essays-eps jobs=D6,D10 >/dev/null 2>&1
+track todo D6 add todo "approve the essays" session=local_d4 >/dev/null 2>&1
+track todo D5 add urgent "type the emailed code" session=local_a1 where=pc >/dev/null 2>&1
+track todo D9 add todo "an old row outside the sessions" since="$(day -9)" >/dev/null 2>&1
+build >/dev/null 2>&1
+export_dash "$OUT" >/dev/null 2>&1
+check "export: one numbered row per waiting session, in the order, right after the urgent rows" dq "$OUT/actions.json" \
+    '[r["key"] for r in R if r["kind"] == "session"] == ["s:local_a1", "s:local_b2", "s:local_c3", "s:local_d4"] and [r["rank"] for r in R if r["kind"] == "session"] == [1, 2, 3, 4] and all(r["kind"] == "urgent" for r in R[:R.index(K["s:local_a1"])])'
+check "export: the session row has its title without the prefix, what it waits on, its jobs and its date" dq "$OUT/actions.json" \
+    'K["s:local_a1"]["text"].startswith("Delta open questions (2 left)") and "your yes to send the form" in K["s:local_a1"]["text"] and K["s:local_b2"]["apps"] == ["D1", "D2"] and "by " in K["s:local_b2"]["text"]'
+check "export: a to-do that names its session is on the session's row, not a row of its own" dq "$OUT/actions.json" \
+    '"D6:1" not in K and "approve the essays" in K["s:local_d4"]["text"] and K["s:local_d4"]["apps"] == ["D6", "D10"]'
+check "export: an urgent to-do that names its session stays a row of its own" dq "$OUT/actions.json" \
+    'any(r["kind"] == "urgent" and r["text"] == "type the emailed code" for r in R)'
+check "export: a job in a session has no row from its note and is not Claude's next" dq "$OUT/actions.json" \
+    '"D10:todo" not in K and not any(r["kind"] == "queued" for r in R)'
+check "export: a session that works alone is one in-progress row" dq "$OUT/actions.json" 'K["s:local_e5"]["kind"] == "working"'
+check "export: the rows of a session's jobs come before an older row outside the sessions" dq "$OUT/actions.json" \
+    'pos("the older to-do") < pos("the newer to-do") < pos("an old row outside the sessions")'
+check "export: the sessions file has every session with its rank, state, jobs and why" dq "$OUT/sessions.json" \
+    'len(R) == 5 and K["local_a1"]["rank"] == 1 and K["local_a1"]["apps"] == ["D5"] and K["local_a1"]["why"] == "urgent" and K["local_e5"]["rank"] == 0 and K["local_e5"]["state"] == "ready" and K["local_b2"]["why"].startswith("by ") and not K["local_a1"]["title"].startswith("You")'
+check "export: the sessions are counted" dq "$OUT/index.json" \
+    'K["sessions:you"]["n"] == 4 and K["sessions:ready"]["n"] == 1 and K["sessions:done"]["n"] == 0 and K["actions:session"]["n"] == 4'
+
+# The cross-check on sessions and steps: a date that passed, jobs that all ended, a title that names an employer
+# whose job ended, a title that differs from the state, a to-do naming an unknown session, an old sync, and a
+# PIPELINE step the folders do not have yet.
+"$PY" -I "$T/mklist.py" "$H" "$T/list3.json" 3
+sessions sync "$T/list3.json" >/dev/null 2>&1
+sessions set study-acme due="$(day -2)" >/dev/null 2>&1
+sessions set answers-zeta jobs=D3 >/dev/null 2>&1
+sessions set essays-eps state=done >/dev/null 2>&1
+track todo D5 add todo "ask in the session" session=local_zz >/dev/null 2>&1
+"$PY" -I -c '
+import datetime, json, sys
+home = sys.argv[1]
+def patch(name, change):
+    path = home + "/apply/" + name
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    change(data)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+patch("pipeline.json", lambda p: p["D1"]["steps"].append({"date": "2030-01-01", "name": "Final talk", "with": "the team"}))
+patch("sessions.json", lambda s: s.update(synced=(datetime.datetime.now() - datetime.timedelta(days=3)).replace(microsecond=0).isoformat()))' "$H"
+export_dash --check >"$T/check2.out" 2>&1
+check "check: a session whose date is past" has "session study-acme: its date $(day -2) is past -> sessions.py set study-acme state=done" check2.out
+check "check: a session whose jobs are all sent or ended" has "session answers-zeta: its jobs are all sent or ended" check2.out
+check "check: a session whose title names an employer whose job ended" has "session beta-follow-up: the title names Beta Ltd, whose job D3 is rejected" check2.out
+check "check: a session whose title differs from its state" has "session essays-eps: its title says you, its state is done -> rename it" check2.out
+check "check: a to-do that names a session the record does not hold, and one whose session is done" sh -c '
+    grep -q "^check: to-do of D5 names session local_zz, not in the record" "$1" &&
+    grep -q "^check: to-do of D6 names session local_d4, which is done" "$1"' _ "$T/check2.out"
+check "check: a to-do older than its job's sending" has "to-do set before D9 was sent: \"an old row outside the sessions\"" check2.out
+check "check: a sessions record not synced for days" has "the sessions record was synced 3 days ago -> sessions.py sync" check2.out
+check "check: PIPELINE has a step the folder does not" has "D1: 4 steps in PIPELINE, 3 in its folder -> build_app_folders.py" check2.out
+# What to upload: every file at first; after --uploaded, only what changed.
+export_dash "$T/up" >"$T/up1.out" 2>&1
+check "export: with nothing recorded as on the page, every file is to upload" grep -q "^upload: index.json applications.json steps.json actions.json logins.json excluded.json sessions.json" "$T/up1.out"
+export_dash --uploaded "$T/up" >"$T/up-rec.out" 2>&1
+check "export --uploaded: records the seven files beside the tracker" sh -c 'grep -q "^recorded as on the page: index.json .* sessions.json" "$1" && [ -f "$2/apply/dashboard-uploads.json" ]' \
+    _ "$T/up-rec.out" "$H"
+track todo D5 add todo "one more thing" >/dev/null 2>&1
+export_dash "$T/up" >"$T/up2.out" 2>&1
+check "export after --uploaded: only the changed files are to upload" sh -c '
+    grep "^upload:" "$1" | grep -q "actions.json" && ! grep "^upload:" "$1" | grep -q "logins.json" &&
+    grep "^unchanged:" "$1" | grep -q "logins.json" && grep "^unchanged:" "$1" | grep -q "excluded.json"' _ "$T/up2.out"
+
+# The two pages: each one's script must parse (node --check); without node the check is skipped, and says so.
+if command -v node >/dev/null 2>&1; then
+    for page in dashboard questions; do
+        "$PY" -I -c 'import re, sys; open(sys.argv[2], "w", encoding="utf-8").write(re.search(r"<script>(.*)</script>", open(sys.argv[1], encoding="utf-8").read(), re.S).group(1))' \
+            "$S/../templates/$page/index.html" "$T/page-$page.js"
+        check "templates/$page/index.html: the page's script parses" node --check "$T/page-$page.js"
+    done
+else
+    echo "SKIP the pages' scripts: node not found"
+fi
 
 # --- review fixes ----------------------------------------------------------------------------------------------------
 track add J9 "Acme Corp" "Engineer" "https://boards.example.com/acme/jobs?gh_jid=111" >/dev/null 2>&1

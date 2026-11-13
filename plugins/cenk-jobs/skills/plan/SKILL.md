@@ -16,8 +16,9 @@ Read `../../RULES.md` first. This skill writes the plan into the tracker; it sen
    written now (`LETTER_BODIES_DIR`), only for a form with a letter field (`apply`, "Before filling"), and its PDF
    built on the day it is sent (`make_letter_pdf.py`).
 4. Group by sign-in: one group per site or hiring system. A group needs the person signed in before it can start.
-5. List what only the person can do, per job, as to-do items in the tracker (`todo`): sign-ins (`click`), answers
-   and essays (`info`), with the link to the form. Open free-text questions are never filled for them.
+5. List what only the person can do, per job, as to-do items in the tracker (`track.py todo <id> add <kind>
+   "<text>" link=<form>`): sign-ins (`click`), answers and essays (`todo`). Open free-text questions are never
+   filled for them.
 6. Propose today's batch: the groups the person can start now. On their OK, `/cenk-jobs:apply` (or the coordinator's
    sessions, one per site) takes them. Refresh the dashboard.
 

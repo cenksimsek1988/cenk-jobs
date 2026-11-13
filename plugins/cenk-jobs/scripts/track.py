@@ -4,6 +4,13 @@ python -I track.py add <id> "<company>" "<title>" <url> [key=value ...]   add a 
                                                                            letter, apply_url, salary_note, note)
 python -I track.py set <id> <status> "<note>" [key=value ...]             record an outcome (and update fields, e.g.
                                                                            cv=<path> letter=<path>)
+python -I track.py todo <id> add <kind> "<text>" [key=value ...]          add a to-do to a job (kinds: urgent, working,
+                                                                           task, click, todo, waiting; keys: where=pc|phone,
+                                                                           due=<date>, link, login, session=<session id>,
+                                                                           since=<date>, today when left out)
+python -I track.py todo <id> done <n>|all|kind=<kind>|session=<id>        remove to-dos: the one `list` numbers <n>, all,
+                                                                           or every one of a kind or a session
+python -I track.py todo <id> list                                         the job's to-dos, numbered
 python -I track.py show <id> [--full]                                     print one job's summary row and the path of
                                                                            its detail file; --full: the row with its
                                                                            detail merged in (prep, history, earlier)
@@ -30,7 +37,10 @@ the tracker already uses are accepted. skipped is Claude's screening verdict (th
 A sent job's later outcome is its stage in PIPELINE (approved, rejected, closed, declined), not its status.
 'submitted' also sets applied=<today> when the job was not submitted before. A note about to be replaced is saved in
 the job's history first and every change is appended there with its date, so the tracker says what happened and
-when. Both tracker shapes work: {jobs: [...]} and the older {companies: [{name, jobs: [...]}]}, where a job's note
+when. A change of status into submitted, excluded, closed, declined, skipped or failed drops the job's to-dos: they
+were about getting it sent. They are printed and kept in that history row ("todo_dropped"). Example: `set J1
+submitted "sent"` prints "dropped 2 to-dos: approve the letter; press Submit". A to-do names its session by id
+(session=<id>), never by a title in its text: titles change. Both tracker shapes work: {jobs: [...]} and the older {companies: [{name, jobs: [...]}]}, where a job's note
 is its "outcome". Add --env <job-search.env> anywhere to pick the env file.
 
 sync also applies the person's employer-rule categories (EMPLOYER_RULES, see employer.py) to each employer's category
@@ -56,8 +66,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import employerlib as el  # noqa: E402
 import jsenv  # noqa: E402
-from trackerlib import (DETAILS, collapse, collapse_row, companies, date_in, entries, expand,  # noqa: E402
-                        expand_company,
+from trackerlib import (DETAILS, ENDED_STATUS, ISO_DATE, TODO_KINDS, collapse, collapse_row, companies,  # noqa: E402
+                        date_in, entries, expand, expand_company,
                         expand_row, flat_jobs, is_company_shape, json_indent, load_settings, needs_of, note_key, split_tracker,
                         write_json)
 
@@ -106,6 +116,65 @@ def fields(pairs):
         key, value = pair.split("=", 1)
         out[NOTE if key == "note" else key] = value
     return out
+
+
+TODO_KEYS = ("where", "due", "link", "login", "session", "since")
+
+
+def todo_line(n, item):
+    extra = [f"{k} {item[k]}" for k in ("since", "due", "where", "session", "login") if item.get(k)]
+    return f"{n:2} {item.get('kind', 'todo'):8} {item.get('text', '')}" + (f"  [{', '.join(extra)}]" if extra else "")
+
+
+def todo_command(row, action, rest):
+    """Add, remove or list the to-dos of one job. They live in the job's summary row, so a split tracker needs no
+    detail file here. Returns True when the row changed."""
+    todo = row.get("todo") or []
+    if action == "list":
+        print("\n".join(todo_line(n, t) for n, t in enumerate(todo, 1)) or "no to-dos")
+        return False
+    if action == "add":
+        if len(rest) < 2:
+            sys.exit('todo <id> add <kind> "<text>" [key=value ...]')
+        kind, text = rest[0], rest[1].strip()
+        if kind not in TODO_KINDS:
+            sys.exit(f"kind must be one of {', '.join(TODO_KINDS)}")
+        if not text:
+            sys.exit("a to-do needs its text")
+        item = {"kind": kind, "text": text, "since": today}
+        for pair in rest[2:]:
+            key, eq, value = pair.partition("=")
+            if not eq or key not in TODO_KEYS:
+                sys.exit(f"expected one of {', '.join(k + '=' for k in TODO_KEYS)} got {pair!r}")
+            if key in ("due", "since") and not ISO_DATE.fullmatch(value):
+                sys.exit(f"{key} is a date, YYYY-MM-DD: got {value!r}")
+            if key == "where" and value not in ("pc", "phone"):
+                sys.exit("where is pc or phone")
+            item[key] = value
+        row["todo"] = todo + [item]
+        print("added:", todo_line(len(todo) + 1, item))
+        return True
+    if action == "done":
+        which = rest[0] if rest else ""
+        key, eq, value = which.partition("=")
+        if which == "all":
+            gone = list(todo)
+        elif which.isdigit() and 1 <= int(which) <= len(todo):
+            gone = [todo[int(which) - 1]]
+        elif eq and key in ("kind", "session"):
+            # No kind, or an older "info", counts as todo (RULES/run.md).
+            gone = [t for t in todo if (t.get(key) or ("todo" if key == "kind" else "")) == value
+                    or (key == "kind" and value == "todo" and t.get("kind") == "info")]
+        else:
+            sys.exit(f"todo <id> done <n>|all|kind=<kind>|session=<id>: this job has {len(todo)} to-do(s)")
+        left = [t for t in todo if not any(t is g for g in gone)]
+        if left:
+            row["todo"] = left
+        else:
+            row.pop("todo", None)
+        print(f"removed {len(gone)} to-do(s)" + (": " + "; ".join(t.get("text", "") for t in gone) if gone else ""))
+        return bool(gone)
+    sys.exit("todo <id> add|done|list")
 
 
 def add_job(data, company, job):
@@ -368,7 +437,7 @@ def split_tracker_files(data, apply):
 
 
 # --- the commands -------------------------------------------------------------------------------------------------
-if not args or args[0] not in ("add", "set", "show", "brief", "list", "summary", "sync", "split"):
+if not args or args[0] not in ("add", "set", "todo", "show", "brief", "list", "summary", "sync", "split"):
     sys.exit(__doc__)
 cmd = args[0]
 if cmd == "sync":
@@ -408,10 +477,23 @@ elif cmd == "set":
     if status == "submitted" and old_status != "submitted" and not job.get("applied"):
         job["applied"] = today
     job[NOTE] = note or old
-    history.append({"date": today, "status": status, NOTE: note})
+    change = {"date": today, "status": status, NOTE: note}
+    # A job that is sent or over needs none of the to-dos it had: they were about getting it sent.
+    dropped = job.pop("todo", None) if status != old_status and status in ("submitted",) + ENDED_STATUS else None
+    if dropped:
+        change["todo_dropped"] = dropped
+    history.append(change)
     collapse_row(PATH, row, job, is_company_shape(data))
     save(data)
     print(job_id, company.get("name", ""), title_of(job)[:60], "->", status)
+    if dropped:
+        print(f"dropped {len(dropped)} to-do(s): " + "; ".join(t.get("text", "") for t in dropped))
+elif cmd == "todo":
+    if len(args) < 3:
+        sys.exit("todo <id> add|done|list")
+    company, row = find(data, args[1])
+    if todo_command(row, args[2], args[3:]):
+        save(data)
 elif cmd == "show":
     company, job = find(data, [a for a in args[1:] if a != "--full"][0])
     row = {"company": company.get("name", "")}

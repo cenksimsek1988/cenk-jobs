@@ -49,7 +49,7 @@ import os
 import re
 import shutil
 
-from trackerlib import file_name, write_detail, write_json
+from trackerlib import PER_EMPLOYER, file_name, write_detail, write_json
 
 PLUGIN = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BLACKLIST = os.path.join(PLUGIN, "data", "blacklist.json")
@@ -1098,6 +1098,22 @@ def _excluded_list(env, jobs, pipeline, employers):
                     "n": len(titles), "names": row["names"]})
     # Withdrawn first (the person had applied), then by name.
     return sorted(out, key=lambda x: (x["how"] != "Withdrawn", x["employer"].lower()))
+
+
+def excluded_site(site, excluded, companies=()):
+    """The row of excluded_list a job site belongs to, or None. A site is an excluded employer's when its name is the
+    employer's, when the part after "·" is ("Workday · Acme" is Acme's own site), or, for an employer's own site,
+    when every employer of the tracker's jobs on it is excluded. A shared platform ("Greenhouse") is nobody's.
+    site: a LOGINS row; excluded: excluded_list's rows; companies: the employers of the tracker's jobs on that login."""
+    def hit(name):
+        mine = keys(name or "")
+        return next((x for x in excluded if any(mine & keys(n) for n in x["names"])), None) if mine else None
+    name = site.get("name") or site.get("id") or ""
+    found = hit(name) or (hit(name.split("·")[-1]) if "·" in name else None)
+    if found or not companies or not PER_EMPLOYER.search(site.get("id") or name):
+        return found
+    hits = [hit(c) for c in companies]
+    return hits[0] if all(hits) else None
 
 
 def decide(env, name, checks, rule_set=None):

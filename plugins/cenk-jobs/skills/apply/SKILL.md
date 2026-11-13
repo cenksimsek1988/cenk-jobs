@@ -27,6 +27,9 @@ waits on the person.
   Each essay question goes to the Questions page before filling. Ashby keeps no draft, so a form with an essay
   question waits until the person's answer is in the records.
 - Check the employer again if the last check is old (`employer.py check`).
+- A job's prepared answers go stale after the person's later answers: fill the newer answer from the records and
+  correct the prepared answers with it. Example: the prep says 6 years of Java, a later answer says 8: fill 8 and
+  update the prep.
 - The person must be signed in to the site. Ask them to tick "Keep me signed in" or "Remember me" where the site
   offers it, and to keep Chrome's "clear cookies when you close all windows" off.
 - Fill a site right after the person signs in: sign-ins expire within minutes when idle. Workday can end the session
@@ -77,13 +80,24 @@ waits on the person.
   they are at the PC, and pass the code request on at once ("At your PC: type the code Acme just emailed").
   Otherwise stop before Submit and notify "At your PC:".
   Keep-alive while it waits: a second tab on the same site, reloaded every 10 minutes for at most 2 hours; never the
-  form's own tab.
+  form's own tab. A public form without a sign-in gets none (a reload clears it): say so and name the refill time.
+  Example: "This form has no login: if the tab closes, I refill it in about 5 minutes."
+- A code or CAPTCHA step in a tab this session holds: a link would open a fresh, empty copy with no code field.
+  Rename the held tab (`document.title = ">>> TYPE THE CODE HERE <<<"`), scroll the field into view, and tell the
+  person to find the tab with Chrome's tab search (Ctrl+Shift+A). The page's address is given only as text.
+- A hypothetical question is explained in plain words before an option is proposed: it can read as a booking.
+  Example: "How comfortable would you be doing that tomorrow?" asks how ready the person is, not for a meeting
+  tomorrow.
 
 ## Sending
 
 - `APPLY_MODE=auto` (the default): submit every form whose answers all come from the person's records, then report;
   a form that sends a one-time code on Submit waits until the person is active or at the PC (see "Filling").
 - `APPLY_MODE=review`: stop at the review page; submit after the person's go-ahead for that job or batch.
+- A form left filled at the review page for the person: the tab's title and the question both say that Submit sends
+  the form as it is now (example title: ">>> REVIEW: Submit sends this as it is <<<"). A change asked later waits
+  until the person confirms they have not pressed Submit. After a go-ahead, read the page first: a form already sent
+  is recorded as sent, never changed.
 - If the permission check refuses a submit click, stop and ask; never work around it.
 - After each submission: `track.py set <id> submitted "<what was sent>" cv=<path> letter=<path>`, `fetch_jd.py
   <id>` while the posting is live, `build_app_folders.py`, and the dashboard refresh.

@@ -17,7 +17,8 @@ python -I questions.py list
     the open questions, one line each
 python -I questions.py build <out dir> [--page <dir>]
     the page's files: <out dir>/questions/<id>.json for each open question and each one done in the last 7 days
-    (with its note), and <out dir>/status/run.json (when Claude last handled the page, and what). First adds the
+    (with its note), and <out dir>/status/run.json (at and summary: when an answer was last recorded, and what;
+    checked: the time of this build; open: how many questions wait). First adds the
     "Allow, or exclude?" questions from the person's employer rules (an employer whose finding is "discuss", with a
     job not sent yet), and ends each job question whose jobs all ended: closed, with a note saying when, if one was
     sent; dropped if none was (excluded, declined, skipped, closed, failed). --page <dir>: the page's questions as an ArtifactData list saved there (<dir>/questions/*.json):
@@ -301,9 +302,11 @@ elif args[0] == "build":
         if q["status"] == "open":
             open_ids.append(qid)
     with open(os.path.join(out_dir, "status", "run.json"), "w", encoding="utf-8") as f:
-        # The dashboard's link too, so the page links back to it.
-        json.dump(dict(data.get("handled") or {"at": "", "summary": ""}, dashboard=env.get("DASHBOARD_URL") or ""), f,
-                  ensure_ascii=False, indent=1)
+        # at: when an answer was last recorded (the page's Send button counts the answers saved after it). checked:
+        # this build, so a page nobody answered for two runs still says when Claude last looked, and open: how many
+        # questions wait. The dashboard's link too, so the page links back to it.
+        json.dump(dict(data.get("handled") or {"at": "", "summary": ""}, checked=now, open=len(open_ids),
+                       dashboard=env.get("DASHBOARD_URL") or ""), f, ensure_ascii=False, indent=1)
     print(f"{len(open_ids)} open and {len(shown) - len(open_ids)} done questions -> {os.path.join(out_dir, 'questions')}")
     print("on the page:", " ".join(shown))
     if page_dir:
