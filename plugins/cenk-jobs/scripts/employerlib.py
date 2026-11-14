@@ -59,6 +59,9 @@ CATEGORIES = ("israel", "defence", "animal_cruelty", "climate", "sexism", "human
               "sanctions")
 STATUSES = ("flagged", "clear", "unknown")
 LEVELS = ("direct", "indirect")
+# As found, a level may also be "undecided": a detailed search could not settle direct or indirect. It excludes
+# nothing and holds nothing up: the person is asked, and the search and the applications go on meanwhile.
+FOUND_LEVELS = LEVELS + ("undecided",)
 OWN_LEVELS = ("direct", "indirect", "none")
 FOUND_FIELDS = ("status", "level", "fact", "source_url", "basis")  # a check as found; a change makes a history item
 OWN_FIELDS = ("own_level", "own_why", "own_checked", "own_rules")  # the second check's: the person's only, never shared
@@ -159,7 +162,10 @@ def level_of(check):
 
 
 def act_for(setting, level):
-    """What a category setting does with a tie of this level: exclude | discuss | warn | allow."""
+    """What a category setting does with a tie of this level: exclude | discuss | warn | allow; "ask" for an
+    undecided level, whatever the setting: a question for the person that changes no verdict."""
+    if level == "undecided":
+        return "ask"
     return setting.get("action", "discuss") if level == "direct" else setting.get("indirect", "discuss")
 
 
@@ -181,6 +187,8 @@ def second_check_due(rule_set, cat, check):
     setting = rule_set["categories"].get(cat) or {}
     if check.get("status") != "flagged" or not str(setting.get("notes") or "").strip():
         return False
+    if check.get("level") == "undecided" and check.get("own_level") not in OWN_LEVELS:
+        return False  # nobody could settle it: the person is asked; it holds no job up
     return check.get("own_level") not in OWN_LEVELS or check.get("own_rules") != notes_key(rule_set, cat)
 
 
@@ -1082,7 +1090,8 @@ def _excluded_list(env, jobs, pipeline, employers):
         for cat in wanted:
             k = checks.get(cat) if (checks.get(cat) or {}).get("fact") else group_check(name, cat) or checks.get(cat) or {}
             level = level_of(k)
-            why.append(labels.get(cat, cat) + {"indirect": " (indirect)", "none": " (not a tie by your rules)"}.get(level, ""))
+            why.append(labels.get(cat, cat) + {"indirect": " (indirect)", "undecided": " (level undecided)",
+                                                "none": " (not a tie by your rules)"}.get(level, ""))
             if k.get("fact"):
                 facts.append(k["fact"])
             if k.get("source_url") and k["source_url"] not in sources:
@@ -1117,7 +1126,8 @@ def excluded_site(site, excluded, companies=()):
 
 
 def decide(env, name, checks, rule_set=None):
-    """(verdict, reasons) from the person's rules: exclude | discuss | allow. A 'warn' reason comes with allow."""
+    """(verdict, reasons) from the person's rules: exclude | discuss | allow. A 'warn' reason comes with allow, and
+    so does an 'ask' reason (a finding whose level is undecided): the person is asked, nothing waits."""
     r = rule_set or rules(env)
     last = decision_for(env, name)
     if last:

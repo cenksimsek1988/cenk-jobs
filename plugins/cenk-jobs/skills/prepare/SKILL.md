@@ -32,6 +32,9 @@ first: a prep written days before goes stale. Example: a prep of 9 Nov names a C
 
 ## Studying with the person
 
+0. **The time first**: check the step's date and time against now, and name the next step and when, so two steps
+   on one day are never mixed up. Example: "Now 09:40. Next: Acme technical interview, today 14:00; then Beta
+   screening call, today 16:30."
 1. **Brief first**, in short sections for a phone: the company (what it sells, size, owners, recent news, with
    sources), the role, the tech stack (one plain line per term), and their strong and weak points for the role, each
    with its evidence. If the research finds something the employer rules exclude, say so.

@@ -150,7 +150,7 @@ def employer_view(env):
                 if k.get("status") != "flagged" or s is None:
                     continue
                 level = k.get("level", "direct")
-                act = s.get("action", "discuss") if level == "direct" else s.get("indirect", "discuss")
+                act = el.act_for(s, level)  # "ask" for an undecided level: neither a wait nor a warning here
                 item = {"label": s.get("label", cat), "level": level, "fact": k.get("fact", ""),
                         "src": k.get("source_url", "")}
                 (asks if act == "discuss" else warns if act == "warn" else []).append(item)

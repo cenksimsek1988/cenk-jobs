@@ -27,6 +27,10 @@ waits on the person.
   Each essay question goes to the Questions page before filling. Ashby keeps no draft, so a form with an essay
   question waits until the person's answer is in the records.
 - Check the employer again if the last check is old (`employer.py check`).
+- Before telling the person a job "only needs a yes", read its tracker status and its `PIPELINE` entry: a job
+  already sent or rejected needs nothing. Example: a form marked ready whose job was rejected two days earlier.
+- Before advising a value for a select field, read the field's own option list; the board's question API gives it
+  without touching the form. Example: a count of 3 is no option where the list starts at 5.
 - A job's prepared answers go stale after the person's later answers: fill the newer answer from the records and
   correct the prepared answers with it. Example: the prep says 6 years of Java, a later answer says 8: fill 8 and
   update the prep.
@@ -49,6 +53,18 @@ waits on the person.
 - A dropdown built from `input[type=button]` keeps the choice in its `value` while its label still reads "Select
   one": read the value, not the label. Eightfold careers sites ignore a plain click on a dropdown option: dispatch
   pointerdown, mousedown, pointerup, mouseup and click on the option element, in that order (`javascript_tool`).
+- Greenhouse, signed in: the candidate profile prefills a stored resume of unknown date and the name in capitals.
+  Replace both on every Greenhouse form: upload the CV the plan chose, type the name as the records write it.
+- Ashby: a React field takes the native value setter, then `input` and `change` events; Yes/No answers are buttons
+  over hidden checkboxes; a radio or checkbox is set by clicking its label. The public posting API answers 403
+  without a browser User-Agent.
+- A form with rank or percentile picks and an evidence text: compare each pick with the numbers in the text and in
+  the records, and say when a pick is above them. Read the hint under a count question before proposing the count.
+  Example: "top 5%" picked while the evidence says 3 of 40.
+- Picks the person asks to make themselves: open the form in their Chrome at that question, name the tab and say
+  which fields are theirs. A notes file is no place to select.
+- A tab in another session's tab group cannot be seen: a form another session filled is filled again by the session
+  that takes it over; say so, do not look for the tab.
 - LinkedIn Easy Apply fills screening answers saved from earlier applications (example: 3 years of a skill, where the
   record says 6): check every prefilled number against the record before Review. Its salary fields take a number
   only: `50000`, not "EUR 50,000 a year" ("Invalid input").
@@ -71,6 +87,12 @@ waits on the person.
   (`questions.py add`, RULES.md "Questions for the person"); a question no option of which is true is asked, never
   ticked.
 - The home address and the birth date only in the form's own fields, never in a file or a message.
+- A contractor pay field, from the person's rates and day counts in their records, by the contract's length: one
+  year or longer, the day rate x the working days of a year / 12 for a month; about six months, the day rate x the
+  working days of a month; no length, or only some hours a day, the hourly rate x the hours. Always round up. A form
+  in another currency: the day's ECB rate
+  (`data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A?lastNObservations=1&format=csvdata`), fetched with
+  `curl` where Python's `urllib` fails the TLS check.
 - A form that waits on the person (RULES.md, "Applications"): stop on that page and put the field in Do now. If
   the step expires (an emailed or SMS code, a CAPTCHA, a Submit waiting for their yes, a sign-in page), send one
   notification at once (RULES.md, "Urgent steps"), "At your PC:" or "From your phone:", and keep the tab open.

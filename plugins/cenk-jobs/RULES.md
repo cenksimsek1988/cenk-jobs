@@ -58,10 +58,10 @@ A skill cannot choose the folder a session starts in, so a session started anywh
   Example: `2026-11-10, apply: a Workday form times out after 15 minutes`.
 - The route of a lesson, an update or a fix: a sub-session sends it to the main session, which writes the line. The
   main session then sends the new lines, each with its line number, in one message to the open session titled
-  "Coordinator · cenk-jobs", else to "Coordinator · workbench"; a line that holds for any plugin is marked general.
-  Neither is open (always so for a person who does not develop the plugin): the file keeps the lines.
+  "Coordinator · workbench"; a line that holds for any plugin is marked general. None is open (always so for a
+  person who does not develop the plugin): the file keeps the lines.
   Example: `Lessons 56 and 57 for cenk-jobs; 57 is general.`
-- A job-search session never starts a session in the plugin's repository: the plugin's coordinator does.
+- A job-search session never starts a session in the plugin's repository: that coordinator does.
 - Only a session opened in the plugin's own repository changes the plugin.
 
 ## Every run: health check and status
@@ -99,8 +99,20 @@ Do now. Then read `RULES/run.md`.
 - An unfinished degree stays unfinished everywhere: "all courses completed; final project not submitted" on CVs and
   letters, never entered as an awarded degree in a form's education section.
 - Every form answer must be true. If no option of a required question is true, ask; if none is true, skip the job.
-- Open free-text questions, essays and self-ratings are the person's: never filled for them; they go to the
-  Questions page (see "Questions for the person").
+- Open free-text questions, essays and self-ratings are the person's: never filled for them unless
+  `draft_answers` (below) is `yes`; they go to the Questions page (see "Questions for the person").
+  - The setting `draft_answers` (the profile's `settings.cenk-jobs`, `profilelib.py get cenk-jobs draft_answers`;
+    unset or `no`: the line above) set to `yes`: Claude writes each open free-text answer in full from the person's
+    records, shows it, and fills it only after their approval or changes. A fact the records do not hold is asked
+    as a specific question, never guessed. A self-rating stays theirs.
+  - An employer that asks candidates not to use AI: the draft is still written, and it opens with one warning line
+    that quotes the employer's rule; the person chooses. Example: "Warning: the posting says 'answers must be your
+    own work, without AI tools'."
+  - A form question on whether AI was used is answered truthfully: Claude drafted, the person edited. A pledge that
+    means "I did not, or will not, use AI" is never ticked by Claude: warn with the policy's words; the tick and
+    the Submit are the person's.
+  - Text the person wrote themselves and asks to have fixed: fix the English and the wording at once, under that
+    one warning line where it applies; never hand back a fact check in its place.
 - Never type a password, a verification code, a card number or a government ID number; never solve a CAPTCHA; never
   create an account. Stop at such a field and tell the person.
 - Guarded items: date of birth, street address, references, criminal record, relatives at the company, health.
@@ -175,12 +187,18 @@ Never read a screenshot, in any browser: no `computer` with `screenshot` or `zoo
   `fetch_jd.py`, the smallest read that answers. Example: `find` "Submit" to click it.
 - A page only a picture can show (a CAPTCHA, a form drawn on a canvas) stops for the person.
 
-Which browser:
-- Applying: Chrome, the only one with `file_upload`, and the person's own sign-ins.
-- Reading and making job alerts: the built-in browser, which needs no Chrome window and keeps its own sign-ins.
-  Reading a page with `read_page` costs less there. Example: 15k characters against 36k for the same posting.
-- A hidden built-in pane has no viewport, so `read_page` with `filter: interactive` returns nothing: use `find` or
-  `get_page_text` there.
+One browser, the person's Chrome, for everything: applying, reading a posting, making a job alert, mail when its
+connector is down. Their sign-ins are there, and a second browser loses them.
+- Never the Claude desktop app's built-in browser pane for a job site, a job board or the person's mail.
+- Chrome has profiles, each with its own sign-ins. `CHROME_PROFILE` in `job-search.env` names the one the job search
+  uses; the extension acts in the profile it is connected in. A page that lives in another profile is named with
+  its profile. Example: "Open the folder in Chrome, profile Work: your Google Drive is signed in there."
+- A step that needs the person in the browser (sign in, type a code, tick a CAPTCHA, press Submit): open the page in
+  Chrome or use the tab already held, rename that tab, and name it in the question with how to find it (Chrome's tab
+  search, Ctrl+Shift+A). The page's address is written as text marked "open in Chrome", never as the only way in:
+  a link clicked in the Claude desktop app opens in the app's own pane, without their sign-ins.
+- The same address goes into the job's to-do (`track.py todo ... link=<address>`); the dashboard shows it as a
+  link, and every sub-session brief and handoff carries it.
 
 ## Dashboard
 

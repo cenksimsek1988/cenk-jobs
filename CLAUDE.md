@@ -7,12 +7,16 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
 ## Owner
 
 - Only a session opened in this repository with cenk-workbench loaded changes the plugin: the session titled
-  "Coordinator · cenk-jobs", started by "Coordinator · workbench", and the sessions it starts. Job-search sessions
+  "Development · cenk-jobs", started by "Coordinator · workbench", and the sessions it starts. Job-search sessions
   never edit here and never start a session here: their main session writes one-line lessons into
   `plugin-lessons.md` in the person's main folder and sends the new lines, with their line numbers, to
-  "Coordinator · cenk-jobs", which applies each with `/cenk-workbench:teach`.
-- "Coordinator · cenk-jobs" keeps the lessons in two groups: the plugin's own, built here; and the general ones
-  (true for any plugin), sent to "Coordinator · workbench" as a brief and never built here.
+  "Coordinator · workbench", which passes the cenk-jobs group to "Development · cenk-jobs"; each is applied with
+  `/cenk-workbench:teach`.
+- Lessons come in two groups: the plugin's own, built here; and the general ones (true for any plugin), which
+  belong to the workbench and are never built here. One that reaches this session directly is kept and named to
+  "Coordinator · workbench" in one line.
+- Every question for Cenk, a plan and a commit go-ahead included, goes to "Coordinator · workbench" in one message;
+  his answer comes back quoted.
 - The job-search folder's `.claude/settings.local.json` denies file edits on this repository (one `Edit(...)` rule, which also covers Write). It does not cover
   edits made through a shell command: `RULES.md` forbids those. The manifest has no workbench dependency: this
   plugin is public, the workbench private.

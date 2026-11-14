@@ -515,6 +515,14 @@ check "two long names that differ only after the cut get two folders" sh -c '[ "
 check "a reserved Windows name gets a writable folder" sh -c '[ -f "$1/apply/employers/NUL-x/checks.json" ]' _ "$H"
 check "no folder name ends in a dot" sh -c '[ -z "$(ls "$1/apply/employers" | grep "[.]$")" ]' _ "$H"
 
+# An undecided level: recorded as such, never a silent direct; the person is asked and the verdict stays.
+check "employer record: a flagged finding without a level is refused" sh -c '
+    ! "$1" -I "$2/employer.py" record "Lambda Co" defence flagged fact="x" source=https://example.com/u0 --env "$3" >"$4" 2>&1 &&
+    grep -q "level=<direct|indirect|undecided>" "$4"' _ "$PY" "$S" "$ENVF" "$T/undec0.out"
+employer record "Lambda Co" defence flagged level=undecided fact="a reseller lists an army as a customer" source=https://example.com/u1 >/dev/null 2>&1
+employer check "Lambda Co" >"$T/undec1.out" 2>&1
+check "employer check: an undecided level leaves the verdict at allow and says ask" sh -c '
+    grep -q "allow" "$1" && grep -q "ask: .*(undecided)" "$1" && ! grep -q "exclude" "$1"' _ "$T/undec1.out"
 # --- employer levels: the plugin's levels, the second check against the person's own rules, running applications ------------
 cp -R "$T/old" "$T/lv"
 use "$T/lv"
@@ -601,8 +609,11 @@ check "recheck-running: a verdict that moved to exclude is listed with its runni
 check "recheck-running: the moved verdict is saved" q "$F" "employers.Acme Corp.verdict" eq exclude
 employer recheck-running >"$T/lv-r4.out" 2>&1
 check "recheck-running: the next run lists it only when it moves again" grep -q "nothing moved" "$T/lv-r4.out"
+employer record "Lambda Two" defence flagged level=undecided fact="an unsettled reseller claim" source=https://example.com/u2 >/dev/null 2>&1
 "$PY" -I "$S/usage.py" report --out "$T/lv-report.json" --env "$ENVF" >/dev/null 2>&1
 "$PY" -I "$S/employer.py" merge --from-checks --into "$T/lv-blacklist.json" --env "$ENVF" >/dev/null 2>&1
+check "an undecided level is never shared: not in the usage report, not in a merge" sh -c '
+    [ -s "$1" ] && [ -s "$2" ] && ! grep -q "unsettled reseller claim" "$1" && ! grep -q "unsettled reseller claim" "$2"' _ "$T/lv-report.json" "$T/lv-blacklist.json"
 check "the second check never leaves the person's files: not in the usage report, not in a merge" sh -c '
     [ -s "$1" ] && [ -s "$2" ] && grep -q "Acme sells" "$1" && grep -q "Acme sells" "$2" && ! grep -q "own_" "$1" && ! grep -q "own_" "$2"' _ "$T/lv-report.json" "$T/lv-blacklist.json"
 cp -R "$T/old" "$T/lv-sync"

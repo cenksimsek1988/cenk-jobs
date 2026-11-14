@@ -19,7 +19,8 @@ Read `../../RULES.md` first. This skill writes the plan into the tracker; it sen
 5. List what only the person can do, per job, as to-do items in the tracker (`track.py todo <id> add <kind>
    "<text>" link=<form>`): sign-ins (`click`), answers and essays (`todo`). Open free-text questions are never
    filled for them.
-6. Propose today's batch: the groups the person can start now. On their OK, `/cenk-jobs:apply` (or the coordinator's
+6. Propose today's batch: the groups the person can start now. A job at an employer where applications already run
+   is listed with them (role, stage, next date), as information: several at one employer may run side by side. On their OK, `/cenk-jobs:apply` (or the coordinator's
    sessions, one per site) takes them. Refresh the dashboard.
 
 ## Report

@@ -48,7 +48,7 @@ A session cannot be moved under a new coordinator: it is reached by message, and
   compare-and-set (`profilelib.py set`, RULES.md "Keep learning about the person"), and its handoff names the key.
 - Never changes the plugin and never starts a session in its repository (RULES.md, "The plugin's own files"): a
   lesson is one line in `plugin-lessons.md`, a sub-session's lesson too, and the new lines go in one message to the
-  session titled "Coordinator · cenk-jobs" when one is open.
+  session titled "Coordinator · workbench" when one is open.
 - Each run: "run started", the handoff check, the shared-list update, `check_setup.py --needs`, the health check, then the pieces of the day (`/cenk-jobs:schedule` lists the order),
   one sub-session per piece; "run finished" and the short report at the end.
 - Each run, before the pieces: read the Questions page's answers and record them (`questions.py record`, RULES.md
@@ -71,6 +71,8 @@ A session cannot be moved under a new coordinator: it is reached by message, and
   lists an invitation the person declined: uncolour it after their yes (RULES/hiring-steps.md, "Calendar").
 - A hiring step that is done: `"done": "<date>"` on its `PIPELINE` step, and what is awaited next as a to-do.
   Example: `track.py todo J1 add waiting "feedback on the take-home"`.
+- A CV rebuilt while forms are filled and not sent: tell every session that holds one to upload the new file again,
+  and to correct the same wording in its essays, before any Submit.
 - "I'm at my PC": list every step waiting at the PC (Urgent to-dos with `"where": "pc"`) and have each session go
   on, one at a time (example: press Submit, so the emailed code arrives now).
 - Watches the Questions page (a new coordinator starts the watch at once, with `ArtifactComments`), so its "Send my answers to Claude" and Discuss messages reach this session: handle
@@ -121,6 +123,9 @@ review page and the go-ahead is forwarded to it by message).
 | Study for one step | `/cenk-jobs:prepare` studying: brief, weak points, practice, with the person. | `study-acme-6nov` |
 | Search sweep | `/cenk-jobs:search`; one row per posting. | `search-2026-11-06` |
 | Essays round | The person studies a site's open questions and writes the answers in their own words; the session gives facts from the record and feedback where the employer's rules allow. Feedback aims at a calm, experienced voice: no essay words, no selling the employer's own product ("I led two migrations like yours", not "I am passionate about your innovative platform"). | `greenhouse-answers` |
+
+With the person's setting `draft_answers` set to `yes`, the essays round drafts each answer in full for their
+approval, and fixes the English of a text they wrote at once (RULES.md, "Honesty and what Claude never does").
 
 An essays round, and every session that drafts answers for a form, checks that the posting is still open at the
 start of the session and again before each round of approvals, not only before filling. Approved answers of a

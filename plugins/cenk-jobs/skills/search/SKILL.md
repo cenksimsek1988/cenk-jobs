@@ -71,13 +71,15 @@ One email alert per saved search, on each site that offers one, so the search is
 - Greenhouse boards offer one per employer ("Create a Job Alert" on a posting): for an employer the person follows.
 - No alert without the person's yes for its site. Never create an account: a site that needs a new one is `alert=no`,
   checked on a schedule.
-- Create it once, signed in, with the site's own alert setting: in the built-in browser when the person has signed
-  in there, else in Chrome. Never through a tick-box on an application form.
+- Create it once, signed in, with the site's own alert setting, in the person's Chrome (RULES.md, "Claude in
+  Chrome"). Never through a tick-box on an application form.
 - Then record it. Example: `searches.py add LinkedIn "Backend engineer, remote" alert=yes
   gmail="from:jobalerts-noreply@linkedin.com newer_than:2d"`. A site with no alerts: `alert=no`.
 
 ## Report
 
 One row per posting, by company and role: where, open or closed, the verdict (apply / ask / excluded / skipped)
-with its reason, the fit, and the account it needs. Then: "/cenk-jobs:plan puts the cleared ones in order."
+with its reason, the fit, and the account it needs. A posting at an employer where the person has applications
+running is shown with them, as information; several at one employer may run side by side. Example: "Acme, Staff
+Engineer · running there: Engineer (interview 18 Nov), Analyst (sent 10 Nov)". Then: "/cenk-jobs:plan puts the cleared ones in order."
 Log it: `usage.py log search ok "<n found, n cleared>"`.

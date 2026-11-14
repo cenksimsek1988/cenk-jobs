@@ -245,7 +245,9 @@ def report():
     employers = []
     for name, entry in sorted(el.merged_entries(env), key=lambda x: x[0]):
         cats = {c: {k: v for k, v in chk.items() if k in ("status", "level", "fact", "source_url", "checked", "basis")}
-                for c, chk in entry.get("checks", {}).items() if chk.get("status") in ("flagged", "clear")}
+                for c, chk in entry.get("checks", {}).items() if chk.get("status") in ("flagged", "clear")
+                # A finding whose level is undecided stays out of a report: only a settled level is shared.
+                and not (chk.get("status") == "flagged" and chk.get("level") == "undecided")}
         row = {"name": name, "verdict": entry.get("verdict", ""), "checks": cats}
         if entry.get("environment"):
             row["environment"] = {k: v for k, v in entry["environment"].items() if k in el.ENVIRONMENT_FIELDS}

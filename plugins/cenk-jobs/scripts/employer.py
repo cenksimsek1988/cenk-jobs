@@ -39,8 +39,11 @@ python -I employer.py split [--apply]                   move each employer's che
                                                         EMPLOYERS_DIR/<name>/ files and write names.json; a dry run
                                                         (counts and bytes) without --apply; with it, a backup first,
                                                         every entry proved equal, and only then the summary replaced
-python -I employer.py record "<name>" <category> <flagged|clear|unknown> [level=direct|indirect] [fact="..."]
-                             [source=<url>] [--person]   write one category result (a flagged one needs source=);
+python -I employer.py record "<name>" <category> <flagged|clear|unknown> [level=direct|indirect|undecided]
+                             [fact="..."] [source=<url>] [--person]
+                                                        write one category result (a flagged one needs source= and
+                                                        level=; undecided: a detailed search could not settle the
+                                                        level, so the person is asked and nothing waits);
                                                         --person: the person stated it themselves, so the employer
                                                         has their opinion and a shared-list update asks first
 python -I employer.py environment "<name>" reviews=<n> [rating=<x>] [scale=5] [complaints="a; b"] [source=<url>]
@@ -129,6 +132,9 @@ def merge(reports, into, only_excluded, only_flagged, only_hits):
             checks = {c: k for c, k in emp.get("checks", {}).items()
                       if c in el.CATEGORIES and k.get("status") in ("flagged", "clear")
                       and (k.get("status") == "clear" or k.get("source_url"))
+                      # Only a settled level is shared: an "undecided" one is one person's open question, and
+                      # a later one would replace a direct finding for everybody.
+                      and (k.get("status") == "clear" or k.get("level", "direct") in el.LEVELS)
                       and (not only_flagged or k.get("status") == "flagged")
                       and (not only_hits or k.get("basis", "hit") == "hit")}
             # A filter on the checks asks for those checks only, so it leaves the employee reviews out too.
@@ -265,9 +271,13 @@ elif cmd == "record":
         sys.exit(f"status must be one of {', '.join(el.STATUSES)}")
     if status == "flagged" and not extra.get("source"):
         sys.exit("a flagged check needs source=<url>")
+    if status == "flagged" and not extra.get("level"):
+        # Never a silent "direct": that would exclude an employer on a level nobody judged.
+        sys.exit(f"a flagged check needs level=<{'|'.join(el.FOUND_LEVELS)}>; undecided asks the person and holds "
+                 "nothing up")
     level = extra.get("level", "direct")
-    if level not in el.LEVELS:
-        sys.exit(f"level must be one of {', '.join(el.LEVELS)}")
+    if level not in el.FOUND_LEVELS:
+        sys.exit(f"level must be one of {', '.join(el.FOUND_LEVELS)}")
     el.record(env, name, {cat: {"status": status, "level": level, "fact": extra.get("fact", ""),
                                 "source_url": extra.get("source", "")}}, person=person_flag)
     print(name, cat, status, level, "(the person's own: a shared-list update asks first)" if person_flag else "")

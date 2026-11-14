@@ -65,7 +65,8 @@ Show the defaults and ask: "Use these defaults? You can change any of them later
 - Your birth date, references, criminal record and relatives at the company: a form asking for one waits for you,
   unless you let forms answer it from your profile (`form_facts`). Example: "let forms answer my birth date" sets
   `settings.cenk-jobs.form_facts` to `["birth_date"]`, after your yes to that key and value. ID numbers never.
-- Open free-text questions, essays and self-ratings are never filled for you: they wait for you on your
+- Open free-text questions, essays and self-ratings are never filled for you (unless you turn on the setting
+  `draft_answers`: then Claude drafts each answer and fills it only after your approval): they wait for you on your
   Questions page, with every other question your records do not answer. Each answer goes into your records, so it
   is asked once.
 - Emails and messages are drafts; you send them.

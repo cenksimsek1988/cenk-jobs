@@ -9,7 +9,8 @@ defence industry, animal cruelty, climate and environmental harm, sexism, human 
 sanctions (the UN Security Council list plus the lists the person follows, in `lists`). The person's own filters are
 extra categories (`"custom": true`). A category counts only with a crime-level problem: credible news from
 established outlets, a court ruling, a fine, a sanctions listing or an official list, each with its source link.
-- **Levels, as found:** a finding is direct or indirect by the plugin's levels for its category (`employer.py rules`
+- **Levels, as found:** a finding is direct, indirect or undecided ("An undecided level", below) by the plugin's
+  levels for its category (`employer.py rules`
   shows them), never by the person's own rules. General: direct = the employer, its group or its majority owner;
   indirect = a minority investor, an investor's other holdings, a partner, a customer, or another firm between them.
   Defence: direct = a defence offering (a defence product line, or a defence sales team or page); indirect = no
@@ -17,6 +18,11 @@ established outlets, a court ruling, a fine, a sanctions listing or an official 
   to anyone is no tie (`clear`, with that fact). Police belong to a state category.
   A new fact that removes a finding's basis re-judges its level. Example: "indirect, not used by armed forces", then
   the employer's own page names armed forces as users: direct.
+- **An undecided level:** when a detailed search leaves a finding open between direct and indirect, record it as
+  `level=undecided` with what is missing in its fact, never as direct. It excludes nothing and holds nothing up: the
+  Questions page asks the person "Allow, or exclude?", and the search and the applications go on meanwhile.
+  `employer.py record ... flagged` without `level=` is refused. Example: `employer.py record "Acme" defence flagged
+  level=undecided fact="a reseller lists an army as a customer; Acme's own pages name none" source=<url>`.
 - **The person's own rules** for a category are its `notes` in `EMPLOYER_RULES`. Example: "a defence product offered
   in a state, with no customer named, counts as sold to its armed forces". A finding in a category with notes gets a
   second check against them: `own_level` direct, indirect or none (not counted), with the rule it meets, beside the
@@ -46,6 +52,8 @@ established outlets, a court ruling, a fine, a sanctions listing or an official 
      itself or through a reseller; a minority investor, an investor's other holdings, or another firm between it and
      the state. No tie: self-service users from the state (a portal anyone signs up to).
   For a small or new brand, find the parent or majority owner first (company registry, the site's legal notice).
+  When the person discusses whether a state tie is acceptable, offer state lists as options: their own country's,
+  the EU's, the UN's, or another they name. Their choice goes into that category's `lists`.
   Nothing found after both steps is recorded as `unknown` with the fact "nothing found: <what was checked>", never
   `clear`.
 - **Sanctions:** a name check of the employer, its group and its owner on the lists the person follows (`lists`). No
@@ -62,7 +70,7 @@ established outlets, a court ruling, a fine, a sanctions listing or an official 
 - When a category says discuss, the employer goes to the Questions page ("Allow, or exclude?") with what was found and its
   source; `questions.py record` writes the answer with `employer.py decide "<name>" <exclude|allow> [<category>]`.
 - A category not checked stays "unknown"; never write "clear" without having looked.
-- Record every finding as found, direct or indirect, whatever the person decides: a decision never turns a finding
+- Record every finding as found, direct, indirect or undecided, whatever the person decides: a decision never turns a finding
   into "clear", and never changes its category or level. The shared list holds findings only (category, level,
   fact, source); decisions, settings and `own_level` stay in the person's own files. The shared blacklist keeps every sourced finding, so each person's own rules decide. The plugin's
   developer merges their own findings with `employer.py merge --from-checks`; everyone else's reach it through the

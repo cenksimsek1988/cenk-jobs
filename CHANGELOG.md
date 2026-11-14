@@ -6,6 +6,45 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.31.0] - 2026-11-14
+
+An undecided finding asks the person instead of excluding; one browser, the person's Chrome; answers drafted for
+approval when the person allows it; lessons from applying, preparing and employer checks.
+
+### Added
+
+- A finding's level may be `undecided` (`employer.py record ... flagged level=undecided`, and the screen agents):
+  a detailed search could not settle direct or indirect. It excludes nothing and holds nothing up: the Questions
+  page asks "Allow, or exclude?", and the search and the applications go on meanwhile.
+- The setting `draft_answers` (the profile's `settings.cenk-jobs`, off by default): with `yes`, Claude writes each
+  open free-text answer in full from the person's records, shows it and fills it only after their approval. An
+  employer's no-AI rule opens the draft as one warning line; a question on AI use is answered truthfully; a "no AI"
+  pledge is never ticked by Claude.
+- `CHROME_PROFILE` in `job-search.env`: the Chrome profile the job search uses; a page in another profile is named
+  with its profile.
+
+### Changed
+
+- `employer.py record ... flagged` without `level=` is refused (it was saved as direct, which could exclude an
+  employer on a level nobody judged). An undecided finding never enters the shared blacklist (`employer.py
+  merge`) or a usage report.
+- One browser: every job site, job board, alert and the mail fallback in the person's Chrome; never the Claude
+  desktop app's built-in browser pane (reading and job alerts used it). A browser step names the held tab and how
+  to find it; its address is text marked "open in Chrome", and the same address is the to-do's link.
+- Lessons: the main session sends new `plugin-lessons.md` lines to the session titled "Coordinator · workbench"
+  (0.30.0 named "Coordinator · cenk-jobs" first).
+- Apply: read a job's status and pipeline before saying it only needs a yes; read a select field's own options
+  before advising a value; replace the stored resume and the capitalised name on every Greenhouse form; Ashby's
+  field handling; rank and percentile picks are compared with the evidence text and the records; picks the person
+  makes themselves are made in the form, in a named tab; a form in another session's tab group is filled again;
+  contractor pay by the contract's length, rounded up, at the day's ECB rate.
+- Coordinate: a rebuilt CV is uploaded again by every session that holds a filled form, before any Submit.
+- Prepare: the step's date and time are checked against now first, and the next step is named with its time.
+- Plan and search: a posting at an employer where applications already run is shown with them, as information;
+  several at one employer may run side by side.
+- Employers: state lists (the person's country's, the EU's, the UN's, another) are offered as options for a state
+  tie.
+
 ## [0.30.0] - 2026-11-14
 
 The dashboard shows only what the person does, lists the sessions in the order to answer them, and every export says

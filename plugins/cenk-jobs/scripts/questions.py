@@ -148,7 +148,9 @@ def asks(tracker, pipeline):
             out[company]["jobs"].append(job["id"])
             continue
         checks = el.lookup(env, company, facts="flagged")
-        if el.decide(env, company, checks, rule_set)[0] != "discuss":
+        verdict, reasons = el.decide(env, company, checks, rule_set)
+        # "ask": a finding whose level nobody could settle. The verdict stays, so its jobs go on while this waits.
+        if verdict != "discuss" and not (verdict == "allow" and any(r.startswith("ask: ") for r in reasons)):
             continue
         found = []
         for cat, k in checks.items():
@@ -156,7 +158,7 @@ def asks(tracker, pipeline):
             if k.get("status") != "flagged" or s is None:
                 continue
             level = el.level_of(k)  # the second check's own level when there is one
-            if level != "none" and el.act_for(s, level) == "discuss":
+            if level != "none" and el.act_for(s, level) in ("discuss", "ask"):
                 found.append({"cat": cat, "label": s.get("label", cat), "level": level, "fact": k.get("fact", ""),
                               "source": k.get("source_url", "")})
         if found:
@@ -270,7 +272,10 @@ elif args[0] == "build":
         if not q or q["status"] != "open":
             q = qs[qid] = {"kind": "decision", "status": "open", "asked": today}
         q.update(text=f"Allow {company}, or exclude?", employer=company, category=a["cat"],
-                 category_label=a["label"], detail=f"{a['label']} ({a['level']}): {a['fact']}{more}",
+                 category_label=a["label"],
+                 detail=f"{a['label']} ({a['level']}): {a['fact']}{more}"
+                        + (" The level could not be settled; your applications there go on meanwhile."
+                           if a["level"] == "undecided" else ""),
                  source=a["source"], jobs=sorted(set(q.get("jobs", [])) | set(a["jobs"])))
     # A decision nobody needs any more (decided elsewhere, or its jobs went): dropped, with the date.
     for qid, q in qs.items():

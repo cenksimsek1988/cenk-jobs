@@ -121,13 +121,17 @@ only after your yes to its key and value, also one you asked for:
 | Setting | Default | Example |
 |---|---|---|
 | `form_facts` | none: each waits for you | `["birth_date"]`: forms answer your birth date from your profile. Allowed: `birth_date`, `address`, `references`, `criminal_record`, `relatives`, `health` |
+| `draft_answers` | `no`: open free-text answers are yours to write | `yes`: Claude writes each open free-text answer from your records and fills it only after your approval |
+
+In `job-search.env`, `CHROME_PROFILE` names the Chrome profile your job search uses, when you have more than one.
 
 ## Employer rules and the shared blacklist
 
 Before anything is prepared, each employer is checked in eight categories: ties to the state of Israel, defence
 industry, animal cruelty, climate and environmental harm, sexism, human rights, working conditions and sanctions. A
 category counts only with a crime-level problem shown by credible news, a ruling, a fine, a sanctions listing or an
-official list, with its source. Each finding is direct or indirect by the plugin's levels for its category; your own
+official list, with its source. Each finding is direct or indirect by the plugin's levels for its category (one a
+detailed search cannot settle is undecided: you are asked, and nothing waits on it); your own
 rules for a category (its notes) get a second check on each finding there.
 
 - The default for every category is **discuss**: Claude shows you what it found and you decide, allow or exclude.
