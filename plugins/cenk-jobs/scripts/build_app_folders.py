@@ -327,7 +327,8 @@ for company, job in companies(data):
                 write(fb, FEEDBACK.format(step=step.get("name", "Step"), company=company["name"], when=when,
                                           who=f"{FIRST_NAME}'s" if FIRST_NAME else "the person's",
                                           with_=step.get("with", ""), how=step.get("how", "")))
-            have = [f for f in ("prep.md", "prep.pdf", "cheat-sheet.md", "cheat-sheet.pdf", "feedback.md")
+            have = [f for f in ("prep.md", "prep.pdf", "cheat-sheet.md", "cheat-sheet.pdf", "cheat-sheet-wide.html",
+                              "feedback.md")
                     if os.path.isfile(os.path.join(path, sf, f))]
             links = [f'[{f.replace(".md", "")}](<{sf}/{f}>)' for f in have]
             # The step's own page (meeting, test, booking) and the email that set it.

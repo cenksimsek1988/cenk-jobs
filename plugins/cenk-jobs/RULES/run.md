@@ -103,6 +103,7 @@ employers**, **Hiring steps** and **All applications**, under the total count an
 | `career_view.py` | one part of the master record: screen (rules and decisions), facts (what a letter or form may use, with the profile's person facts but no address, birth date, private answers or contacts) |
 | `profilelib.py` | the person's profile: path, get, set (compare-and-set), erase, create; exit 3 when it holds another value; a key under `settings` only with `--yes`, after the person's yes |
 | `move_to_profile.py` | once: moves the person's facts from the master record and the old private record into the profile (dry run, `--apply`, `--confirm <key>`, then `--remove-old` after the person's OK) |
+| `cheat_sheet.py` | a step's cheat-sheet.md as one page for the call (`cheat-sheet-wide.html`), opened in Chrome |
 | `searches.py` | saved searches: add, list, due (on a weekday for a site without an alert), done, sites (the tracker's sites with no saved search), seen (is a posting new) |
 | `questions.py` | questions for the person: add, list, build (the Questions page's files), record (answers into the records) |
 | `employer.py` | employer checks: check (`--full`), record, environment, decide, alias (`--not`), split (`--apply`), repair-clear, import-tracker, merge |

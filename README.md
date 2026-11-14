@@ -17,6 +17,7 @@ installs on its own). Skills:
 | `cenk-jobs:plan` | putting the applications in order, with the CV and letter for each: "what should I apply to today?" |
 | `cenk-jobs:apply` | filling and sending applications, on their own or after your go-ahead (`APPLY_MODE`): "apply to these jobs" |
 | `cenk-jobs:prepare` | interviews and hiring steps: "prepare my interview", "let's practise" |
+| `cenk-jobs:cheat-sheet` | your keyword cheat sheet as one page beside a call: "open my cheat sheet" |
 | `cenk-jobs:schedule` | the scheduled run: "run it on weekdays at 19:00", "run it every day", "stop the daily run" |
 
 It also understands other languages, for example "iş arıyorum", "cerco lavoro", "Jobsuche", "buscar trabajo".
@@ -177,7 +178,7 @@ plugins/cenk-jobs/.claude-plugin/plugin.json
 plugins/cenk-jobs/RULES.md               the router every skill reads first, with the safety rules
 plugins/cenk-jobs/RULES/                 the parts of the rules, by audience
 plugins/cenk-jobs/agents/                one short tool list and model per workflow stage
-plugins/cenk-jobs/skills/<name>/SKILL.md setup, coordinate, search, plan, apply, prepare, schedule
+plugins/cenk-jobs/skills/<name>/SKILL.md setup, coordinate, search, plan, apply, prepare, cheat-sheet, schedule
 plugins/cenk-jobs/scripts/               check_setup, init_career_folder, build_cv, make_letter_pdf, track,
                                          logins, build_app_folders, fetch_jd, export_dashboard, jsenv (reads
                                          job-search.env), trackerlib (shared tracker reading), employer and

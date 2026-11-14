@@ -7,7 +7,7 @@ description: "The main job-search session: owns the records, dashboard and decis
 
 Read `../../RULES.md` first: its rules (honesty, consents, never an ID number, password, verification code or
 CAPTCHA, `APPLY_MODE` for applications, drafts for emails) hold in every session, the coordinator's and its
-sub-sessions'. The work itself follows the other skills: `search`, `plan`, `apply`, `prepare`, `schedule`. A person
+sub-sessions'. The work itself follows the other skills: `search`, `plan`, `apply`, `prepare`, `cheat-sheet`, `schedule`. A person
 who has not set up yet starts with `/cenk-jobs:setup`.
 
 ## First: the main folder and the title

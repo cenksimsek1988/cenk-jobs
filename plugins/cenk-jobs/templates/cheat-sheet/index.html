@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>__TITLE__</title>
+<style>
+  :root { color-scheme: light dark; --fg: #1a1a1a; --muted: #5c5c5c; --bg: #fff; --line: #d6d6d6; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #ececec; --muted: #a8a8a8; --bg: #161616; --line: #3a3a3a; } }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--fg); font: 16px/1.3 system-ui, "Segoe UI", sans-serif; overflow: hidden; }
+  #sheet { box-sizing: border-box; height: 100vh; padding: 0.5em 0.8em; display: flex; flex-direction: column; }
+  .top { display: flex; flex-wrap: wrap; gap: 0 1em; align-items: baseline; border-bottom: 1px solid var(--line);
+         padding-bottom: 0.3em; margin-bottom: 0.4em; }
+  .top b { font-size: 1.1em; }
+  .top a { color: inherit; }
+  .top .size { margin-left: auto; color: var(--muted); font-size: 0.8em; }
+  .grid { flex: 1; min-height: 0; column-count: __COLUMNS__; column-gap: 1.2em; column-fill: auto; }
+  .block { break-inside: avoid; margin: 0 0 0.6em; }
+  .block h2 { font-size: 1em; margin: 0 0 0.15em; border-bottom: 1px solid var(--line); }
+  .block p { margin: 0; }
+</style>
+</head>
+<body>
+<div id="sheet">
+  <div class="top">__TOP__<span class="size" id="size"></span></div>
+  <div class="grid" id="grid">
+__BLOCKS__
+  </div>
+</div>
+<script>
+// The text shrinks until the page fits its window without scrolling, and the size is shown in the top line.
+// A column layout that overflows grows sideways, so both directions are measured.
+(function () {
+  var sheet = document.getElementById('sheet'), grid = document.getElementById('grid'), out = document.getElementById('size');
+  function fits() {
+    return grid.scrollWidth <= grid.clientWidth + 1 && sheet.scrollHeight <= window.innerHeight + 1;
+  }
+  function fit() {
+    var size = 22;
+    document.body.style.fontSize = size + 'px';
+    while (size > 6 && !fits()) { size -= 0.5; document.body.style.fontSize = size + 'px'; }
+    out.textContent = 'text ' + size + 'px' + (fits() ? '' : ' (still too long: shorten the sheet)');
+  }
+  window.addEventListener('resize', fit);
+  fit();
+})();
+</script>
+</body>
+</html>

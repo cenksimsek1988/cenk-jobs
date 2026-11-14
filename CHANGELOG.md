@@ -6,6 +6,24 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.32.0] - 2026-11-14
+
+A hiring step's keyword cheat sheet as one page beside the call.
+
+### Added
+
+- The skill `cheat-sheet` and `cheat_sheet.py <job id> [step=<n>] [spot=top|bottom|left|right|corner] [--open]`:
+  writes `cheat-sheet-wide.html` in the step's folder from its `cheat-sheet.md` (a heading starts a block, every
+  other line is a keyword line) and opens it in a new Chrome window. Columns by the spot: top or bottom half 3, a
+  side 1, a corner 2. The top line holds the step, the employer, the date and the call link from `PIPELINE`. The
+  page shrinks its own text until it fits the window without scrolling (down to 6px) and shows the size.
+- `CHEAT_SHEET_SPOT` in `job-search.env`: the spot, asked once and written by `cheat_sheet.py`.
+
+### Changed
+
+- `build_app_folders.py` lists `cheat-sheet-wide.html` with a step's other files; `prepare` offers the page before a
+  call.
+
 ## [0.31.0] - 2026-11-14
 
 An undecided finding asks the person instead of excluding; one browser, the person's Chrome; answers drafted for

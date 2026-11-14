@@ -1580,9 +1580,9 @@ check "export after --uploaded: only the changed files are to upload" sh -c '
     grep "^upload:" "$1" | grep -q "actions.json" && ! grep "^upload:" "$1" | grep -q "logins.json" &&
     grep "^unchanged:" "$1" | grep -q "logins.json" && grep "^unchanged:" "$1" | grep -q "excluded.json"' _ "$T/up2.out"
 
-# The two pages: each one's script must parse (node --check); without node the check is skipped, and says so.
+# The pages: each one's script must parse (node --check); without node the check is skipped, and says so.
 if command -v node >/dev/null 2>&1; then
-    for page in dashboard questions; do
+    for page in dashboard questions cheat-sheet; do
         "$PY" -I -c 'import re, sys; open(sys.argv[2], "w", encoding="utf-8").write(re.search(r"<script>(.*)</script>", open(sys.argv[1], encoding="utf-8").read(), re.S).group(1))' \
             "$S/../templates/$page/index.html" "$T/page-$page.js"
         check "templates/$page/index.html: the page's script parses" node --check "$T/page-$page.js"
@@ -1590,6 +1590,40 @@ if command -v node >/dev/null 2>&1; then
 else
     echo "SKIP the pages' scripts: node not found"
 fi
+
+# --- the cheat-sheet page -----------------------------------------------------------------------------------------------
+cheat() { "$PY" -I "$S/cheat_sheet.py" "$@" --env "$ENVF"; }
+check "cheat_sheet: without a cheat-sheet.md it says who writes it" sh -c '
+    ! "$1" -I "$2/cheat_sheet.py" D1 --env "$3" >"$4" 2>&1 && grep -q "no cheat-sheet.md for step 2 of D1" "$4"' _ "$PY" "$S" "$ENVF" "$T/cs0.out"
+CSDIR=$(ls -d "$H"/job-applications/approved/*"Acme Corp - Engineer"/02\ * | head -n 1)
+cat >"$CSDIR/cheat-sheet.md" <<'EOF'
+# Numbers
+- 12 engineers, **3 teams**
+- <uptime> 99.9
+
+## Stack
+Java 21, Kafka
+EOF
+cheat D1 >"$T/cs1.out" 2>&1
+check "cheat_sheet: the next open step, three columns by default, blocks and lines counted" sh -c '
+    grep -q "cheat-sheet-wide.html$" "$1" && grep -q "^step 2: Online test.* | spot top, 3 columns | 2 blocks, 3 lines" "$1"' _ "$T/cs1.out"
+check "cheat_sheet: the page holds the blocks, bold, escaped text, the columns and the email-free top line" sh -c '
+    grep -q "column-count: 3" "$1" && grep -q "<h2>Numbers</h2>" "$1" && grep -q "<b>3 teams</b>" "$1" &&
+    grep -q "&lt;uptime&gt; 99.9" "$1" && grep -q "<p>Java 21, Kafka</p>" "$1" && grep -q "<b>Online test</b>" "$1" &&
+    ! grep -q "__[A-Z]*__" "$1" && ! grep -q "mail.example.com" "$1"' _ "$CSDIR/cheat-sheet-wide.html"
+cheat D1 spot=corner >"$T/cs2.out" 2>&1
+check "cheat_sheet spot=: two columns in a corner, and the spot is kept in job-search.env" sh -c '
+    grep -q "column-count: 2" "$1" && grep -q "^CHEAT_SHEET_SPOT=corner$" "$2"' _ "$CSDIR/cheat-sheet-wide.html" "$ENVF"
+cheat D1 >"$T/cs3.out" 2>&1
+check "cheat_sheet: the kept spot is used the next time" grep -q "spot corner, 2 columns" "$T/cs3.out"
+printf '# __BLOCKS__ and __TOP__\n- a line with __COLUMNS__\n' >"$CSDIR/cheat-sheet.md"
+cheat D1 >/dev/null 2>&1
+check "cheat_sheet: a line that holds a placeholder's text is shown as it is" sh -c '
+    grep -q "<h2>__BLOCKS__ and __TOP__</h2>" "$1" && grep -q "<p>a line with __COLUMNS__</p>" "$1" &&
+    [ "$(grep -c "class=\"block\"" "$1")" -eq 1 ]' _ "$CSDIR/cheat-sheet-wide.html"
+check "cheat_sheet: an unknown spot is refused" sh -c '! "$1" -I "$2/cheat_sheet.py" D1 spot=middle --env "$3" >/dev/null 2>&1' _ "$PY" "$S" "$ENVF"
+sed '/^CHEAT_SHEET_SPOT=/d' "$ENVF" >"$T/env.tmp" && cp "$T/env.tmp" "$ENVF"
+rm -f "$CSDIR/cheat-sheet.md" "$CSDIR/cheat-sheet-wide.html"
 
 # --- review fixes ----------------------------------------------------------------------------------------------------
 track add J9 "Acme Corp" "Engineer" "https://boards.example.com/acme/jobs?gh_jid=111" >/dev/null 2>&1

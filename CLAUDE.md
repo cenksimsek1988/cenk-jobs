@@ -1,6 +1,6 @@
 # cenk-jobs
 
-The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply`, `prepare`, `schedule`), with its own one-plugin catalog
+The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply`, `prepare`, `cheat-sheet`, `schedule`), with its own one-plugin catalog
 `cenk-jobs`. Generic code and instructions only. The public catalog `cenk` is the repository
 `cenksimsek1988/claude-plugins`, which lists cenk-jobs (since its catalog 0.2.0, 6 Nov 2026).
 
