@@ -71,7 +71,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jsenv  # noqa: E402
 import sessions as sl  # noqa: E402
-from trackerlib import (ENDED_STATUS, ISO_DATE, employer_link, ended, flat_jobs, login_of, no_pay,  # noqa: E402
+from trackerlib import (ENDED_STAGE, ENDED_STATUS, ISO_DATE, employer_link, ended, flat_jobs, login_of, no_pay,  # noqa: E402
                         pipeline_entry, step_done, waits_on_person)
 
 # "Closed": the position closed or was filled (not a rejection); "Declined": the person said no.
@@ -530,11 +530,13 @@ def build(env, now):
                             "text": short(job.get("outcome") or (job.get("needs") or [""])[0] or job.get("note", ""), 240),
                             "link": job_links.get(job["id"], ""), "due": "", "since": ""})
     # Without questions.py's file (no Questions page yet): an employer the person's rules leave to them ("discuss")
-    # gets a Question row here; with it, build already put that employer on the page.
+    # gets a Question row here once it has answered (a job of it in PIPELINE that has not ended), as questions.py
+    # build asks; with the file, build already put that employer on the page.
     asked = set()
     for job in [] if os.path.exists(qpath) else jobs:
         company = job.get("company", "")
-        if job.get("status") in DONE or company in asked or job["id"] in pipeline:
+        entry = pipeline_entry(pipeline, job["id"]) if job["id"] in pipeline else {}
+        if company in asked or not entry or entry.get("stage") in ENDED_STAGE or job.get("status") in DONE[1:]:
             continue
         verdict, asks, _ = view(company)
         if verdict != "discuss" or not asks:

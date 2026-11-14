@@ -106,6 +106,9 @@ employers**, **Hiring steps** and **All applications**, under the total count an
 | `profilelib.py` | the person's profile: path, get, set (compare-and-set), erase, create; exit 3 when it holds another value; a key under `settings` only with `--yes`, after the person's yes |
 | `move_to_profile.py` | once: moves the person's facts from the master record and the old private record into the profile (dry run, `--apply`, `--confirm <key>`, then `--remove-old` after the person's OK) |
 | `cheat_sheet.py` | a step's cheat-sheet.md as one page for the call (`cheat-sheet-wide.html`), opened in Chrome |
+| `collect_postings.py` | new postings from every saved search a script can read (job board APIs, LinkedIn's guest search), without a model; `--add` puts them in the tracker with `found_by` |
+| `variants.py` | the run's variant (model and effort per step), its models for the workflow, and each run's good-fit count |
+| `token_report.py` | tokens per run and per agent kind from this computer's transcripts; numbers only, sends nothing |
 | `searches.py` | saved searches: add, list, due (on a weekday for a site without an alert), done, sites (the tracker's sites with no saved search), seen (is a posting new) |
 | `questions.py` | questions for the person: add, list, build (the Questions page's files), record (answers into the records) |
 | `employer.py` | employer checks: check (`--full`), record, environment, decide, alias (`--not`), split (`--apply`), repair-clear, import-tracker, merge |

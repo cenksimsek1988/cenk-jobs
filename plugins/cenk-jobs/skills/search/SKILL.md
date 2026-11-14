@@ -12,8 +12,11 @@ tracker, and nothing is prepared or sent.
 
 1. Read the person's rules from the master record: where they will work (cities, remote, relocation), the pay
    rule, the roles they want, the languages they work in, and `EMPLOYER_RULES`.
-2. `searches.py due` lists the saved searches due today: a run reads only these, never every site again. With none
-   saved it says so: create them first ("Saved searches"). For each, the cheapest source that covers it, in this order.
+2. First `collect_postings.py --out <outDir>/search.json --add`: every due search a script can read (method
+   `script`: a job board's public API, LinkedIn's guest search) without a model; it adds the new postings to the
+   tracker with `found_by`. Then `searches.py due` for the rest (method `agent`): a run reads only these, never every
+   site again. With none saved it says so: create them first ("Saved searches"). For each, the cheapest source that
+   covers it, in this order.
    Keep only postings that match the roles and the location rule; drop what the tracker has (`searches.py seen --file
    <links file>`, one link per line, never typed into a command).
    - Alert emails: Gmail `search_threads` with the row's `gmail` query, `pageSize` 10; open only messages newer than
@@ -28,24 +31,26 @@ tracker, and nothing is prepared or sent.
      in the tracker. Example: last check 6 Nov; the list reaches a posting of 5 Nov: stop there.
    - A browser last, only for a search nothing else covers. Read each page with `find`, `read_page` or `get_page_text`; never a screenshot
      (RULES.md, "Claude in Chrome").
-   After each: `searches.py done <id> found=<n>`. A posting's date comes from the employer's board, since a job
+   After each: `searches.py done <id> found=<n>`; each posting an agent finds is added with `found_by=agent:<source>`.
+   A source an agent found that has no alert: check whether a script can read it (a public board API, a plain page);
+   if so, add it as a script row (`searches.py add ... source=<kind> board=<name>`), so the script's share grows. A posting's date comes from the employer's board, since a job
    board's card dated this week is often a repost: `first_published` (Greenhouse), `publishedAt` (Ashby),
    `createdAt` (Lever).
-3. Check each employer: `employer.py check "<name>" ...`. "exclude": record the job as `excluded` with its category.
-   An "allow" employer whose `unknown` lists israel or defence goes to the screen too: in step 4, without `known`.
-   A `recheck` list (a second check against the person's own rules is due) sends it to step 4 with `known` and
-   `own` (those categories), before any question about it.
-   "discuss": the employer goes to the Questions page with what was found and its source (`questions.py`, RULES.md
-   "Questions for the person"); its jobs wait for the answer. Not excluded and `has_environment` is false: look up its
-   employee reviews once (RULES.md, "Employer rules").
+3. Look up each employer without a model: `employer.py check "<name>" ...`. "exclude": record the job as `excluded`
+   with its category; nothing else stops. A `recheck` list (a second check against the person's own rules is due)
+   sends it to step 4 with `screen: true`, `known` and `own` (those categories); so does a recorded finding still to
+   judge. Unknown, warn and "discuss" go to step 4 without a screen: the funnel checks fit first, and the person is
+   asked about a "discuss" employer only once it answers (RULES/employers.md). Not excluded and `has_environment` is
+   false: look up its employee reviews once, after a posting fits (RULES.md, "Employer rules").
    `match` "possible" is "discuss" until Claude settles it: after the company register or the site's legal notice,
    `employer.py alias "<saved name>" "<name>"` (same employer) or `alias --not "<saved name>" "<name>"` (different);
    unsure: the job waits (`track.py set <id> needs-person`) and the main session asks the person in the chat, since
    `questions.py add decision` needs a category. Example: "Examplia" against the saved "Examplia Internet GmbH".
-4. Screen the rest with `workflows/screen-and-prepare.js` (Workflow tool): pass the search file, `known` (the checks
+4. The funnel, `workflows/screen-and-prepare.js` (Workflow tool): the fit check first; the employer check only for
+   an employer passed with `screen: true` and a posting that fits; then the form answers, the letter and the review.
+   Pass `models` (`variants.py models`), `draftAnswers` (the setting `draft_answers`), the search file, `known` (the checks
    from step 3), `employerRules` (the output of `employer.py rules`), the master record and its two parts (`career_view.py screen --out <outDir>/screen.json` as `screenRecord`, `career_view.py facts --out
-   <outDir>/facts.json` as `factsRecord`; both are deleted after `track.py sync`). It checks every category, is the
-   posting still open, the employer's own apply page (`apply_url`, checked by fetching it), the fit and the pay.
+   <outDir>/facts.json` as `factsRecord`; both are deleted after `track.py sync`).
    Then `track.py sync <journal>`, and `employer.py recheck-running` (RULES/employers.md, "Running applications").
 5. Record every finding as found (RULES.md, "Employer rules"). Postings that closed: `track.py set <id> closed`.
 6. `build_app_folders.py` and the dashboard refresh.

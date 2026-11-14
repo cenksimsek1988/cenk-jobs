@@ -71,10 +71,13 @@ A session cannot be moved under a new coordinator: it is reached by message, and
   notification. At the end of each run, one notification for deadlines today or tomorrow.
 - Each run, after the health check: the calendar check (RULES/hiring-steps.md, "Calendar"). After each dashboard
   refresh: every `check:` line of the export is fixed, or named in the run report (RULES/run.md, "Dashboard").
-- Each run, after the last refresh: open the dashboard in the browser and read every tab against the records (Do
-  now, Sessions, Calendar, Logins, Excluded employers, Hiring steps, All applications, and the header's run line).
-  What differs is fixed in the records and exported again, or named in the run report. Example: the Calendar tab
-  lists an invitation the person declined: uncolour it after their yes (RULES/hiring-steps.md, "Calendar").
+- The dashboard is checked by `export_dashboard.py --check`, not by reading its tabs: a page is opened only when a
+  check line names something the page shows wrong, or the person reports one. The Calendar tab is compared by the
+  calendar check (RULES/hiring-steps.md, "Calendar").
+- Variants (`variants.py`, off unless the person turned them on): at "run started", `variants.py current` names the
+  run's variant; log it (`usage.py log run started "<how>" variant=<name>`) and pass `variants.py models` to the
+  workflow. The run report's last line: `token_report.py --days 1` for the run's W, and, from the run 7 days back,
+  `variants.py count`.
 - A hiring step that is done: `"done": "<date>"` on its `PIPELINE` step, and what is awaited next as a to-do.
   Example: `track.py todo J1 add waiting "feedback on the take-home"`.
 - A CV rebuilt while forms are filled and not sent: tell every session that holds one to upload the new file again,

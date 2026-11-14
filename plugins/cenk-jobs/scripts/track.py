@@ -45,13 +45,16 @@ submitted "sent"` prints "dropped 2 to-dos: approve the letter; press Submit". A
 is its "outcome". Add --env <job-search.env> anywhere to pick the env file.
 
 sync also applies the person's employer-rule categories (EMPLOYER_RULES, see employer.py) to each employer's category
-checks: an "exclude" category excludes it, a "discuss" category sets its verdict to "discuss" (nothing is
-prepared until the person decides with employer.py decide), and the checks are written to EMPLOYER_CHECKS. A
+checks: an "exclude" category excludes it, a "discuss" category sets its verdict to "discuss" (its jobs are
+prepared and sent like any other; the person decides only if the employer answers with a hiring step), and the
+checks are written to EMPLOYER_CHECKS. An employer the run did not screen keeps its verdict, and its prepared jobs
+are attached: only an excluded employer stops. A
 second check against the person's own rules (own: excl-own:) adds own_level beside its finding, and the verdict uses it.
 sync reads workflow journals (rows {type: started, agentId, label} and {type: result, agentId, result}); an agent's
 label is "<kind prefix><company name, maybe cut short>". By default the kinds are the ones workflows/
 screen-and-prepare.js writes (exclusion: excl-judge:, excl-verify:, excl-screen:; own: excl-own:; prep: prep-jobs:,
-whose result may be the path of the JSON file the agent wrote). Older runs, search-result files to merge and per-company decisions
+whose result may be the path of the JSON file the agent wrote, then prep-fit:, the fit check alone, used when no
+file was written because no job fitted). Older runs, search-result files to merge and per-company decisions
 come from the "sync" part of the TRACKER_SETTINGS file (see templates/tracker-settings-example.json).
 """
 import ast
@@ -263,7 +266,7 @@ def sync(journals):
     refuters = labels.get("refute", [])
     # The defaults are the labels workflows/screen-and-prepare.js gives its agents: the judge's verdict when the two
     # checks disagreed, else the second check's, else the first's.
-    preps = labels.get("prep", ["prep-jobs:"])
+    preps = labels.get("prep", ["prep-jobs:", "prep-fit:"])
     exclusions = labels.get("exclusion", ["excl-judge:", "excl-verify:", "excl-screen:"])
     owns = labels.get("own", ["excl-own:"])  # the second check against the person's own rules (their notes)
     refute_also = set(rules.get("refute_incomplete", []))
@@ -305,10 +308,10 @@ def sync(journals):
             # The records keep the verdict from the findings alone; the "discuss" of a due check only holds the jobs.
             el.record(env, name, verdict=el.decide(env, name, found)[0])
             company["verdict"] = by_rules
-            if by_rules == "allow":
-                attach_prep(company, newest(done, name, preps))
-            else:
+            if by_rules != "allow":
                 company["rule_reasons"] = reasons
+            if by_rules != "exclude":
+                attach_prep(company, newest(done, name, preps))
             continue
         if x and x.get("checks"):
             # One result per category: the deciding check's, filled from the first check's for categories it left out.
@@ -328,10 +331,13 @@ def sync(journals):
             if env.get("EMPLOYER_CHECKS"):
                 el.record(env, name, checks, verdict="exclude" if x.get("verdict") == "exclude" else saved)
             if x.get("verdict") != "exclude" and by_rules in ("exclude", "discuss"):
-                # The person's category settings: "exclude" excludes, "discuss" waits for their decision (no preparing).
+                # The person's category settings: "exclude" excludes; "discuss" goes on like a warning, and the
+                # person decides only if the employer answers with a hiring step.
                 company["verdict"] = by_rules
                 company["rule_reasons"] = reasons
                 company[ties_key(x)] = x.get(ties_key(x), [])
+                if by_rules == "discuss":
+                    attach_prep(company, newest(done, name, preps))
                 continue
         if x and x.get("verdict") == "exclude":
             company["verdict"] = "exclude"
@@ -339,6 +345,9 @@ def sync(journals):
             continue
         s = newest(done, name, screens)
         if not s and not x:
+            # Not screened in this run (the funnel screens only where it is needed): the verdict stays as recorded.
+            if company.get("verdict") != "exclude":
+                attach_prep(company, newest(done, name, preps))
             continue
         if not s:
             s = {"verdict": "allow", "hits": []}
@@ -359,7 +368,7 @@ def sync(journals):
         if verdict in ("clear", "allow"):
             attach_prep(company, newest(done, name, preps))
     save(collapse(data, PATH))  # rows with a detail file go back to summary rows and their files
-    queue = [(c["name"], j) for c in data["companies"] if c.get("verdict") in ("clear", "allow")
+    queue = [(c["name"], j) for c in data["companies"] if c.get("verdict", "") in ("clear", "allow", "discuss", "")
              for j in c["jobs"] if "prep" in j and j["status"] == "pending"]
     for name, j in queue:
         p = j["prep"]

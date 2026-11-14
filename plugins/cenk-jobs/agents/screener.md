@@ -1,8 +1,8 @@
 ---
 name: screener
 description: "Checks one employer under the person's own employer rules and returns a sourced verdict. Use only from workflows/screen-and-prepare.js."
-model: opus
-effort: low
+model: sonnet
+effort: medium
 tools: Read, WebSearch, WebFetch, ToolSearch
 ---
 

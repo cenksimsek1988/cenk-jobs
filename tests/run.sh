@@ -1667,6 +1667,146 @@ check "cheat_sheet: an unknown spot is refused" sh -c '! "$1" -I "$2/cheat_sheet
 sed '/^CHEAT_SHEET_SPOT=/d' "$ENVF" >"$T/env.tmp" && cp "$T/env.tmp" "$ENVF"
 rm -f "$CSDIR/cheat-sheet.md" "$CSDIR/cheat-sheet-wide.html"
 
+# --- 0.34.0: the funnel, collect_postings, variants, token_report -------------------------------------------------------
+mkhome "$T/s34" old
+use "$T/s34"
+# Only an excluded employer stops: a "discuss" employer's and an unscreened employer's prepared jobs are attached.
+cat >"$T/s34-journal.jsonl" <<'EOF'
+{"type": "started", "agentId": "b1", "label": "prep-jobs:Gamma Inc"}
+{"type": "result", "agentId": "b1", "result": {"jobs": [{"id": "J3", "action": "apply", "platform": "Workable", "title": "Designer", "apply_url": "https://example.com/j3", "needs": [], "reason": "fits"}]}}
+{"type": "started", "agentId": "b2", "label": "prep-fit:Epsilon Co"}
+{"type": "result", "agentId": "b2", "result": {"jobs": [{"id": "E1", "action": "skip", "title": "Tester", "apply_url": "https://example.com/e1", "reason": "the role is junior"}]}}
+EOF
+track sync "$T/s34-journal.jsonl" >"$T/s34-sync.out" 2>&1
+check "sync: a discuss employer's prepared job is attached; its verdict stays discuss" sh -c '
+    "$1" -I "$2/q.py" "$3/apply/targets.json" "companies.name=Gamma Inc.verdict" eq discuss &&
+    "$1" -I "$2/q.py" "$3/apply/targets.json" "companies.name=Gamma Inc.jobs.0.prep.action" eq apply' _ "$PY" "$T" "$H"
+check "sync: an employer the run did not screen gets its fit result (prep-fit:) when no file was written" \
+    q "$H/apply/targets.json" "companies.name=Epsilon Co.jobs.0.prep.action" eq skip
+# A "discuss" employer is asked about only once it answers with a hiring step.
+echo "EMPLOYER_RULES=apply/employer-rules.json" >>"$ENVF"
+cat >"$H/apply/employer-rules.json" <<'EOF'
+{"categories": {"defence": {"action": "discuss", "indirect": "discuss"}}, "changes": []}
+EOF
+cat >"$H/apply/employer-checks.json" <<'EOF'
+{"employers": {"Gamma Inc": {"checks": {"defence": {"status": "flagged", "level": "direct", "fact": "Gamma sells to an army",
+                                                  "source_url": "https://example.com/g1", "checked": "2026-11-01"}}}}}
+EOF
+cat >"$T/s34-journal2.jsonl" <<'EOF'
+{"type": "started", "agentId": "c1", "label": "excl-screen:Epsilon Co"}
+{"type": "result", "agentId": "c1", "result": {"verdict": "allow", "hits": [], "ties": [], "checks": [{"category": "defence", "status": "flagged", "level": "direct", "fact": "Epsilon sells to an army", "source_url": "https://example.com/e9"}], "notes": "made up"}}
+{"type": "started", "agentId": "c2", "label": "prep-jobs:Epsilon Co"}
+{"type": "result", "agentId": "c2", "result": {"jobs": [{"id": "E1", "action": "apply", "title": "Tester", "apply_url": "https://example.com/e1", "needs": [], "reason": "fits"}]}}
+EOF
+track sync "$T/s34-journal2.jsonl" >/dev/null 2>&1
+check "sync: a screened employer the rules set to discuss keeps its prepared job and verdict discuss" sh -c '
+    "$1" -I "$2/q.py" "$3/apply/targets.json" "companies.name=Epsilon Co.verdict" eq discuss &&
+    "$1" -I "$2/q.py" "$3/apply/targets.json" "companies.name=Epsilon Co.jobs.0.prep.action" eq apply' _ "$PY" "$T" "$H"
+questions build "$T/s34-q1" >/dev/null 2>&1
+check "questions build: no question about a discuss employer that has not answered" sh -c '[ ! -f "$1/questions/ask-gamma-inc.json" ]' _ "$T/s34-q1"
+track set J3 submitted "sent in the test" >/dev/null 2>&1
+echo '{"J3": {"stage": "approved", "steps": []}}' >"$H/apply/pipeline.json"
+questions build "$T/s34-q2" >/dev/null 2>&1
+check "questions build: the employer answered with a hiring step: Allow, or exclude? is asked" \
+    sh -c 'ls "$1/questions" | grep -q "^ask-gamma"' _ "$T/s34-q2"
+
+# collect_postings.py: the searches a script can read, filtered, minus the tracker, added with found_by.
+mkhome "$T/cp" flat
+use "$T/cp"
+check "searches add: a board source without board= is refused" sh -c '
+    ! "$1" -I "$2/searches.py" add "Acme jobs" engineer source=greenhouse --env "$3" >/dev/null 2>&1 &&
+    ! "$1" -I "$2/searches.py" add "Acme jobs" engineer source=monster board=x --env "$3" >/dev/null 2>&1' _ "$PY" "$S" "$ENVF"
+searches add "Acme jobs" "engineer" source=greenhouse board=acme place="Rome" >/dev/null 2>&1
+searches add LinkedIn "developer" source=linkedin place="Rome" >/dev/null 2>&1
+searches add "Beta careers" "analyst" alert=no >/dev/null 2>&1
+mkdir -p "$T/cp-src"
+cat >"$T/cp-src/greenhouse-acme.json" <<'EOF'
+{"jobs": [
+ {"title": "Senior Engineer", "location": {"name": "Rome, Italy"}, "absolute_url": "https://boards.example.com/acme/jobs/1", "first_published": "2026-11-12T08:00:00Z"},
+ {"title": "Sales Lead", "location": {"name": "Rome, Italy"}, "absolute_url": "https://boards.example.com/acme/jobs/2", "first_published": "2026-11-12T08:00:00Z"},
+ {"title": "Engineer", "location": {"name": "Berlin"}, "absolute_url": "https://boards.example.com/acme/jobs/3", "first_published": "2026-11-12T08:00:00Z"},
+ {"title": "Platform Engineer", "location": {"name": "Remote"}, "absolute_url": "https://boards.example.com/acme/jobs/4", "first_published": "2026-11-12T08:00:00Z"}
+]}
+EOF
+cat >"$T/cp-src/linkedin-search.html" <<'EOF'
+<li><div class="base-card relative"><a class="base-card__full-link absolute" href="https://www.linkedin.com/jobs/view/1234567890/?trk=x">x</a>
+<h3 class="base-search-card__title">Java Developer</h3><h4 class="base-search-card__subtitle"><a>Beta Ltd</a></h4>
+<span class="job-search-card__location">Rome, Lazio</span><time datetime="2026-11-12">1 day ago</time></div></li>
+<li><div class="base-card relative"><a class="base-card__full-link absolute" href="https://www.linkedin.com/jobs/view/2222222222/?trk=y">y</a>
+<h3 class="base-search-card__title">Backend Developer</h3><h4 class="base-search-card__subtitle"><a>Zeta Works</a></h4>
+<span class="job-search-card__location">Rome, Lazio</span><time datetime="2026-11-12">1 day ago</time></div></li>
+EOF
+"$PY" -I "$S/collect_postings.py" --from "$T/cp-src" --out "$T/cp-search.json" --add --env "$ENVF" >"$T/cp.out" 2>&1
+check "collect_postings: the title and place filters, remote kept, the tracker's link dropped" sh -c '
+    grep -q "^acme | Senior Engineer | Rome, Italy | 2026-11-12 | https://boards.example.com/acme/jobs/1 | script:greenhouse:acme$" "$1" &&
+    grep -q "| Platform Engineer | Remote |" "$1" && ! grep -q "Sales Lead\|jobs/3\|1234567890" "$1" &&
+    grep -q "^Zeta Works | Backend Developer | Rome, Lazio | 2026-11-12 | https://www.linkedin.com/jobs/view/2222222222/ | script:linkedin:search$" "$1" &&
+    grep -q "^3 new postings from 2 searches read by script, added to the tracker$" "$1"' _ "$T/cp.out"
+check "collect_postings --add: each new posting is in the tracker with found_by" sh -c '
+    "$1" -I "$2/dq.py" "$3/apply/targets.json" "len([j for j in R[\"jobs\"] if j.get(\"found_by\", \"\").startswith(\"script:\")]) == 3"' _ "$PY" "$T" "$H"
+check "collect_postings --out: a search file the workflow reads" sh -c '
+    "$1" -I "$2/dq.py" "$3" "sorted(c[\"name\"] for c in R[\"companies\"]) == [\"Zeta Works\", \"acme\"] and all(j[\"id\"].startswith(\"P\") for c in R[\"companies\"] for j in c[\"jobs\"])"' \
+    _ "$PY" "$T" "$T/cp-search.json"
+searches due >"$T/cp-due.out" 2>&1
+check "collect_postings: the script searches are marked read; the agent search is still due" sh -c '
+    grep -q "Beta careers" "$1" && ! grep -q "Acme jobs\|LinkedIn" "$1"' _ "$T/cp-due.out"
+
+# variants.py: off by default; a rotation once on; the good-fit count of a run 10 days back.
+check "variants: with no file the run's variant is default and its models are empty" sh -c '
+    [ "$("$1" -I "$2/variants.py" current --env "$3")" = default ] && [ "$("$1" -I "$2/variants.py" models --env "$3")" = "{}" ]' _ "$PY" "$S" "$ENVF"
+cat >"$H/apply/variants.json" <<'EOF'
+{"on": true, "rotation": ["a", "b"], "variants": {"a": {"fit": {"model": "sonnet", "effort": "low"}}, "b": {"fit": {"model": "haiku", "effort": "low"}}}}
+EOF
+cat >"$T/mkruns.py" <<'PYEOF'
+import datetime
+import json
+import sys
+
+home = sys.argv[1]
+d = (datetime.date.today() - datetime.timedelta(days=10)).isoformat()
+with open(f"{home}/apply/usage-log.jsonl", "w", encoding="utf-8") as f:
+    f.write(json.dumps({"time": d + "T00:05:00", "step": "run", "result": "started", "variant": "a"}) + "\n")
+    f.write(json.dumps({"time": d + "T23:50:00", "step": "run", "result": "ok"}) + "\n")
+with open(f"{home}/apply/targets.json", encoding="utf-8") as f:
+    t = json.load(f)
+t["jobs"][0]["status"] = "to-apply"
+t["jobs"][0]["history"] = [{"date": d, "status": "found"}, {"date": d, "status": "to-apply"}]
+t["jobs"][1]["status"] = "skipped"
+t["jobs"][1]["history"] = [{"date": d, "status": "to-apply"}, {"date": d, "status": "skipped"}]
+with open(f"{home}/apply/targets.json", "w", encoding="utf-8") as f:
+    json.dump(t, f, ensure_ascii=False, indent=1)
+# A made-up transcript of that day: one main message, one fitter agent.
+cc = sys.argv[2]
+import os, re
+proj = os.path.join(cc, "projects", re.sub(r"[^A-Za-z0-9]", "-", os.path.abspath(home)))
+os.makedirs(os.path.join(proj, "s1", "subagents"), exist_ok=True)
+msg = lambda i, model, tokens: json.dumps({"type": "assistant", "timestamp": d + "T12:00:00Z", "message": {
+    "id": i, "model": model, "usage": {"input_tokens": tokens, "cache_creation_input_tokens": 0,
+                                       "cache_read_input_tokens": 0, "output_tokens": 0}}})
+with open(os.path.join(proj, "s1.jsonl"), "w", encoding="utf-8") as f:
+    f.write(msg("m1", "claude-opus-5-5", 1000) + "\n")
+with open(os.path.join(proj, "s1", "subagents", "agent-x1.jsonl"), "w", encoding="utf-8") as f:
+    f.write(msg("m2", "claude-sonnet-5-5", 1000) + "\n")
+with open(os.path.join(proj, "s1", "subagents", "agent-x1.meta.json"), "w", encoding="utf-8") as f:
+    json.dump({"agentType": "cenk-jobs:fitter"}, f)
+PYEOF
+"$PY" -I "$T/mkruns.py" "$H" "$T/cc"
+check "variants: on, the run after a run of a takes b; b's models for the workflow" sh -c '
+    [ "$("$1" -I "$2/variants.py" current --env "$3")" = b ] &&
+    "$1" -I "$2/variants.py" models --env "$3" | grep -q "\"model\": \"haiku\""' _ "$PY" "$S" "$ENVF"
+"$PY" -I "$S/variants.py" count --env "$ENVF" >"$T/var-count.out" 2>&1
+"$PY" -I "$S/variants.py" count --env "$ENVF" >"$T/var-count2.out" 2>&1
+check "variants count: one good-fit job (the skipped one does not count), logged once" sh -c '
+    grep -q "variant a: 1 good-fit jobs" "$1" && grep -q "^0 run(s) counted" "$2" &&
+    [ "$(grep -c "run-result" "$3/apply/usage-log.jsonl")" -eq 1 ]' _ "$T/var-count.out" "$T/var-count2.out" "$H"
+CLAUDE_CONFIG_DIR="$T/cc" "$PY" -I "$S/token_report.py" --days 30 --json "$T/tok.json" --env "$ENVF" >"$T/tok.out" 2>&1
+check "token_report: the run's W, main and agents, per good-fit job; the agent kind; numbers only" sh -c '
+    grep -q " a  .* main    0.00M  agents   0.00M  good-fit   1" "$1" &&
+    grep -q "^agent cenk-jobs:fitter .* 1 .* 1k W each" "$1" &&
+    "$2" -I "$3/dq.py" "$4" "R[\"runs\"][0][\"main_w\"] == 1000 and R[\"runs\"][0][\"agents_w\"] == 600 and R[\"runs\"][0][\"w_per_good_fit\"] == 1600"' \
+    _ "$T/tok.out" "$PY" "$T" "$T/tok.json"
+
+use "$T/dash"  # the next section runs in the home it ran in before 0.34.0
 # --- review fixes ----------------------------------------------------------------------------------------------------
 track add J9 "Acme Corp" "Engineer" "https://boards.example.com/acme/jobs?gh_jid=111" >/dev/null 2>&1
 printf '%s

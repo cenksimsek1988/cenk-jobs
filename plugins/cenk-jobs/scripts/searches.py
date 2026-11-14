@@ -7,9 +7,15 @@ Monday. So a run looks only at what is new instead of searching every site again
 python -I searches.py add "<site>" "<query>" alert=yes gmail="<Gmail query>"     a search with an email alert
 python -I searches.py add "<site>" "<query>" alert=no                            a site without alerts, every weekday
 python -I searches.py add "<site>" "<query>" alert=no every=7                    the same, every 7 days
+python -I searches.py add "<site>" "<terms>" source=<kind> board=<name> [place="<terms>"]
+                                                                                 a search collect_postings.py reads
+                                                                                 without a model (method script);
+                                                                                 kinds: greenhouse, lever, ashby,
+                                                                                 smartrecruiters, workable, linkedin
 python -I searches.py list                                                       one line per search
-python -I searches.py due                                                        the searches due today; with none
-                                                                                 saved, one line that says so
+python -I searches.py due [--json]                                               the searches due today; with none
+                                                                                 saved, one line that says so; --json:
+                                                                                 the due rows as one JSON list
 python -I searches.py sites                                                      the sites of the tracker's jobs that
                                                                                  have no saved search, most jobs first
 python -I searches.py done <id> found=<n>                                        record that a search was read
@@ -71,6 +77,7 @@ def pairs(items):
     return dict(item.split("=", 1) for item in items if "=" in item)
 
 
+SOURCES = ("greenhouse", "lever", "ashby", "smartrecruiters", "workable", "linkedin")  # read by collect_postings.py
 TRACKING = re.compile(r"(?i)^(utm_\w+|trk\w*|tracking\w*|ref|refid|referrer|src|source|gh_src|mc_\w+|fbclid|gclid|lever-\w+)$")
 
 
@@ -125,21 +132,30 @@ if cmd == "add":
     alert = extra.get("alert", "").lower() == "yes"
     if alert and not extra.get("gmail"):
         sys.exit('an alert needs gmail="<Gmail query>"')
+    source = extra.get("source", "")
+    if source and source not in SOURCES:
+        sys.exit(f"source is one of {', '.join(SOURCES)}: got {source!r}")
+    if source and source != "linkedin" and not extra.get("board"):
+        sys.exit(f'a {source} search needs board=<the board name in its address>')
     next_id = max([r["id"] for r in rows], default=0) + 1
     rows.append({"id": next_id, "site": args[1], "query": args[2], "alert": alert, "gmail": extra.get("gmail", ""),
                  "every_days": int(extra.get("every") or 1), "added": today.isoformat(),
-                 "last_checked": "", "last_found": None, **({"note": extra["note"]} if extra.get("note") else {})})
+                 "last_checked": "", "last_found": None, "method": "script" if source else "agent",
+                 **{k: extra[k] for k in ("note", "source", "board", "place") if extra.get(k)}})
     save(data)
     print(next_id, args[1], args[2])
 elif cmd == "list":
     for r in rows:
         print(r["id"], r["site"], "|", r["query"], "| alert" if r["alert"] else f"| every {r['every_days']} days",
-              "| last", r["last_checked"] or "never", *(["|", r["note"]] if r.get("note") else []))
+              "|", r.get("method", "agent"), "| last", r["last_checked"] or "never",
+              *(["|", r["note"]] if r.get("note") else []))
+elif cmd == "due" and "--json" in args:
+    print(json.dumps([r for r in rows if is_due(r)], ensure_ascii=False))
 elif cmd == "due":
     if not rows:
         print("no saved search: add one per site and query (searches.py add; searches.py sites lists the tracker's sites)")
     for r in filter(is_due, rows):
-        how = f"gmail: {r['gmail']}" if r["alert"] else "no alert"
+        how = f"gmail: {r['gmail']}" if r["alert"] else f"script: {r['source']}" if r.get("method") == "script" else "no alert"
         print(r["id"], r["site"], "|", r["query"], "|", how, "| last", r["last_checked"] or "never")
 elif cmd == "done":
     row = next((r for r in rows if str(r["id"]) == args[1]), None) if len(args) > 1 else None

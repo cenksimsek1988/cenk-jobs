@@ -19,8 +19,9 @@ python -I questions.py build <out dir> [--page <dir>]
     the page's files: <out dir>/questions/<id>.json for each open question and each one done in the last 7 days
     (with its note), and <out dir>/status/run.json (at and summary: when an answer was last recorded, and what;
     checked: the time of this build; open: how many questions wait). First adds the
-    "Allow, or exclude?" questions from the person's employer rules (an employer whose finding is "discuss", with a
-    job not sent yet), and ends each job question whose jobs all ended: closed, with a note saying when, if one was
+    "Allow, or exclude?" questions from the person's employer rules: an employer whose finding is "discuss" or
+    undecided, asked only once it answers (a sent job of it has a PIPELINE entry that has not ended); until then its
+    jobs go on and nothing is asked. Then it ends each job question whose jobs all ended: closed, with a note saying when, if one was
     sent; dropped if none was (excluded, declined, skipped, closed, failed). --page <dir>: the page's questions as an ArtifactData list saved there (<dir>/questions/*.json):
     prints the ids to delete on the page (done more than 7 days ago, or dropped).
 python -I questions.py record <answers dir>
@@ -57,7 +58,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import jsenv  # noqa: E402
 import profilelib as pl  # noqa: E402
-from trackerlib import collapse_row, expand_row, flat_jobs, is_company_shape, json_indent  # noqa: E402
+from trackerlib import ENDED_STAGE, collapse_row, expand_row, flat_jobs, is_company_shape, json_indent  # noqa: E402
+from trackerlib import pipeline_entry  # noqa: E402
 
 DONE = ("submitted", "excluded", "skipped", "closed", "declined", "failed")  # job statuses
 HANDLED = ("answered", "closed")  # question statuses shown under Done
@@ -136,13 +138,16 @@ def job_label(names, job_id):
 
 
 def asks(tracker, pipeline):
-    """{company: {cat, label, level, fact, source, more, jobs}} for each employer the person's rules leave to them."""
+    """{company: {cat, label, level, fact, source, more, jobs}} for each employer the person's rules leave to them, once
+    it has answered: a job of it is in PIPELINE, at a stage that has not ended. Before that, nothing is asked: the
+    application goes on, and no time goes into an employer that never answers."""
     import employerlib as el
     rule_set = el.rules(env)
     out = {}
     for job in flat_jobs(tracker):
         company = job.get("company", "")
-        if job.get("status") in DONE or job["id"] in pipeline:
+        entry = pipeline_entry(pipeline, job["id"]) if job["id"] in pipeline else {}
+        if not entry or entry.get("stage") in ENDED_STAGE or job.get("status") in DONE[1:]:
             continue
         if company in out:
             out[company]["jobs"].append(job["id"])

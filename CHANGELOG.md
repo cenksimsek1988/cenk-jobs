@@ -6,6 +6,44 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.34.0] - 2026-11-14
+
+Fewer tokens per run: search by script where it can, a funnel that checks fit before employers, one agent per kind
+of work with its own model, and tools to measure and compare.
+
+### Added
+
+- `collect_postings.py`: every saved search a script can read (Greenhouse, Lever, Ashby, SmartRecruiters and
+  Workable boards, LinkedIn's guest search) without a model; filters titles and places by the search's terms, drops
+  what the tracker has, `--add` records each new posting with `found_by=script:<source>:<board>`, `--out` writes the
+  workflow's search file. Saved searches get `method` (script or agent), `source`, `board` and `place`, and
+  `searches.py due --json`. The search skill: a source an agent found without an alert is added as a script row when
+  a script can read it.
+- Agents `fitter` (fit, open check, pay rule, form questions), `former` (the easy form answers) and `writer` (cover
+  letters, and free-text drafts when the person allows them); `preparer` is removed, its work split between them.
+- `references/filling.md` (the rules an applier needs) and `references/sites/<site>.md` (Greenhouse, Ashby,
+  LinkedIn, SuccessFactors, Workday, Eightfold): the applier reads these two instead of all of `RULES.md` and the
+  apply skill.
+- `variants.py` and `VARIANTS` (`apply/variants.json`, off until `"on": true`): a named model and effort per step,
+  rotated over runs; `models` for the workflow; `count` logs each run's good-fit jobs 7 days after it.
+- `token_report.py`: tokens per run and per agent kind from this computer's transcripts, numbers only, sends nothing;
+  `--json` for a person who wants to share them. `usage.py log ... variant=<name>`.
+
+### Changed
+
+- The screen-and-prepare workflow is a funnel: the fit check first; the employer check only for an employer passed
+  with `screen: true` and a posting that fits; the second employer check only on a hit or an unknown (Opus); then
+  the form answers, the writer and the review (Opus only where a letter or a draft was written). Each step's model
+  and effort come from the run's variant, else the defaults.
+- Only an excluded employer stops an application: unknown, warn and "discuss" employers are applied to, and the
+  person is asked about a "discuss" employer (or an undecided level) only once it answers with a hiring step.
+  `track.py sync` attaches their prepared jobs, also an unscreened employer's, and its queue takes an unset verdict;
+  `questions.py build` asks only then.
+- The screener runs on Sonnet by default (was Opus); the reviewer at medium effort.
+- The applier returns the fields it filled by name only.
+- The dashboard is checked by `export_dashboard.py --check`; a page is read only when a check line or the person
+  points at something on it.
+
 ## [0.33.0] - 2026-11-14
 
 The upload record holds only what was uploaded; a sent job without a letter says so; lessons from applying.

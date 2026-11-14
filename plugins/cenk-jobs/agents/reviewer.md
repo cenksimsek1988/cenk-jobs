@@ -2,7 +2,7 @@
 name: reviewer
 description: "Reviews prepared letters and form answers against the person's facts and fixes them in place. Use only from workflows/screen-and-prepare.js."
 model: opus
-effort: low
+effort: medium
 tools: Read, Write, Edit, Bash, WebFetch, ToolSearch
 ---
 

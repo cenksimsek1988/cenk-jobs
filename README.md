@@ -160,6 +160,11 @@ these reports; you send it yourself. Privacy: a report lists, per application, t
 the hiring steps reached, and the findings and employee reviews of the employers checked; never your name, contact
 details, CV, letters, pay or address. Say "no" and nothing is prepared; you can change your answer at any time.
 
+**Token use, if you want to help make the plugin cheaper:** `python -I S/token_report.py --json tokens.json` counts,
+on your computer only, how many tokens each run and each kind of agent used (numbers only: no text, no names) and
+sends nothing. To share them, attach `tokens.json` to an email to the address above, or paste its numbers into an
+issue on GitHub.
+
 ## Updates
 
 Way 1: type `/plugin marketplace update cenk`, then `/reload-plugins` (or start a new session).
@@ -212,6 +217,8 @@ Main commands (S = this skill's scripts folder, run from your job-search folder 
   python -I S/export_dashboard.py --check            only those "check:" lines; writes nothing
   python -I S/sessions.py show                       your open sessions, in the order to answer them
   python -I S/searches.py due                        the saved searches due today
+  python -I S/collect_postings.py --add              new postings from the searches a script can read
+  python -I S/token_report.py                        tokens per run and per agent kind (numbers only)
   python -I S/track.py sync <journal.jsonl> [...]    merge a screen-and-prepare run into the tracker
   python -I S/employer.py check "<name>" [...]       what is known about an employer, and the verdict by your rules
   python -I S/employer.py decide "<name>" <exclude|allow> [<category>]

@@ -1,6 +1,7 @@
 """Usage log and the usage report the person may share with the plugin's developer (only with their yes).
 
-python -I usage.py log <step> <ok|failed|stopped> ["<note>"]   one line per routine step (health check, gmail,
+python -I usage.py log <step> <ok|failed|stopped> ["<note>"] [variant=<name>]
+                                                               one line per routine step (health check, gmail,
                                                                search, screen, apply, folders, dashboard, prep, ...);
                                                                the note stays local, it never goes into a report;
                                                                step "run" with started, then ok|failed|stopped,
@@ -306,7 +307,8 @@ cmd = args[0]
 if cmd == "log":
     if len(args) < 3:
         sys.exit(__doc__)
-    append({"time": now.isoformat(), "step": args[1], "result": args[2], "note": args[3] if len(args) > 3 else ""})
+    extra = dict(a.split("=", 1) for a in args[4:] if "=" in a and a.split("=", 1)[0] in ("variant",))
+    append({"time": now.isoformat(), "step": args[1], "result": args[2], "note": args[3] if len(args) > 3 else "", **extra})
     print("logged", args[1], args[2])
 elif cmd == "due":
     sharing = env.get("USAGE_SHARING", "").lower()

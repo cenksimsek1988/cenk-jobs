@@ -38,7 +38,8 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
   install `cenk-jobs@cenk` beside it.
 - `plugins/cenk-jobs/.claude-plugin/plugin.json`: the plugin manifest.
 - `plugins/cenk-jobs/RULES.md`: the router every skill reads first, with the safety rules; `RULES/`: its parts, by
-  audience; `skills/<name>/SKILL.md`: one job each; `agents/`: one short tool list and model per stage.
+  audience; `skills/<name>/SKILL.md`: one job each; `agents/`: one short tool list and model per stage; `references/`: what an
+  agent reads instead of the whole rules (`filling.md`, `sites/<site>.md`).
 - `plugins/cenk-jobs/scripts/` (Python; every path comes from the person's `job-search.env`),
   `workflows/screen-and-prepare.js`, `templates/` (including `employer-rules.json`, the default rules),
   `data/blacklist.json` (the shared blacklist).

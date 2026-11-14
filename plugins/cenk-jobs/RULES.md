@@ -152,7 +152,12 @@ What the records do not answer is asked once, on the Questions page: read `RULES
 
 ## Employer rules
 
-Every employer is checked before anything is prepared: read `RULES/employers.md` to check, record or decide one. Never write "clear" without having looked; nothing found is `unknown` with what was checked.
+Only an excluded employer stops an application: an unknown, warned or "discuss" employer is applied to, and the
+person is asked about it only once it answers with a hiring step. Before preparing, `employer.py check` reads what the
+records and the shared list already say (no model); the full check runs only on a recorded finding to judge, a due
+second check or recheck, or a hiring step.
+Read `RULES/employers.md` to check, record or decide one. Never write "clear" without having looked; nothing found is
+`unknown` with what was checked.
 
 ## Links
 
