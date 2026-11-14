@@ -38,6 +38,12 @@ A session cannot be moved under a new coordinator: it is reached by message, and
 
 ## The coordinator session
 
+- Reads `APPLY_MODE` in `job-search.env` at the start of every run and names it in the first line of the run's
+  report. Under `auto`, an application whose answers all come from the person's records is sent without asking;
+  under `review`, it waits at the review page. Example: "Job-search run started at 19:02 (scheduled); apply mode:
+  auto."
+- A finished search's questions go to the person at once, in one ordered list (the order of "Answer first"), even
+  while another task is open; they never wait for that task to end.
 - Runs in the main folder and is titled **Job search coordinator**. It tells the person, at the start of each run,
   that this is their main session (RULES.md, "One main session").
 - **Is the only writer of the shared records**: `TRACKER`, `PIPELINE`, `LOGINS`, `SESSIONS`, `MASTER_RECORD`,

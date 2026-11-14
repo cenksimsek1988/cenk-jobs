@@ -202,7 +202,7 @@ its files move with it.
 ```
 Main commands (S = this skill's scripts folder, run from your job-search folder or with --env <job-search.env>):
   python -I S/check_setup.py                         health check (read-only)
-  python -I S/track.py set <id> <status> "<note>" [cv=<path> letter=<path>]
+  python -I S/track.py set <id> <status> "<note>" [cv=<path> letter=<path>|none]
   python -I S/track.py show|brief|list|summary ...   read the tracker
   python -I S/build_app_folders.py                   rebuild the applications folders
   python -I S/fetch_jd.py <id> [...]                 save the full posting as job-description.md

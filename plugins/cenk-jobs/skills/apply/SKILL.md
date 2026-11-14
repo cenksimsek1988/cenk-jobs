@@ -39,6 +39,8 @@ waits on the person.
 - Fill a site right after the person signs in: sign-ins expire within minutes when idle. Workday can end the session
   after about 25 minutes on one application: save each step as soon as it is filled, and check that the session is
   still signed in before the next step.
+- Every fitting role at one employer is applied to at the same time: never wait for one application there to
+  finish before sending the next.
 - Several applications at once: one `cenk-jobs:applier` subagent per application, started together, one tab each,
   at most `APPLY_PARALLEL` at once (default 2), never two on the same site. A subagent cannot ask the person: its
   brief holds every answer and names the CV and letter, already copied for upload; what it cannot do comes back as
@@ -53,6 +55,12 @@ waits on the person.
 - A dropdown built from `input[type=button]` keeps the choice in its `value` while its label still reads "Select
   one": read the value, not the label. Eightfold careers sites ignore a plain click on a dropdown option: dispatch
   pointerdown, mousedown, pointerup, mouseup and click on the option element, in that order (`javascript_tool`).
+- Greenhouse: open the plain embed form, `job-boards.greenhouse.io/embed/job_app?for=<board>&token=<job id>`, not
+  the employer's heavy careers page. When the embed answers "error processing your application", use the form on
+  the employer's own careers page.
+- Greenhouse, signed in, after the location pick: the form can render again, clear typed fields or add education
+  rows from the stored profile. Fill the location early, read the whole form again before Submit and remove the
+  rows that are wrong.
 - Greenhouse, signed in: the candidate profile prefills a stored resume of unknown date and the name in capitals.
   Replace both on every Greenhouse form: upload the CV the plan chose, type the name as the records write it.
 - Ashby: a React field takes the native value setter, then `input` and `change` events; Yes/No answers are buttons
@@ -121,7 +129,8 @@ waits on the person.
   until the person confirms they have not pressed Submit. After a go-ahead, read the page first: a form already sent
   is recorded as sent, never changed.
 - If the permission check refuses a submit click, stop and ask; never work around it.
-- After each submission: `track.py set <id> submitted "<what was sent>" cv=<path> letter=<path>`, `fetch_jd.py
+- After each submission: `track.py set <id> submitted "<what was sent>" cv=<path> letter=<path>`; a form without a
+  letter field: `letter=none`, so its folder lists no prepared letter. Then `fetch_jd.py
   <id>` while the posting is live, `build_app_folders.py`, and the dashboard refresh.
 
 ## Report

@@ -80,6 +80,7 @@ One email alert per saved search, on each site that offers one, so the search is
 
 One row per posting, by company and role: where, open or closed, the verdict (apply / ask / excluded / skipped)
 with its reason, the fit, and the account it needs. A posting at an employer where the person has applications
-running is shown with them, as information; several at one employer may run side by side. Example: "Acme, Staff
-Engineer · running there: Engineer (interview 18 Nov), Analyst (sent 10 Nov)". Then: "/cenk-jobs:plan puts the cleared ones in order."
+running is shown with them, as information. Every fitting role at one employer is proposed at the same time: a
+running application there never holds another back. Example: "Acme, Staff Engineer · running there: Engineer
+(interview 18 Nov), Analyst (sent 10 Nov)". Then: "/cenk-jobs:plan puts the cleared ones in order."
 Log it: `usage.py log search ok "<n found, n cleared>"`.

@@ -2,7 +2,10 @@
 
 Usage: python -I export_dashboard.py <out dir> [--env <job-search.env>]   write the files, then say what to upload
        python -I export_dashboard.py --check                               only the check lines; writes nothing
-       python -I export_dashboard.py --uploaded <out dir>                  record these files as the ones on the page
+       python -I export_dashboard.py --uploaded <out dir> <file> ...       record the files really uploaded as the ones
+                                                                           on the page; the others keep their earlier
+                                                                           record. "all" in place of the names: every
+                                                                           file.
 Every run ends with one "check:" line per mismatch between the records and the page, then "check: <n> mismatches";
 the exit code stays 0. Example: "check: to-do on an ended job: J3 (rejected 2026-11-10), 2 to-do(s) -> track.py
 todo J3 done all". The lines: a folder not counted (two for one job, or of a job that ended); a to-do on an ended
@@ -714,17 +717,45 @@ def main():
         env_arg = args[i + 1]
         del args[i:i + 2]
     flags, rest = {a for a in args if a.startswith("--")}, [a for a in args if not a.startswith("--")]
-    if flags - {"--check", "--uploaded"} or len(flags) > 1 or len(rest) != (0 if "--check" in flags else 1):
+    if flags - {"--check", "--uploaded"} or len(flags) > 1:
+        sys.exit(__doc__)
+    if "--uploaded" in flags and len(rest) < 2:
+        sys.exit("--uploaded <out dir> <file> ...: name the files you uploaded (the export's \"upload:\" line), or "
+                 "\"all\"; the others keep their earlier record")
+    if "--uploaded" not in flags and len(rest) != (0 if "--check" in flags else 1):
         sys.exit(__doc__)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")  # a check line may name an employer the console cannot print
     env = jsenv.load(env_arg, __file__)
     now = datetime.datetime.now()
     if "--uploaded" in flags:
-        have = {name: digest(os.path.join(rest[0], name)) for name in FILES if os.path.isfile(os.path.join(rest[0], name))}
+        # Only what was really uploaded is on the page: a file the export wrote and nobody uploaded is not.
+        if "all" in rest[1:] and rest[1:] != ["all"]:
+            sys.exit('"all" stands alone, without file names')
+        names = list(FILES) if rest[1:] == ["all"] else list(dict.fromkeys(rest[1:]))
+        unknown = [n for n in names if n not in FILES]
+        missing = [n for n in names if n in FILES and not os.path.isfile(os.path.join(rest[0], n))]
+        if unknown or missing:
+            sys.exit((f"not a file of the export: {', '.join(unknown)}. " if unknown else "")
+                     + (f"not in {rest[0]}: {', '.join(missing)}. " if missing else "") + "Nothing recorded.")
+        have = {}
+        if os.path.isfile(uploads_path(env)):
+            try:
+                with open(uploads_path(env), encoding="utf-8") as fh:
+                    have = dict(json.load(fh).get("files") or {})
+            except (OSError, ValueError, AttributeError, TypeError) as e:
+                sys.exit(f"{uploads_path(env)} is not readable ({e}): delete it, then run --uploaded <out dir> all "
+                         "after uploading every file")
+        have.update({name: digest(os.path.join(rest[0], name)) for name in names})
+        have = {name: have[name] for name in FILES if name in have}
         with open(uploads_path(env), "w", encoding="utf-8", newline="\n") as fh:
             json.dump({"at": now.replace(microsecond=0).isoformat(), "files": have}, fh, indent=1)
-        print(f"recorded as on the page: {' '.join(have) or 'no file found in ' + rest[0]}")
+        print(f"recorded as on the page: {' '.join(names)}")
+        kept = [name for name in have if name not in names]
+        print(f"earlier record kept: {' '.join(kept) or 'none'}")
+        never = [name for name in FILES if name not in have]
+        if never:
+            print(f"never recorded as uploaded: {' '.join(never)}")
         return
     files, checks, summary = build(env, now)
     if "--check" not in flags:

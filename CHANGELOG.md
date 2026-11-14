@@ -6,6 +6,30 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.33.0] - 2026-11-14
+
+The upload record holds only what was uploaded; a sent job without a letter says so; lessons from applying.
+
+### Changed
+
+- `export_dashboard.py --uploaded <out dir> <file> ...` records only the files named as on the page and keeps the
+  others' earlier record; `all` in place of the names records every file. A bare `--uploaded <out dir>` is refused
+  (it recorded every export file found there, also one never uploaded).
+- Plan, search and apply: every fitting role at one employer is proposed and applied to at the same time; an
+  application running there is no reason to wait (0.31.0 only showed the running ones).
+- Plan: open free-text questions are filled when the person's setting `draft_answers` is `yes` (the plan skill had
+  missed the 0.31.0 exception).
+- Coordinate: `APPLY_MODE` is read at the start of every run and named in the first report line; a finished
+  search's questions go to the person at once, in one ordered list.
+- Apply, Greenhouse: the plain embed form first, the employer's careers form when the embed fails; the location is
+  filled early and the whole form is read again before Submit.
+
+### Fixed
+
+- `build_app_folders.py` listed and copied the prepared cover letter for a sent job whose form had no letter field.
+  Now `track.py set <id> submitted ... letter=none` (which apply records for such a form) says no letter was sent:
+  the folder lists none and copies none. A record without it keeps its letter line as before.
+
 ## [0.32.0] - 2026-11-14
 
 A hiring step's keyword cheat sheet as one page beside the call.

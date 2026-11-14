@@ -3,7 +3,8 @@
 python -I track.py add <id> "<company>" "<title>" <url> [key=value ...]   add a job (keys: location, work_mode, cv,
                                                                            letter, apply_url, salary_note, note)
 python -I track.py set <id> <status> "<note>" [key=value ...]             record an outcome (and update fields, e.g.
-                                                                           cv=<path> letter=<path>)
+                                                                           cv=<path> letter=<path>; letter=none:
+                                                                           no letter was sent, the form had no field)
 python -I track.py todo <id> add <kind> "<text>" [key=value ...]          add a to-do to a job (kinds: urgent, working,
                                                                            task, click, todo, waiting; keys: where=pc|phone,
                                                                            due=<date>, link, login, session=<session id>,

@@ -1242,6 +1242,36 @@ check "build_app_folders: a done step says so and is no next step; the coming on
     grep -q "Take-home task.*done $2" "$1"/job-applications/approved/*"Acme Corp - Engineer"/overview.md &&
     ! grep "^- \*\*" "$1/job-applications/README.md" | grep -q "Take-home task" &&
     grep "^- \*\*" "$1/job-applications/README.md" | grep -q "Online test"' _ "$H" "$D0"
+# A sent job shows only the letter its sent record names: a prepared one for a form with no letter field is left out.
+cp "$H/apply/targets.json" "$T/targets-letter.bak"
+mkdir -p "$H/apply/letters"
+echo "made-up letter" >"$H/apply/letters/prepared-letter.pdf"
+cat >"$T/mkletter.py" <<'PYEOF'
+import json
+import sys
+
+path, key = sys.argv[1], sys.argv[2]
+with open(path, encoding="utf-8") as f:
+    d = json.load(f)
+for j in d["jobs"]:
+    if j["id"] == "D9":
+        j[key] = "apply/letters/prepared-letter.pdf"
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(d, f, ensure_ascii=False, indent=2)
+PYEOF
+"$PY" -I "$T/mkletter.py" "$H/apply/targets.json" letter_pdf
+build >/dev/null 2>&1
+SENTDIR=$(ls -d "$H"/job-applications/pending/*"Theta AG - Manager" | head -n 1)
+check "build_app_folders: a sent job whose record names no letter keeps its prepared one, as before" sh -c '
+    grep -q "Cover letter:\*\* \[prepared-letter.pdf\]" "$1/overview.md" && [ -f "$1/prepared-letter.pdf" ]' _ "$SENTDIR"
+rm -f "$SENTDIR/prepared-letter.pdf"
+track set D9 submitted "sent, the form had no letter field" letter=none >/dev/null 2>&1
+build >/dev/null 2>&1
+check "build_app_folders: letter=none in the sent record lists no letter and copies none" sh -c '
+    grep -q "Cover letter:\*\* none sent (the form had no letter field)" "$1/overview.md" && [ ! -f "$1/prepared-letter.pdf" ]' _ "$SENTDIR"
+cp "$T/targets-letter.bak" "$H/apply/targets.json"
+rm -f "$SENTDIR/prepared-letter.pdf" "$H/apply/letters/prepared-letter.pdf"
+build >/dev/null 2>&1
 OUT="$T/dash-out"
 export_dash "$OUT" >"$T/dash-export.out" 2>&1
 check "export: runs and writes the seven files" sh -c 'grep -q "applications, " "$1" && for f in index applications steps actions logins excluded sessions; do [ -f "$2/$f.json" ] || exit 1; done' \
@@ -1571,8 +1601,20 @@ check "check: PIPELINE has a step the folder does not" has "D1: 4 steps in PIPEL
 # What to upload: every file at first; after --uploaded, only what changed.
 export_dash "$T/up" >"$T/up1.out" 2>&1
 check "export: with nothing recorded as on the page, every file is to upload" grep -q "^upload: index.json applications.json steps.json actions.json logins.json excluded.json sessions.json" "$T/up1.out"
-export_dash --uploaded "$T/up" >"$T/up-rec.out" 2>&1
-check "export --uploaded: records the seven files beside the tracker" sh -c 'grep -q "^recorded as on the page: index.json .* sessions.json" "$1" && [ -f "$2/apply/dashboard-uploads.json" ]' \
+check "export --uploaded: without the uploaded files it is refused and records nothing" sh -c '
+    ! "$1" -I "$2/export_dashboard.py" --uploaded "$3" --env "$4" >"$5" 2>&1 && grep -q "name the files you uploaded" "$5" &&
+    [ ! -f "$6/apply/dashboard-uploads.json" ]' _ "$PY" "$S" "$T/up" "$ENVF" "$T/up-bare.out" "$H"
+export_dash --uploaded "$T/up" index.json actions.json >"$T/up-two.out" 2>&1
+export_dash "$T/up" >"$T/up1b.out" 2>&1
+check "export --uploaded <files>: only the files named are on the page; the others are still to upload" sh -c '
+    grep -q "^recorded as on the page: index.json actions.json$" "$1" && grep -q "^never recorded as uploaded: applications.json .* sessions.json" "$1" &&
+    grep "^upload:" "$2" | grep -q "sessions.json" && grep "^upload:" "$2" | grep -q "logins.json" &&
+    ! grep "^upload:" "$2" | grep -q "actions.json"' _ "$T/up-two.out" "$T/up1b.out"
+check "export --uploaded: a name that is no export file is refused" sh -c '
+    ! "$1" -I "$2/export_dashboard.py" --uploaded "$3" notes.json --env "$4" >"$5" 2>&1 && grep -q "not a file of the export: notes.json" "$5"' \
+    _ "$PY" "$S" "$T/up" "$ENVF" "$T/up-bad.out"
+export_dash --uploaded "$T/up" all >"$T/up-rec.out" 2>&1
+check "export --uploaded all: records the seven files beside the tracker" sh -c 'grep -q "^recorded as on the page: index.json .* sessions.json" "$1" && [ -f "$2/apply/dashboard-uploads.json" ]' \
     _ "$T/up-rec.out" "$H"
 track todo D5 add todo "one more thing" >/dev/null 2>&1
 export_dash "$T/up" >"$T/up2.out" 2>&1

@@ -299,7 +299,11 @@ for company, job in companies(data):
 
     cv = cv_sent(job, prep)
     place = where(job, prep)
-    letter_src = resolve(job.get("letter") or prep.get("letter_pdf") or "")
+    # letter=none in the record: no letter went out (a form without a letter field), so a prepared one is neither
+    # listed nor copied in. Without that word, a sent job keeps the prepared letter as before: most older records
+    # name no letter although one was sent.
+    no_letter = str(job.get("letter") or "").strip().lower() == "none"
+    letter_src = "" if no_letter else resolve(job.get("letter") or prep.get("letter_pdf") or "")
     letter = os.path.basename(letter_src) if letter_src else ""
     if letter:
         dest = os.path.join(path, letter)
@@ -373,7 +377,8 @@ for company, job in companies(data):
                  f"{prep.get('platform') or job.get('method') or ''} {prep.get('apply_url') or ''}")
           + line("Where", place)
           + line("CV sent" if sent else "CV prepared", cv_link(cv, sent, job, path) if cv else "")
-          + line("Cover letter", f"[{letter}](<{letter}>)" if letter else "none sent or not kept")
+          + line("Cover letter", f"[{letter}](<{letter}>)" if letter
+                 else "none sent (the form had no letter field)" if no_letter else "none sent or not kept")
           + steps_md
           + (f"\n## What happened\n\n{clean(note_of(job))}\n\n" if sent else
              f"\n## What blocks it\n\n{clean(note_of(job) or 'Not prepared yet.')}\n\n")

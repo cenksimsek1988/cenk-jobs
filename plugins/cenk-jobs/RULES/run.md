@@ -37,7 +37,9 @@ employers**, **Hiring steps** and **All applications**, under the total count an
 - Refresh after each change: `sessions.py sync <list.json>`, `logins.py sync`, `build_app_folders.py`, export. Upload
   only the files its `upload:` line names, update each one's `source.url` and `updated`, delete the replaced
   uploads; a file under `unchanged:` gets only its dataset's `updated.at`. Then `export_dashboard.py --uploaded
-  <out dir>`. Example: `upload: index.json actions.json` leaves five files as they are.
+  <out dir> <the files you uploaded>`: only those are recorded as on the page, and a bare `--uploaded <out dir>` is
+  refused. Example: `upload: index.json actions.json`, both uploaded: `--uploaded <out dir> index.json
+  actions.json`; an upload that failed is left out and stays under `upload:` at the next export.
 - Every export ends with one `check:` line per mismatch between the records and the page (`export_dashboard.py
   --check` prints them alone and writes nothing). Fix each in the same run, or name it in the run report. Example:
   `check: to-do on an ended job: J3 (rejected 2026-11-10), 2 to-do(s) -> track.py todo J3 done all`.
@@ -99,7 +101,7 @@ employers**, **Hiring steps** and **All applications**, under the total count an
 | `fetch_jd.py` | saves a posting's full text as `job-description.md` |
 | `logins.py` | login state: set, sync, show |
 | `sessions.py` | the open sessions and the order to answer them: sync (the app's session list), set, order, show |
-| `export_dashboard.py` | exports the dashboard's files: index, applications, steps, actions, logins, excluded, sessions; then what to upload and the check lines. `--check`: the check lines alone; `--uploaded <dir>`: these files are on the page now |
+| `export_dashboard.py` | exports the dashboard's files: index, applications, steps, actions, logins, excluded, sessions; then what to upload and the check lines. `--check`: the check lines alone; `--uploaded <out dir> <file> ...`: only the files named are on the page now (`all`: every file); the others keep their earlier record |
 | `career_view.py` | one part of the master record: screen (rules and decisions), facts (what a letter or form may use, with the profile's person facts but no address, birth date, private answers or contacts) |
 | `profilelib.py` | the person's profile: path, get, set (compare-and-set), erase, create; exit 3 when it holds another value; a key under `settings` only with `--yes`, after the person's yes |
 | `move_to_profile.py` | once: moves the person's facts from the master record and the old private record into the profile (dry run, `--apply`, `--confirm <key>`, then `--remove-old` after the person's OK) |
