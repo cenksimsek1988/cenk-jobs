@@ -25,9 +25,11 @@ It also understands other languages, for example "iş arıyorum", "cerco lavoro"
 This repository holds **only the generic skills and their scripts**. Your own data (CVs, master record,
 applications) never comes here: it lives in a folder in your own Google Drive, which the plugin creates on its first
 run. Your own facts (name, contact, birth date, address, private answers, referees, the true dates of each job) live
-in one **profile**, `claude/profile.json` in your Google Drive's "My Drive" folder, shared with the other cenk-*
-plugins; Claude asks where to create it if there is none. It is a plain JSON file: Google stores it, and whoever
-can open your Drive can read it.
+in one **profile**, `profile.json` in your **cenk folder** (`cenk/` in your Google Drive's "My Drive" folder, or the
+folder `CENK_HOME` names), shared with the other cenk plugins. The base plugin **cenk-base** reads and writes it, and
+installs with cenk-jobs; Claude asks where to create it if there is none, and a profile at the old place
+`claude/profile.json` is copied there once. A new job-search folder goes to `jobs/` in the cenk folder unless you
+choose another. The profile is a plain JSON file: Google stores it, and whoever can open your Drive can read it.
 
 ## What you need
 
@@ -54,9 +56,12 @@ open the **Code** tab and type:
 **Way 2, from this repository** (its own catalog, `cenk-jobs`), or from a clone you change yourself. Type:
 
 ```
+/plugin marketplace add https://github.com/cenksimsek1988/claude-plugins.git
 /plugin marketplace add https://github.com/cenksimsek1988/cenk-jobs.git
 /plugin install cenk-jobs@cenk-jobs
 ```
+
+The first line adds the `cenk` catalog, which holds the base plugin cenk-base that cenk-jobs installs with it.
 
 - For a clone, give its folder instead of the address: your edits then load at the next session, with no new version.
 
@@ -65,7 +70,8 @@ its preview. A new version is a new file to drop in again.
 
 Write the addresses with `https://`: the short form `owner/name` clones over SSH when a GitHub SSH key is found, and
 an install from `/plugin` does not fall back to HTTPS. Install one way only: to switch, first uninstall the other copy,
-for example `/plugin uninstall cenk-jobs@cenk-jobs`.
+for example `/plugin uninstall cenk-jobs@cenk-jobs`. Updating from 0.35 or older: run your install line again
+(`/plugin install cenk-jobs@cenk`, or `cenk-jobs@cenk-jobs` if you installed from this repository); an update alone does not install cenk-base, and setup says so.
 
 Then start a new session and say **"set up my job search"** (or type `/cenk-jobs:setup`). That session becomes your main session: ask there for anything from then on. On the first run Claude:
 
@@ -117,7 +123,7 @@ anything is sent.
 
 ## Settings in your profile
 
-Under `settings.cenk-jobs` in your profile (or `settings.common`, for every cenk-* plugin). Claude changes a setting
+Under `settings.cenk-jobs` in your profile (or `settings.common`, for every cenk plugin). Claude changes a setting
 only after your yes to its key and value, also one you asked for:
 
 | Setting | Default | Example |
@@ -226,7 +232,7 @@ Main commands (S = this skill's scripts folder, run from your job-search folder 
   python -I S/usage.py log <step> <ok|failed|stopped> ["<note>"]
   python -I S/usage.py due | report | mark-drafted   the weekly usage report (only with USAGE_SHARING=yes)
   python -I S/usage.py stats                         jobs turned down by your employer rules (for you; sends nothing)
-  python -I S/profilelib.py path | get [<plugin>] <key> | set <key> <json|-> [--old <json>] [--yes] | erase <key> [--yes] | create <path>
+  python -I S/profilelib.py home | path | get [<plugin>] <key> | set <key> <json|-> [--old <json>] [--yes] | erase <key> [--yes] | create [<folder>] | pin <folder> --yes
   python -I S/move_to_profile.py [--apply [--confirm <key>] | --remove-old]   once: your facts into the profile
 For the developer: python -I S/employer.py merge <report.json> [...]   users' reports into data/blacklist.json
 ```

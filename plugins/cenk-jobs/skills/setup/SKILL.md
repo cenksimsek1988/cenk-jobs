@@ -46,13 +46,22 @@ by step.
 
 ## 3. The main folder
 
-- Ask where it should be, then `init_career_folder.py "<main folder>" "<Full Name>"`.
+- The profile first (their own facts, shared with the other cenk plugins through the base plugin cenk-base):
+  `profilelib.py path` (Bash tool: only it gets `CENK_BASE`).
+  - "cenk-base is not loaded" (exit 1): tell the person cenk-jobs needs its base plugin cenk-base, and give them the
+    line for their terminal: `claude plugin install cenk-jobs@cenk` (or `@<the marketplace they installed from>`);
+    a plain `claude plugin update` does not bring the base. Then a new session. Stop setup here.
+  - None yet: ask where the cenk folder goes, suggesting `profilelib.py home` (`cenk/` in their Google Drive's "My
+    Drive"), then `profilelib.py create <folder>`; when its output says nothing finds it, `profilelib.py pin
+    <folder> --yes` after their yes (the output names cenk-base's `profile.py`: run `profilelib.py`). An old profile (`claude/profile.json`, or a `PROFILE` line in an old
+    `job-search.env`): `create` copies it; the old file stays until they say to delete it.
+  - Ask how they want to be referred to, and save it: `set person.pronouns`.
+- The main folder: ask where it should be, suggesting `<cenk folder>/jobs/` (the cenk folder: `profilelib.py home`),
+  then `init_career_folder.py "<main folder>" "<Full Name>"`. Say where it was created. An existing main folder
+  stays where it is.
 - Fill `CONTACT_LINE`, `LETTER_TITLE`, the accounts and `PHOTO` in `job-search.env` with the person.
 - On their OK, add `JOB_SEARCH_ENV=<main folder>/job-search.env` to the `env` block of `~/.claude/settings.json`;
   it takes effect in sessions started after the change.
-- The profile (their own facts, shared with the other cenk-* plugins): `profilelib.py path`. None yet: ask where to
-  create it, suggesting the place `check_setup.py` names (`claude/profile.json` in their Google Drive's "My Drive"),
-  then `profilelib.py create <path>`. Ask how they want to be referred to, and save it: `set person.pronouns`.
 
 ## 4. The defaults: one choice
 

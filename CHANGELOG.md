@@ -6,6 +6,35 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.36.0] - 2026-11-15
+
+The person's profile moves to the shared base plugin cenk-base.
+
+### Changed
+
+- `plugin.json`: `dependencies` `cenk-base` from the `cenk` catalog; installing cenk-jobs installs it. The catalog
+  `cenk-jobs` allows it (`allowCrossMarketplaceDependenciesOn: ["cenk"]`); a clone's install adds the `cenk` catalog
+  first.
+- `profilelib.py`: no own reader or writer; loads cenk-base's `lib/profile.py` by path from `CENK_BASE` and keeps only
+  `form_facts`, cenk-jobs as the default plugin for a setting, and the list of move backups after an erase. Commands
+  as cenk-base's: `home`, `path`, `get`, `set`, `erase`, `create [<folder>]`, `pin <folder> --yes`.
+- Lookup: cenk-base's. `CENK_HOME`, then `cenk/profile.json` in "My Drive", then `cenk/` in the Claude config folder.
+  Old places (`claude/profile.json`, the workbench setting `profile_path`, a `PROFILE` line in `job-search.env`) are
+  read with a note to move; `create` copies the profile to the cenk folder. Example: `PROFILE=own/profile.json` is
+  read only while `G:/My Drive/cenk/profile.json` does not exist.
+- `job-search.env.template`: no `PROFILE` line.
+- Setup asks for the profile first, then suggests the main folder `<cenk folder>/jobs/` for a new person. An
+  existing main folder stays.
+- Setup and the coordinator's handoff check: cenk-base missing stops with the line `claude plugin install
+  cenk-jobs@cenk` (a plain update does not install it). `check_setup.py` FAILs on it.
+- README: Way 2 adds the `cenk` catalog first.
+- Scripts that read the profile run in the Bash tool only: PowerShell does not get `CENK_BASE`.
+
+### Removed
+
+- `profilelib.py create` adding a `PROFILE` line to `job-search.env`, and its check that the other plugins find the
+  same file.
+
 ## [0.35.1] - 2026-11-15
 
 Fixes from the first real run of 0.35.0: 19.25M W (cost-weighted Opus tokens) for 6 applications; 14 of 21 high

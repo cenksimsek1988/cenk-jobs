@@ -502,7 +502,7 @@ else:  # record, answer
     print("delete these answers on the page (their questions stay as done; then run build):", " ".join(delete) or "none")
     print("discuss with the person:", "; ".join(discuss) or "none")
     print("ask the person (not recorded; the answer stays on the page):", "; ".join(ask_person) or "none")
-    print("no profile (not recorded; ask the person where it goes, then profilelib.py create <path>):",
+    print("no profile (not recorded; ask the person where it goes, then profilelib.py create <folder>):",
           "; ".join(no_profile) or "none")
     print("read first (record each plain answer with answer, spelling and grammar fixed; reply to a question):")
     print("\n".join(read_first) or "none")

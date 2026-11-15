@@ -73,20 +73,18 @@ def profile_checks():
     """(level, what, detail) for the person's profile and the old copies of its facts. Names and paths only."""
     out = []
     prof = pl.load(env)
-    if not prof["exists"]:
+    if prof.get("no_base"):
+        out.append(("FAIL", "Profile reader (base plugin cenk-base)", pl.MISSING))
+    elif not prof["exists"]:
         out.append(("WARN", "Profile (the person's own facts)",
                     f"none yet: ask the person where to create it, suggesting {prof['suggested']}; then "
-                    "profilelib.py create <path>"))
+                    "profilelib.py create <folder>"))
     elif prof["error"]:
         out.append(("FAIL", "Profile (the person's own facts)", f"cannot be read: {prof['path']} ({prof['error']})"))
     else:
         out.append(("OK", "Profile (the person's own facts)", prof["path"]))
-        shared = pl.locate(None)["path"]
-        if prof["scope"] == "env" and not (shared and os.path.normcase(os.path.abspath(shared))
-                                           == os.path.normcase(os.path.abspath(prof["path"]))):
-            out.append(("WARN", "Same profile for the other cenk-* plugins",
-                        f"PROFILE in job-search.env names it; the other cenk-* plugins look at {shared or 'none'}: "
-                        f"set the workbench setting profile_path to {prof['path']}"))
+        if prof["old"]:
+            out.append(("WARN", "Profile in the cenk folder", pl.move_message(prof)))
         if not (prof["data"].get("person") or {}).get("name"):
             out.append(("WARN", "Profile has person.name", "missing: ask the person, then profilelib.py set person.name"))
         unknown = pl.form_facts(prof)[1]

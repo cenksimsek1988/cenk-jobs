@@ -22,6 +22,10 @@ its brief, say so in one line, and stop, writing no records.
 Every new coordinator starts here: right after "run started" in a run, else at once. `handoffs/` in the main folder holds one file per session that
 ended or is ending; create it if missing.
 
+0. The base plugin: `profilelib.py path` (Bash tool). "cenk-base is not loaded" (exit 1): stop here and tell the
+   person in plain words that cenk-jobs needs its base plugin cenk-base, with the line for their terminal:
+   `claude plugin install cenk-jobs@cenk` (or `@<the marketplace they installed from>`; a plain `claude plugin
+   update` does not bring the base), then a new session. A scheduled run puts the same line in Do now and ends.
 1. List the open sessions in the main folder (`list_sessions`, this session left out).
 2. A session active since the previous "run started" row in `USAGE_LOG` (at the first check: every session): one message (`SendMessage` to
    its `local_...` id): "Write your handoff to handoffs/<short name>.md, then stop." A running session finishes first.

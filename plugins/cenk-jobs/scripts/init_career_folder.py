@@ -1,6 +1,6 @@
 """Create a new person's job-search main folder and its job-search.env. Never overwrites anything.
 
-Usage: python -I init_career_folder.py "<main folder, e.g. G:/My Drive/Career/job-search>" "<Full Name>"
+Usage: python -I init_career_folder.py "<main folder, e.g. G:/My Drive/cenk/jobs>" "<Full Name>"
 Creates in the main folder:
   job-search.env               every folder and file name the scripts use (edit the values, never the scripts)
   documents-inbox/             the person drops all their documents here as they are; Claude sorts them

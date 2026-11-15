@@ -3,16 +3,26 @@
 # Why: the tracker's split into summary rows and detail files, the employer decisions and the small scripts must keep
 # working on both tracker shapes, and no check may ever touch a real record.
 # Usage: sh tests/run.sh          (PYTHON=<python> sh tests/run.sh to pick the interpreter)
+# The profile is read through the base plugin cenk-base: CENK_BASE_SRC names its folder, else the session's
+# CENK_BASE, else a cenk-base folder beside this repository's main checkout. Example: CENK_BASE_SRC=../cenk-base.
 # Exit 0: every check passed. 1: at least one failed. 2: the tests could not start.
 # Safety: every script runs with --env <throwaway folder>/<home>/job-search.env and JOB_SEARCH_ENV points there too,
-# from a working folder inside the throwaway folder, so no real job-search.env can be found. Every env names its own
-# PROFILE inside the throwaway folder and the Claude config folder is a throwaway one, so no real profile is read or
-# written; use() stops the tests when a profile path points anywhere else. The folder is removed on exit.
+# from a working folder inside the throwaway folder, so no real job-search.env can be found. CENK_HOME always names a
+# folder inside the throwaway folder (use() sets each home's own) and the Claude config folder is a throwaway one, so
+# no real profile is read or written; use() stops the tests when the cenk folder is anywhere else. The folder is
+# removed on exit.
 set -u
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 S="$HERE/../plugins/cenk-jobs/scripts"
 [ -f "$S/track.py" ] || { echo "cannot find the scripts beside $HERE" >&2; exit 2; }
+BASE_SRC=${CENK_BASE_SRC:-${CENK_BASE:-}}
+if [ -z "$BASE_SRC" ]; then
+    common=$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) &&
+        BASE_SRC="$(dirname "$(dirname "$common")")/cenk-base"
+fi
+unset CENK_HOME CENK_PROFILE CENK_BASE
+[ -f "${BASE_SRC:-}/lib/profile.py" ] || { echo "cannot find cenk-base (${BASE_SRC:-none}): set CENK_BASE_SRC" >&2; exit 2; }
 
 PY=${PYTHON:-}
 if [ -z "$PY" ]; then
@@ -30,7 +40,9 @@ T=$(win "$T")
 S=$(win "$(cd "$S" && pwd)")
 cd "$T" || exit 2
 CLAUDE_CONFIG_DIR="$T/claude-config"
-export CLAUDE_CONFIG_DIR
+CENK_BASE=$(win "$(cd "$BASE_SRC" && pwd)")
+CENK_HOME="$T/no-cenk-home"
+export CLAUDE_CONFIG_DIR CENK_BASE CENK_HOME
 unset CLAUDE_PLUGIN_OPTION_PROFILE_PATH
 
 PASSED=0
@@ -144,7 +156,6 @@ APPLICATIONS_DIR=job-applications
 LETTERS_DIR=apply/letters
 LETTER_BODIES_DIR=apply/bodies
 MASTER_RECORD=career-records/career.json
-PROFILE=profile/profile.json
 TRACKER=apply/targets.json
 PIPELINE=apply/pipeline.json
 LOGINS=apply/logins.json
@@ -201,11 +212,11 @@ EOF
     fi
 }
 
-# Every script gets its env file explicitly; JOB_SEARCH_ENV is only the second line of defence. A home whose profile
-# lies outside the throwaway folder stops the tests before any script reads or writes it.
+# Every script gets its env file explicitly; JOB_SEARCH_ENV is only the second line of defence. Each home's cenk
+# folder is its profile/ (CENK_HOME); one outside the throwaway folder stops the tests before any script reads it.
 use() {
-    H=$1; ENVF="$H/job-search.env"; JOB_SEARCH_ENV=$ENVF; export JOB_SEARCH_ENV
-    where=$("$PY" -I "$S/profilelib.py" --env "$ENVF" path | tr '\\' '/')
+    H=$1; ENVF="$H/job-search.env"; JOB_SEARCH_ENV=$ENVF; CENK_HOME="$H/profile"; export JOB_SEARCH_ENV CENK_HOME
+    where=$("$PY" -I "$S/profilelib.py" --env "$ENVF" home | tr '\\' '/')
     case "$where" in
         "$T"/*) ;;
         *) echo "stopped: the profile of $H is not inside the throwaway folder ($where)" >&2; exit 2 ;;
@@ -841,7 +852,8 @@ import jsenv  # noqa: E402
 import profilelib as pl  # noqa: E402
 
 base = sys.argv[1]
-os.environ.pop("CLAUDE_PLUGIN_OPTION_PROFILE_PATH", None)
+for name in ("CENK_HOME", "CENK_PROFILE", "CLAUDE_PLUGIN_OPTION_PROFILE_PATH"):
+    os.environ.pop(name, None)
 
 
 def make(path, text="{}"):
@@ -851,14 +863,11 @@ def make(path, text="{}"):
     return path
 
 
-r1, r2, r3 = (os.path.join(base, n, "My Drive") for n in ("d1", "d2", "d3"))
-for r in (r1, r2, r3):
-    os.makedirs(r, exist_ok=True)
-make(os.path.join(r1, "claude-profile", "profile.json"))  # the old name: never looked at
-cloud = make(os.path.join(r2, "claude", "profile.json"))
+drive = os.path.join(base, "d1", "My Drive")
+os.makedirs(drive, exist_ok=True)
 cfg = os.path.join(base, "config")
-local = make(os.path.join(cfg, "claude", "profile.json"))
-chosen = os.path.join(base, "chosen.json").replace("\\", "/")
+own = make(os.path.join(base, "home", "own", "profile.json"))
+env = jsenv.load(make(os.path.join(base, "home", "job-search.env"), "PROFILE=own/profile.json\n"))
 fails = []
 
 
@@ -867,25 +876,28 @@ def expect(name, got, want):
         fails.append(f"{name}: got {got}, want {want}")
 
 
-expect("a drive's claude/profile.json before the computer's", pl.locate(None, [r1, r2, r3], cfg)["path"], cloud)
-expect("the computer's when no drive has one", pl.locate(None, [r1, r3], cfg)["path"], local)
-setting = make(os.path.join(cfg, "settings.json"),
-               '{"pluginConfigs": {"cenk-workbench@cenk-workbench": {"options": {"profile_path": "%s"}}}}' % chosen)
-expect("the workbench setting before the drives", pl.locate(None, [r2], cfg)["path"], chosen)
-envfile = make(os.path.join(base, "home", "job-search.env"), "PROFILE=own/profile.json\n")
-expect("PROFILE in job-search.env before everything", pl.locate(jsenv.load(envfile), [r2], cfg)["path"],
-       os.path.join(base, "home", "own", "profile.json"))
-os.remove(setting)
-os.remove(local)
-none = pl.locate(None, [r1, r3], cfg)
-expect("none found: no path", none["path"], None)
-expect("none found: the first drive is suggested", none["suggested"], os.path.join(r1, "claude", "profile.json"))
-expect("no drive: the computer is suggested", pl.locate(None, [], cfg)["suggested"],
-       os.path.join(cfg, "claude", "profile.json"))
+found = pl.load(env, roots=[drive], claude_dir=cfg)
+expect("an old PROFILE line is read as an old place", found["path"], own)
+expect("an old PROFILE line: old", found["old"], True)
+expect("an old PROFILE line: the cenk folder is suggested", found["suggested"], os.path.join(drive, "cenk"))
+if "create copies it" not in pl.move_message(found):
+    fails.append("the move message names create")
+new = make(os.path.join(drive, "cenk", "profile.json"))
+expect("the cenk folder's profile before an old PROFILE line", pl.locate(env, roots=[drive], claude_dir=cfg)["path"],
+       new)
+os.environ["CENK_HOME"] = os.path.join(base, "named")
+expect("CENK_HOME before everything", pl.locate(env, roots=[drive], claude_dir=cfg)["path"],
+       os.path.join(base, "named", "profile.json"))
 print("\n".join(fails))
 sys.exit(1 if fails else 0)
 PYEOF
-check "profile lookup: the env, the workbench setting, a drive's claude/profile.json, then the computer's" "$PY" -I "$T/lookup.py" "$T/lk"
+check "profile lookup: cenk-base's order; an old PROFILE line in job-search.env only as an old place" \
+    "$PY" -I "$T/lookup.py" "$T/lk"
+CENK_BASE= "$PY" -I "$S/profilelib.py" path >"$T/nobase.out" 2>&1
+rc=$?
+check "profilelib without CENK_BASE: exits 1, says cenk-base is not loaded and how to install it" sh -c '
+    [ "$1" -eq 1 ] && grep -q "cenk-base is not loaded" "$2" && grep -q "claude plugin install cenk-jobs@cenk" "$2"' \
+    _ "$rc" "$T/nobase.out"
 
 pf() { "$PY" -I "$S/profilelib.py" --env "$ENVF" "$@"; }
 cp -R "$T/flat" "$T/pf"
@@ -978,12 +990,10 @@ check "answer replace=yes: the person's choice goes in, the old value into histo
     "$1" -I "$2/q.py" "$4/apply/questions.json" questions.fact-person-birth-date.status eq answered' _ "$PY" "$T" "$PF" "$H"
 
 cp -R "$T/flat" "$T/gd"
-mkdir -p "$T/gd-drive/My Drive/claude"
-cp "$T/gd/profile/profile.json" "$T/gd-drive/My Drive/claude/profile.json"
-sed "s#^PROFILE=.*#PROFILE=$T/gd-drive/My Drive/claude/profile.json#" "$T/gd/job-search.env" >"$T/gd/env.tmp" &&
-    mv "$T/gd/env.tmp" "$T/gd/job-search.env"
+mkdir -p "$T/gd-drive/My Drive/cenk"
+cp "$T/gd/profile/profile.json" "$T/gd-drive/My Drive/cenk/profile.json"
 use "$T/gd"
-pf erase private.diet >"$T/gd-erase.out" 2>&1
+CENK_HOME="$T/gd-drive/My Drive/cenk" pf erase private.diet >"$T/gd-erase.out" 2>&1
 check "profile erase in a Google Drive: says the earlier versions still hold the value, and how to delete them" grep -q "Manage versions" "$T/gd-erase.out"
 
 cp -R "$T/flat" "$T/np"
@@ -991,8 +1001,8 @@ rm -rf "$T/np/profile"
 use "$T/np"
 pf set person.name '"Jane Doe"' >"$T/np-set.out" 2>&1
 rc=$?
-check "profile set with no profile: exits 1, creates nothing, says to ask the person where" sh -c '
-    [ "$1" -eq 1 ] && [ ! -e "$2/profile" ] && grep -q "Ask the person where to create it" "$3"' _ "$rc" "$H" "$T/np-set.out"
+check "profile set with no profile: exits 1, creates nothing, says to ask the person" sh -c '
+    [ "$1" -eq 1 ] && [ ! -e "$2/profile" ] && grep -q "Ask the person whether to create it there" "$3"' _ "$rc" "$H" "$T/np-set.out"
 "$PY" -I "$S/check_setup.py" --needs --env "$ENVF" >"$T/np-needs.out" 2>&1
 check "check_setup --needs: no profile yet, with the place to suggest" grep -q "^profile: none yet: ask the person where to create it" "$T/np-needs.out"
 questions add fact "Any dietary needs?" key=diet personal=yes job=F2 >/dev/null 2>&1
@@ -1000,49 +1010,27 @@ questions answer fact-diet "None." >"$T/np-q.out" 2>&1
 check "answer with no profile: not recorded, listed under no profile, nothing created" sh -c '
     grep -q "^no profile.*fact-diet" "$1" && "$2" -I "$3/q.py" "$4/apply/questions.json" questions.fact-diet.status eq open &&
     [ ! -e "$4/profile" ] && [ ! -e "$4/career-records/personal.json" ]' _ "$T/np-q.out" "$PY" "$T" "$H"
-pf create "$H/elsewhere/profile.json" >/dev/null 2>&1
-check "profile create: the file at the path the person chose, and one PROFILE line naming it" sh -c '
-    [ -f "$1/elsewhere/profile.json" ] && grep -q "^PROFILE=.*elsewhere" "$1/job-search.env" &&
-    [ "$(grep -c "^PROFILE=" "$1/job-search.env")" -eq 1 ]' _ "$H"
-pf create "$H/third/profile.json" >/dev/null 2>&1
+pf create "$H/elsewhere" >"$T/np-create1.out" 2>&1
 rc=$?
-check "profile create: refused when a profile exists" sh -c '[ "$1" -eq 1 ] && [ ! -e "$2/third" ]' _ "$rc" "$H"
-# --- create with no job-search.env, and PROFILE against the lookup the other cenk-* plugins use ------------------
-# Each command pins the shared lookup to a throwaway path (profile_path), so no real drive folder is looked at.
-mkdir -p "$T/noenv"
-found=$(cd "$T/noenv" && unset JOB_SEARCH_ENV && "$PY" -I -c '
-import sys
-sys.path.insert(0, sys.argv[1])
-import jsenv
-try:
-    print(jsenv.find(None, sys.argv[1] + "/profilelib.py"))
-except SystemExit:
-    pass' "$S" 2>/dev/null)
-if [ -n "$found" ]; then
-    fail "profile create with no job-search.env: not run, one is found from the throwaway folder ($found)"
-else
-    (cd "$T/noenv" && unset JOB_SEARCH_ENV &&
-        CLAUDE_PLUGIN_OPTION_PROFILE_PATH="$T/noenv-shared/profile.json" "$PY" -I "$S/profilelib.py" \
-            create "$T/noenv/lost/profile.json") >"$T/noenv.out" 2>&1
-    rc=$?
-    check "profile create with no job-search.env at a path no lookup finds: exits 1, creates nothing" sh -c '
-        [ "$1" -eq 1 ] && [ ! -e "$2/noenv/lost" ] && grep -q "^Nothing would find a profile" "$3"' \
-        _ "$rc" "$T" "$T/noenv.out"
-    (cd "$T/noenv" && unset JOB_SEARCH_ENV &&
-        CLAUDE_PLUGIN_OPTION_PROFILE_PATH="$T/noenv-shared/profile.json" "$PY" -I "$S/profilelib.py" \
-            create "$T/noenv-shared/profile.json") >"$T/noenv2.out" 2>&1
-    rc=$?
-    check "profile create with no job-search.env where the lookup looks: created, no PROFILE line" sh -c '
-        [ "$1" -eq 0 ] && [ -f "$2/noenv-shared/profile.json" ] && ! grep -q "PROFILE=" "$3"' \
-        _ "$rc" "$T" "$T/noenv2.out"
-fi
-CLAUDE_PLUGIN_OPTION_PROFILE_PATH="$T/other-profile/profile.json" \
-    "$PY" -I "$S/check_setup.py" --env "$ENVF" >"$T/split-setup.out" 2>&1
-CLAUDE_PLUGIN_OPTION_PROFILE_PATH="$H/elsewhere/profile.json" \
-    "$PY" -I "$S/check_setup.py" --env "$ENVF" >"$T/same-setup.out" 2>&1
-check "check_setup: warns when PROFILE is not the file the other cenk-* plugins read; silent when it is" sh -c '
-    grep -q "^WARN.*Same profile for the other cenk-.*profile_path" "$1" &&
-    ! grep -q "Same profile for the other" "$2"' _ "$T/split-setup.out" "$T/same-setup.out"
+check "profile create: refused in another folder than CENK_HOME names" sh -c '
+    [ "$1" -eq 1 ] && [ ! -e "$2/elsewhere" ] && grep -q "CENK_HOME names" "$3"' _ "$rc" "$H" "$T/np-create1.out"
+pf create "$H/profile" >/dev/null 2>&1
+rc=$?
+check "profile create: profile.json in the cenk folder, empty, without touching job-search.env" sh -c '
+    [ "$1" -eq 0 ] && [ "$(cat "$2/profile/profile.json")" = "{}" ] && ! grep -q "PROFILE=" "$2/job-search.env"' _ "$rc" "$H"
+pf create "$H/profile" >/dev/null 2>&1
+rc=$?
+check "profile create: refused when a profile exists" [ "$rc" -eq 1 ]
+CENK_BASE= "$PY" -I "$S/check_setup.py" --needs --env "$ENVF" >"$T/nobase-needs.out" 2>&1
+check "check_setup --needs without cenk-base: names it and the install line" sh -c '
+    grep -q "^profile: cenk-base is not loaded" "$1" && grep -q "claude plugin install cenk-jobs@cenk" "$1"' _ "$T/nobase-needs.out"
+mkdir -p "$T/old-base/lib"
+echo 'ABSENT = object()' >"$T/old-base/lib/profile.py"
+CENK_BASE="$T/old-base" "$PY" -I "$S/check_setup.py" --needs --env "$ENVF" >"$T/oldbase-needs.out" 2>&1
+rc=$?
+check "check_setup --needs with a cenk-base that lacks what cenk-jobs uses: no traceback, names the cause" sh -c '
+    [ "$1" -eq 0 ] && grep -q "^profile: .*cannot be used (no ProfileError" "$2" && ! grep -q Traceback "$2"' \
+    _ "$rc" "$T/oldbase-needs.out"
 
 # --- move_to_profile: the person's facts from the old records into the profile, once -----------------------------------
 cp -R "$T/flat" "$T/mv"

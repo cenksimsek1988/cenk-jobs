@@ -11,15 +11,17 @@ The parts in `RULES/`, beside this file, are read only when a heading below says
   desktop). `job-search.env` at its top names every folder and file. There are no copies of the person's data: the
   master record is one JSON file; only CVs and cover letters are generated files, and a
   run's `career_view.py` parts, deleted when it ends.
-- The person's own facts live only in their **profile**, shared with the other cenk-* plugins: name, contact,
+- The person's own facts live only in their **profile**, shared with the other cenk plugins: name, contact,
   nationality, languages, birth date, address (`person`), private answers (`private`), referees and other people
-  (`contacts`), the true employment dates (`employment`). It is `PROFILE` in `job-search.env`, else
-  `claude/profile.json` in their Google Drive's "My Drive" folder (`profilelib.py path`). The master record keeps
-  what cenk-jobs makes from them: CV wording, form answers, preferences, decisions, rules.
+  (`contacts`), the true employment dates (`employment`). The base plugin cenk-base reads and writes it:
+  `profile.json` in the cenk folder, `cenk/` in their Google Drive's "My Drive" or the folder `CENK_HOME` names
+  (`profilelib.py path`). The master record keeps what cenk-jobs makes from them: CV wording, form answers,
+  preferences, decisions, rules.
 - Read one value with `profilelib.py get <key>`, never the whole file. Another file points to a fact by its key,
   never a copy. Example: `"referee": "contacts.referee-sam"`, not the referee's email.
 - Scripts: `python -I "<plugin>/scripts/<script>.py" --env "<main folder>/job-search.env"`, or from the main folder
-  without `--env`. On Windows run them with Git Bash or `py`; PowerShell may have no `python` on its path.
+  without `--env`. Run them with the Bash tool (Git Bash on Windows): only it gets `CENK_BASE`, which the profile
+  needs; PowerShell may also have no `python` on its path.
 - `$JOB_SEARCH_ENV` (user settings) names `job-search.env`, so every session finds the main folder.
 
 ## First: work in the main folder
@@ -80,7 +82,9 @@ Do now. Then read `RULES/run.md`.
   - It never writes over another value (exit 3): show the person both values, ask which is right, then set again
     with `--old <the value the profile holds>`.
   - No profile yet (exit 1): ask the person where to create it, suggesting the place the script names, then
-    `profilelib.py create <path>`. Never create it without their answer.
+    `profilelib.py create <folder>`, then `profilelib.py pin <folder> --yes`
+    after their yes when its output says nothing finds it (the output names cenk-base's `profile.py`: run `profilelib.py`). Never create it without their answer.
+  - "cenk-base is not loaded" (exit 1): tell the person; setup's step 3 has the re-install line.
   - A key under `settings` decides what sessions may do: ask the person first, showing the key, the old and the new
     value, also for a change they asked for; after their yes, `set` or `erase` with `--yes`. Example: `set
     settings.cenk-jobs.form_facts '["birth_date"]' --yes`. Without `--yes` nothing is written (exit 1).

@@ -5,6 +5,7 @@
     "email": "35446555+cenksimsek1988@users.noreply.github.com"
   },
   "description": "The cenk-jobs plugin from this repository: for a clone you work on, or a private copy you were invited to. Everyone else installs it from Cenk Simsek's public catalog cenk (github.com/cenksimsek1988/claude-plugins).",
+  "allowCrossMarketplaceDependenciesOn": ["cenk"],
   "plugins": [
     {
       "name": "cenk-jobs",
