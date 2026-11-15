@@ -11,12 +11,17 @@ python -I collect_postings.py [--since <YYYY-MM-DD[THH:MM]>] [--out <search file
     --add: also adds every new posting to the tracker (track.py add <id> ... found_by=<source> date=<date>).
     --from <dir>: reads each source's answer from <dir>/<source>-<board>.json (.html for linkedin, -p2 and -p3 for
     its next pages; <source>-<board>.status holding an HTTP code answers with that error) instead of the web; tests.
-Only searches due today are read (searches.py due), and each is marked read (searches.py done <id> found=<n>).
+Only searches due today are read (searches.py due), and each is marked read (searches.py done <id> found=<n>); with
+--since, also a script search read since then, again over the window given (seen: a search read at 01:00 was not
+read again with --since 00:00).
 A search row: site, employer (for a board: the employer's name, which names every posting; without it, the site
 without a trailing "jobs" or "careers"), query (terms, comma-separated: a
 title must hold one; empty: ROLE_TERMS from job-search.env; neither: the search is skipped and stays due), source,
 board (the name in the board's address; for linkedin: none), place (terms, comma-separated: the place must hold one;
-empty: any place). A remote posting passes only when its place also holds one of the search's places or one of
+empty: PLACES from job-search.env, else any place). A place in NOT_PLACES never passes, also inside an accepted
+country ("Turin, Italy" with NOT_PLACES=Turin); carried postings pass the same places check. Each posting of the
+search file gets its city's pay from PAY_TABLE (career_view.py pay) when the table has it.
+A remote posting passes only when its place also holds one of the search's places or one of
 REMOTE_REGIONS (job-search.env), or reads just "Remote". Example: "Remote, EU" passes with REMOTE_REGIONS=EU;
 "Remote, US" does not. Example: searches.py add "Acme jobs" "engineer, architect" source=greenhouse
 board=acme place="Rome, Italy".
@@ -41,7 +46,8 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import jsenv  # noqa: E402
-from trackerlib import flat_jobs  # noqa: E402
+import reposts  # noqa: E402
+from trackerlib import flat_jobs, pay_for, pay_table  # noqa: E402
 from variants import runs, usage_rows  # noqa: E402
 
 UA = {"User-Agent": "Mozilla/5.0 (job-search assistant)"}
@@ -157,16 +163,34 @@ def terms(text):
     return [t.strip().lower() for t in str(text or "").split(",") if t.strip()]
 
 
+def title_has(title, words):
+    """A term matches whole words of the title, a phrase as a whole: "tech lead" passes "Tech Lead, Payments" and not
+    "Lead Project Manager"; "lead" does not pass "Leadership Coach"."""
+    low = title.lower()
+    return any(re.search(r"(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", low) for w in words)
+
+
+PLACES, NOT_PLACES = [], []  # from job-search.env in main()
+
+
 def wanted(row, title, place, role_terms, regions):
     """A title must hold one of the search's terms (else ROLE_TERMS); the place one of its places. A remote posting
     passes only with one of its places or REMOTE_REGIONS in the same text, or as a bare "Remote"."""
-    words, places = terms(row.get("query")) or role_terms, terms(row.get("place"))
-    if not any(w in title.lower() for w in words):
+    words, places = terms(row.get("query")) or role_terms, terms(row.get("place")) or PLACES
+    if not title_has(title, words):
         return False
+    return place_ok(place, places, regions)
+
+
+def place_ok(place, places, regions):
+    """A place the person ruled out (NOT_PLACES) never passes, even inside a place they accept ("Turin, Italy" with
+    Turin ruled out); then the place must hold one of places, where a remote posting needs one of places or regions."""
     where = place.lower()
+    if title_has(where, NOT_PLACES):
+        return False
     if "remote" in where:
-        return where.strip(" ()-") == "remote" or any(p in where for p in places + regions)
-    return not places or any(p in where for p in places)
+        return where.strip(" ()-") == "remote" or title_has(where, places + regions)
+    return not places or title_has(where, places)
 
 
 def run(script, *more):
@@ -209,7 +233,10 @@ def main():
     except ValueError:
         sys.exit("--since takes a date, YYYY-MM-DD or YYYY-MM-DDTHH:MM")
     role_terms, regions = terms(ENV.get("ROLE_TERMS")), terms(ENV.get("REMOTE_REGIONS"))
-    rows = [r for r in json.loads(run("searches.py", "due", "--json") or "[]") if r.get("method") == "script"]
+    global PLACES, NOT_PLACES
+    PLACES, NOT_PLACES = terms(ENV.get("PLACES")), terms(ENV.get("NOT_PLACES"))
+    since_args = ["--since", opts["--since"]] if opts.get("--since") else []
+    rows = [r for r in json.loads(run("searches.py", "due", "--json", *since_args) or "[]") if r.get("method") == "script"]
     found, read, last_request, linkedin_stopped = [], [], [0.0], ""
     for row in rows:
         if not (terms(row.get("query")) or role_terms):
@@ -221,6 +248,8 @@ def main():
         last = row.get("last_checked") or ""
         # A search that stayed due over runs (refused, down) starts at its own last read, so nothing is skipped.
         start = datetime.datetime.fromisoformat(last[:16]) if last[:10] else run_start
+        if opts.get("--since") and last[:10] and start > run_start:
+            start = run_start  # read again by hand: the window given wins over the row's own last read
         try:
             texts = answers(row, opts.get("--from"), last_request, start)
         except Refused as problem:
@@ -265,6 +294,7 @@ def main():
             new.append(p)
     for p in new:
         print(" | ".join((p["company"], p["title"], p["location"], p["date"] or "-", p["url"], p["found_by"])))
+    left = {}  # posting id -> why it is left out of the funnel; recorded "skipped" with --add
     if opts.get("--out"):
         raw = (ENV.get("MAX_NEW_PER_RUN") or "30").strip().lower()
         if raw != "unlimited" and not raw.isdigit():
@@ -276,17 +306,33 @@ def main():
                        for j in flat_jobs(json.load(fh))
                        if j.get("status") == "found" and str(j.get("found_by", "")).startswith("script:")
                        and not j.get("prep") and j["id"] not in {p["id"] for p in new}]
-        chosen = (sorted(new, key=lambda p: p["date"] or "", reverse=True)
+        # A role applied to before, posted again (a new link, the same employer and title), never goes in again.
+        with open(ENV.path("TRACKER"), encoding="utf-8") as fh:
+            index = reposts.Index(ENV, json.load(fh))
+        repeated = {p["id"]: index.repost_of(p["company"], p["title"]) for p in new + backlog}
+        left.update({k: "repost of " + v for k, v in repeated.items() if v})
+        # A posting carried from an earlier run passes the person's places too (seen: 19 of 263 outside them).
+        left.update({p["id"]: "outside your places: " + p["location"] for p in backlog
+                     if p["id"] not in left and p["location"] and not place_ok(p["location"], PLACES, regions)})
+        for p in new + backlog:
+            if p["id"] in left:
+                print(f"left out: {p['id']} | {p['company']} | {p['title']} | {left[p['id']]}")
+        fresh = [p for p in new if p["id"] not in left]
+        backlog = [p for p in backlog if p["id"] not in left]
+        chosen = (sorted(fresh, key=lambda p: p["date"] or "", reverse=True)
                   + sorted(backlog, key=lambda p: p["date"] or "", reverse=True))[:cap]
         taken = {p["id"] for p in chosen}
-        new_out = sum(1 for p in new if p["id"] not in taken)
+        new_out = sum(1 for p in fresh if p["id"] not in taken)
         # In the tracker, a posting left out waits for the next run; without --add a new one is not there: it is lost.
         waiting = sum(1 for p in backlog if p["id"] not in taken) + (new_out if add else 0)
         later = f"{waiting} wait for the next run" + ("" if add or not new_out else
                                                        f"; {new_out} new left out (not in the tracker without --add)")
         companies = {}
+        pays = pay_table(ENV)[1]
         for p in chosen:
+            p["pay"] = pay_for(pays, p["location"])
             companies.setdefault(p["company"], []).append({k: p[k] for k in ("id", "title", "url", "location", "date", "found_by")}
+                                                          | ({"pay": p["pay"]} if p["pay"] else {})
                                                           | {"apply_url": p["url"]})
         with open(opts["--out"], "w", encoding="utf-8", newline="\n") as fh:
             json.dump({"companies": [{"name": n, "jobs": j} for n, j in companies.items()]}, fh, ensure_ascii=False, indent=1)
@@ -295,6 +341,15 @@ def main():
         for p in new:
             run("track.py", "add", p["id"], p["company"], p["title"], p["url"], f"found_by={p['found_by']}",
                 *([f"location={p['location']}"] if p["location"] else []), *([f"date={p['date']}"] if p["date"] else []))
+    if add and left:
+        # One tracker write for every posting left out: it is in the tracker, so it is never "new" again.
+        batch = os.path.join(os.path.dirname(ENV.path("TRACKER")), ".collect-left.tsv")
+        with open(batch, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write("".join(f"{k}\tskipped\t{v}\n" for k, v in left.items()))
+        try:
+            run("track.py", "set", "--file", batch)
+        finally:
+            os.remove(batch)
     # Marked read only now: a search whose postings failed to be written stays due, so none is lost to its date.
     for item in read:
         if isinstance(item, str):

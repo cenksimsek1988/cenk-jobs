@@ -6,6 +6,48 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.35.1] - 2026-11-15
+
+Fixes from the first real run of 0.35.0: 19.25M W (cost-weighted Opus tokens) for 6 applications; 14 of 21 high
+fits were reposts of roles already sent.
+
+### Added
+
+- `reposts.py`: a posting whose employer (its keys and saved names) and title words match a role already applied to
+  or declined. `collect_postings.py --out` leaves it out and records it `skipped` "repost of <id>". Example: "Software
+  Engineer - Senior" at "Acme" after "Senior Software Engineer (m/f/d)" at "Acme (Parent)".
+- `workflow_args.py`: the funnel's args from the scripts (about 8 KB), the person's rules in `rules.json` for the
+  agents; an excluded employer is left out and named. The args with the rules and known checks inline were 45 KB.
+- `PLACES`, `NOT_PLACES`: the accepted places and the cities ruled out, for every posting, carried ones included,
+  and for a search with no place; a ruled-out city is refused inside an accepted country.
+- `PAY_TABLE` and `career_view.py pay "<city>" [--set]`: one private pay figure per city; each posting gets its
+  city's figure, never the home city's.
+- `track.py set --file`: many status changes in one tracker write.
+- `sessions.py lock` and `unlock`: one coordinator per main folder writes records; a second is refused while the
+  first's beat is under 30 minutes old.
+
+### Changed
+
+- Each fit check reads only its employer's postings (`<outDir>/jobs/<employer>.json`, written by
+  `workflow_args.py` with a unique name per employer) and the fit record once:
+  measured, each fit check read the whole search file, about 246k characters of tool results.
+- Role terms match whole words and phrases: "lead" no longer passes "Leadership Coach".
+- The workflow counts the grades before the `APPLY_FITS` cut: high, normal, weak, hard, and how many passed.
+- The coordinator title is only the person's own main session's; the handoff file is
+  `handoffs/job-search-coordinator.md` and lists every open sub-session with its own handoff file.
+
+### Fixed
+
+- `track.py sync`: the plugin's labels always count; a person's `sync.labels` adds older ones. Seen: older labels
+  in a settings file hid every `prep-fit:` result (203 of 239 jobs stayed "found").
+- `track.py sync`: a fit's skip sets a job still `found` to `skipped` with its reason, an apply to `pending`.
+- `employer_lookup.py`: a 429 is a pause and a second pass (at most 5 a run), not the end of the lookups; a name
+  holding " | " is printed with " / ".
+- `employer.py alias --not`: the other employer is not offered by any of its keys, an alias key included.
+- `searches.py sites --add`: no search for an excluded employer; each new row gets `PLACES`.
+- `collect_postings.py --since`: a script search read earlier the same day is read again over the window given.
+- `sessions.py sync`: a scheduled run's session is a coordinator, never a piece.
+
 ## [0.35.0] - 2026-11-15
 
 Setup asks each cost choice with its token cost; the person's answers decide what a run spends.

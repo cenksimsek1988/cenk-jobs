@@ -159,7 +159,9 @@ Example: Pro suggests `APPLY=list`, `LETTERS=never` and one run a week.
 ## 6. Where and how they will work
 
 Cities, remote, hybrid, relocation; the pay floor (private); how interviews may be scheduled. Write each into
-`preferences` as fact lines. Then ask once about the weekly usage report ("It holds no name, contact, CV, pay or
+`preferences` as fact lines. The scripts read the places from `job-search.env`: `PLACES` (accepted cities and
+countries) and `NOT_PLACES` (cities ruled out). Example: PLACES=Rome, Italy; NOT_PLACES=Turin. The pay figure of a
+city goes into the private table once it is worked out (`career_view.py pay "<city>" --set "<figure>"`). Then ask once about the weekly usage report ("It holds no name, contact, CV, pay or
 address; you read each one and send it yourself") and write `USAGE_SHARING=yes|no` in `job-search.env`.
 
 ## 7. CV versions
@@ -198,7 +200,8 @@ reports. Keep job-search work out of other sessions." From here on it runs `cenk
 
 With the defaults accepted, create the scheduled run with `/cenk-jobs:schedule` (weekdays at 19:00 local time), then run the first
 search now with `/cenk-jobs:search`: first `searches.py sites --add` saves a script search for every employer whose
-job links are on a board the script reads (after asking for `ROLE_TERMS` and `REMOTE_REGIONS`); then it saves one
+job links are on a board the script reads (after asking for `ROLE_TERMS`, as role phrases that match whole words: "tech lead", not "lead", which
+also passes "Lead Project Manager"; and `REMOTE_REGIONS`); then it saves one
 search per other site and query and offers the sites' free email alerts
 (`search`, "Saved searches"), so later runs read only what is new. Job sites that need an account come out of that search: the person creates each
 account and leaves its profile empty, because Claude fills it when applying.

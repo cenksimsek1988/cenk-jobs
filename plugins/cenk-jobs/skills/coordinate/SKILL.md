@@ -52,8 +52,15 @@ A session cannot be moved under a new coordinator: it is reached by message, and
   `questions.py add fact "What is your notice period?" key=notice_period job=J7`.
 - A finished search's questions go to the person at once, in one ordered list (the order of "Answer first"), even
   while another task is open; they never wait for that task to end.
-- Runs in the main folder and is titled **Job search coordinator**. It tells the person, at the start of each run,
-  that this is their main session (RULES.md, "One main session").
+- Runs in the main folder and is titled **Job search coordinator**: only the person's own main session, started in
+  their main folder by them or by the schedule. A development or test session that loads this skill keeps its own
+  title and writes no record. It tells the person, at the start of each run, that this is their main session
+  (RULES.md, "One main session").
+- Before it writes any record: `sessions.py lock <its own local_... id>`; again before each later step that writes
+  (it refreshes the beat); `sessions.py unlock <id>` at the end. Refused (another coordinator's beat within 30
+  minutes): it writes nothing, asks that coordinator to write its handoff and stop (as in the handoff check), and
+  takes the lock once it is free. Also `list_sessions`: another running "Job search coordinator" in the same folder
+  is the same case. Example: a test coordinator started while the person's own one runs waits for its handoff.
 - **Is the only writer of the shared records**: `TRACKER`, `PIPELINE`, `LOGINS`, `SESSIONS`, `MASTER_RECORD`,
   `QUESTIONS`, `EMPLOYER_RULES`, `EMPLOYER_CHECKS`, `USAGE_LOG`, the application folders (through
   `build_app_folders.py`), the calendar category, the dashboard and the Questions page. Sub-sessions report; the coordinator records. Why: the files sync through Google Drive, and two
@@ -173,7 +180,11 @@ removed, the session's state and title (`sessions.py set <name> state=done`), an
 
 - A sub-session ends once its handoff is recorded: the coordinator archives it (`ARCHIVE_SESSIONS`: `yes` without
   asking, empty when the person agrees).
-- Every run ends with `handoffs/coordinator.md`: what is open, what waits on the person, what is next.
+- Every run ends with `handoffs/job-search-coordinator.md`: what is open, what waits on the person, what is next,
+  and every sub-session still open, one line each: id, state, what it waits on, its handoff file. Example:
+  `local_ab12 | idle | waits on the Workday sign-in | handoffs/apply-acme.md`. Before it, each open sub-session
+  writes or updates its own handoff file (the message of the handoff check, step 2). An older
+  `handoffs/coordinator.md` is read once by the next handoff check, like any other file there.
 - The run ends with a short report: what was sent, what waits on the person (Do now, and how many questions are
   open on the Questions page), what is planned next, and the two links (`DASHBOARD_URL`, `QUESTIONS_PAGE`), so the
   person never has to look for them.

@@ -2,6 +2,8 @@
 
 python -I track.py add <id> "<company>" "<title>" <url> [key=value ...]   add a job (keys: location, work_mode, cv,
                                                                            letter, apply_url, salary_note, note)
+python -I track.py set --file <file>                                      many outcomes in one write: lines
+                                                                           "<id><TAB><status><TAB><note>"
 python -I track.py set <id> <status> "<note>" [key=value ...]             record an outcome (and update fields, e.g.
                                                                            cv=<path> letter=<path>; letter=none:
                                                                            no letter was sent, the form had no field)
@@ -269,17 +271,21 @@ def ties_key(result):
 def sync(journals):
     rules = load_settings(env).get("sync", {})
     labels = rules.get("labels", {})
-    screens = labels.get("screen", [])
-    refuters = labels.get("refute", [])
-    # The defaults are the labels workflows/screen-and-prepare.js gives its agents: the judge's verdict when the two
-    # checks disagreed, else the second check's, else the first's.
-    preps = labels.get("prep", ["prep-jobs:", "prep-fit:"])
-    exclusions = labels.get("exclusion", ["excl-judge:", "excl-verify:", "excl-screen:", "excl-quick:"])
-    owns = labels.get("own", ["excl-own:"])  # the second check against the person's own rules (their notes)
+    # The plugin's labels (the ones workflows/screen-and-prepare.js gives its agents) always count, first: the judge's
+    # verdict when the two checks disagreed, else the second check's, else the first's. A person's own lists only add
+    # older labels after them. Seen: a settings file listing older prep labels hid every prep-fit: result.
+    both = lambda kind, plugin: plugin + [x for x in labels.get(kind, []) if x not in plugin]  # noqa: E731
+    screens = both("screen", [])
+    refuters = both("refute", [])
+    preps = both("prep", ["prep-jobs:", "prep-fit:"])
+    exclusions = both("exclusion", ["excl-judge:", "excl-verify:", "excl-screen:", "excl-quick:"])
+    owns = both("own", ["excl-own:"])  # the second check against the person's own rules (their notes)
     refute_also = set(rules.get("refute_incomplete", []))
     overrides = rules.get("verdict_overrides", {})
     exclude_overrides = rules.get("exclude_overrides", {})
     data = expand(load(), PATH)  # every detail merged: sync reads hits and ties and writes prep
+    global NOTE
+    NOTE = note_key(data)  # the dispatch below sets it only for the other commands
     if not is_company_shape(data):
         sys.exit("sync works on the {companies: [...]} tracker, where screening verdicts belong to companies")
     merge_found(data, [tuple(x) for x in rules.get("merge", [])])
@@ -399,6 +405,14 @@ def attach_prep(company, prep):
         for job in company["jobs"]:
             if job["id"] == pj.get("id"):
                 job["prep"] = choices.graded(pj, level)
+                # Only a job no one has moved on yet ("found") takes the fit's decision as its status.
+                if job.get("status") == "found":
+                    skip = job["prep"].get("action") == "skip"
+                    status = "skipped" if skip else "pending"
+                    if job["status"] != status:
+                        why = "fit: " + (job["prep"].get("reason") or "skip") if skip else "fit: apply"
+                        job.setdefault("history", []).append({"date": today, "status": status, NOTE: why})
+                        job["status"], job[NOTE] = status, why
 
 
 # --- split ---------------------------------------------------------------------------------------------------------
@@ -463,6 +477,38 @@ def split_tracker_files(data, apply):
 if not args or args[0] not in ("add", "set", "todo", "wait", "show", "brief", "list", "summary", "sync", "split"):
     sys.exit(__doc__)
 cmd = args[0]
+def set_one(data, job_id, status, note, more):
+    """One job's new status and note, kept in its history; the caller saves."""
+    allowed = set(STATUSES) | {j.get("status") for _, j in entries(data) if j.get("status")}
+    if status not in allowed and not re.fullmatch(r"needs-[a-z]+", status):
+        sys.exit(f"status must be one of {', '.join(sorted(allowed))}, or needs-<word>")
+    company, row = find(data, job_id)
+    job = expand_row(PATH, row)  # a split row: its detail merged in; written back below
+    history = job.setdefault("history", [])
+    old, old_status = job.get(NOTE, ""), job.get("status", "")
+    if old and not any(h.get(NOTE) == old for h in history):
+        # A note written before history was kept (or by another tool) is saved before it is replaced.
+        history.append({"until": today, "status": old_status, NOTE: old})
+    if old_status == "submitted" and not job.get("applied") and date_in(old):
+        # An older job's sent date is only in its note: keep it, so its folder name stays when the note changes.
+        job["applied"] = date_in(old)
+    job.update(fields(more))
+    job["status"] = status
+    if status == "submitted" and old_status != "submitted" and not job.get("applied"):
+        job["applied"] = today
+    job[NOTE] = note or old
+    change = {"date": today, "status": status, NOTE: note}
+    # A job that is sent or over needs none of the to-dos it had: they were about getting it sent.
+    dropped = job.pop("todo", None) if status != old_status and status in ("submitted",) + ENDED_STATUS else None
+    if dropped:
+        change["todo_dropped"] = dropped
+    history.append(change)
+    collapse_row(PATH, row, job, is_company_shape(data))
+    print(job_id, company.get("name", ""), title_of(job)[:60], "->", status)
+    if dropped:
+        print(f"dropped {len(dropped)} to-do(s): " + "; ".join(t.get("text", "") for t in dropped))
+
+
 if cmd == "sync":
     sync(args[1:])
     sys.exit(0)
@@ -480,37 +526,21 @@ if cmd == "add":
     add_job(data, company, job)
     save(data)
     print("added", job_id, company, title)
-elif cmd == "set":
-    job_id, status, note = args[1], args[2], args[3] if len(args) > 3 else ""
-    allowed = set(STATUSES) | {j.get("status") for _, j in entries(data) if j.get("status")}
-    if status not in allowed and not re.fullmatch(r"needs-[a-z]+", status):
-        sys.exit(f"status must be one of {', '.join(sorted(allowed))}, or needs-<word>")
-    company, row = find(data, job_id)
-    job = expand_row(PATH, row)  # a split row: its detail merged in; written back below
-    history = job.setdefault("history", [])
-    old, old_status = job.get(NOTE, ""), job.get("status", "")
-    if old and not any(h.get(NOTE) == old for h in history):
-        # A note written before history was kept (or by another tool) is saved before it is replaced.
-        history.append({"until": today, "status": old_status, NOTE: old})
-    if old_status == "submitted" and not job.get("applied") and date_in(old):
-        # An older job's sent date is only in its note: keep it, so its folder name stays when the note changes.
-        job["applied"] = date_in(old)
-    job.update(fields(args[4:]))
-    job["status"] = status
-    if status == "submitted" and old_status != "submitted" and not job.get("applied"):
-        job["applied"] = today
-    job[NOTE] = note or old
-    change = {"date": today, "status": status, NOTE: note}
-    # A job that is sent or over needs none of the to-dos it had: they were about getting it sent.
-    dropped = job.pop("todo", None) if status != old_status and status in ("submitted",) + ENDED_STATUS else None
-    if dropped:
-        change["todo_dropped"] = dropped
-    history.append(change)
-    collapse_row(PATH, row, job, is_company_shape(data))
+elif cmd == "set" and args[1:2] == ["--file"]:
+    # Lines "<id><TAB><status><TAB><note>": every change in one tracker write (a Drive-synced file is slow).
+    if len(args) < 3:
+        sys.exit("set --file <file of id, status and note, tab-separated>")
+    with open(args[2], encoding="utf-8") as fh:
+        lines = [ln.rstrip("\r\n").split("\t", 2) for ln in fh if ln.strip()]
+    bad = [n for n, ln in enumerate(lines, 1) if len(ln) < 2]
+    if bad:
+        sys.exit(f"set --file: line {bad[0]} needs id, status and note, tab-separated")
+    for ln in lines:
+        set_one(data, ln[0], ln[1], ln[2] if len(ln) > 2 else "", [])
     save(data)
-    print(job_id, company.get("name", ""), title_of(job)[:60], "->", status)
-    if dropped:
-        print(f"dropped {len(dropped)} to-do(s): " + "; ".join(t.get("text", "") for t in dropped))
+elif cmd == "set":
+    set_one(data, args[1], args[2], args[3] if len(args) > 3 else "", args[4:])
+    save(data)
 elif cmd == "wait":
     # A wait known only in a chat or a hand-off note is invisible on the dashboard: the status and the to-do go
     # together. Seen: 16 jobs waiting on sign-ins and answers stayed "found" with no to-do for two days.

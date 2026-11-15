@@ -110,6 +110,8 @@ employers**, **Hiring steps** and **All applications**, under the total count an
 | `employer_lookup.py` | the free public-data lookup (Wikidata) of an employer never checked: exclude, go on or undecided; cached |
 | `choices.py` | the person's cost choices in `job-search.env`: show, set, the workflow's args, suggestions per plan, the fit grade |
 | `statusline.py` | opt-in status line script: saves the plan's usage share; `read` gives the run report's line |
+| `reposts.py` | the postings that repeat a role already applied to or declined (employer and title); collect leaves them out |
+| `workflow_args.py` | the funnel's args from the scripts, about 8 KB, with the rules in a file the agents read |
 | `variants.py` | the run's variant (model and effort per step), its models for the workflow, and each run's good-fit count |
 | `token_report.py` | tokens per run and per agent kind from this computer's transcripts; numbers only, sends nothing |
 | `searches.py` | saved searches: add, list, due (on a weekday for a site without an alert), done, fail (a board's error; two 404s: gone), sites (the tracker's sites with no saved search; `--add`: a script search for each), seen (is a posting new) |

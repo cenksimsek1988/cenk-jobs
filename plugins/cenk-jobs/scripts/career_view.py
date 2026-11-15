@@ -14,6 +14,10 @@ python -I career_view.py facts [--out <file>]    what a letter or a form may use
 python -I career_view.py cvs [--out <file>]     the CV versions for the workflow's cvs: [{variant, file, use}], only
                                                  those whose PDF exists in CVS_DIR (each missing one is named on
                                                  stderr: build it with build_cv.py)
+python -I career_view.py pay "<city>" [--set "<figure>"]
+                                                 the person's pay figure for that city from PAY_TABLE (private;
+                                                 default apply/pay-by-city.json); --set adds it, worked out once from
+                                                 the pay rule. collect_postings.py gives each posting its city's figure.
 Prints the JSON, or with --out writes it and prints the path and size. Add --env <job-search.env> to pick the env file.
 """
 import json
@@ -49,7 +53,22 @@ def option(name):
     return value
 
 
-env_arg, out = option("--env"), option("--out")
+env_arg, out, set_to = option("--env"), option("--out"), option("--set")
+if len(args) == 2 and args[0] == "pay":
+    # One city's pay figure from PAY_TABLE; --set adds or changes it (worked out once from the pay rule).
+    from trackerlib import pay_table
+    env = jsenv.load(env_arg, __file__)
+    path, table = pay_table(env)
+    if set_to is not None:
+        for key in [k for k in table if k.lower() == args[1].lower()]:
+            del table[key]  # one key per city, whatever its case
+        table[args[1]] = set_to
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(table, f, ensure_ascii=False, indent=1)
+    figure = next((v for k, v in table.items() if k.lower() == args[1].lower()), "")
+    print(figure or f"no figure for {args[1]}: work it out from the pay rule, then --set it")
+    sys.exit(0)
 if args == ["cvs"]:
     import glob
     from build_cv import pdf_name

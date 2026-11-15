@@ -324,12 +324,15 @@ class _Index:
         """Entries with a key that holds all words of a key of the name as whole words, or the other way round, or is
         at least SIMILAR alike; pairs in not_same left out. Sorted by name, at most MAX_POSSIBLE."""
         found = set()
+        # A saved employer marked different (alias --not) is never offered, by any of its keys: the pairs are whole
+        # names, while a name in brackets adds keys of its own. Seen: after alias --not, check still named it.
+        apart = {self.key_to.get(k) for p in self.not_same if p & set(wanted) for k in p if k not in wanted}
         sm = difflib.SequenceMatcher(autojunk=False)
         for wk in sorted(wanted):
             ww = set(wk.split())
             sm.set_seq2(wk)
             for ck, owner in self.key_to.items():
-                if owner in found or ck == wk or frozenset((wk, ck)) in self.not_same:
+                if owner in found or owner in apart or ck == wk or frozenset((wk, ck)) in self.not_same:
                     continue
                 cw = set(ck.split())
                 if ww <= cw or cw <= ww:

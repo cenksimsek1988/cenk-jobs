@@ -174,7 +174,13 @@ elif cmd == "list":
               "|", r.get("method", "agent"), "| last", r["last_checked"] or "never",
               *(["| gone since", r["gone"]] if r.get("gone") else []), *(["|", r["note"]] if r.get("note") else []))
 elif cmd == "due" and "--json" in args:
-    print(json.dumps([r for r in rows if is_due(r)], ensure_ascii=False))
+    # --since <date[Thh:mm]>: a script search read since then counts as due too, so a window given by hand reaches it.
+    if "--since" in args and args.index("--since") + 1 >= len(args):
+        sys.exit("due --json --since <YYYY-MM-DD[THH:MM]>")
+    since = args[args.index("--since") + 1] if "--since" in args else ""
+    again = lambda r: (since and r.get("method") == "script" and not r.get("gone")  # noqa: E731
+                       and (r.get("last_checked") or "") >= since)
+    print(json.dumps([r for r in rows if is_due(r) or again(r)], ensure_ascii=False))
 elif cmd == "due":
     if not rows:
         print("no saved search: add one per site and query (searches.py add; searches.py sites lists the tracker's sites)")
@@ -208,17 +214,25 @@ elif cmd == "sites" and "--add" in args:
     with open(env.path("TRACKER"), encoding="utf-8") as f:
         tracker = json.load(f)
     have = {(r.get("source"), r.get("board", "").lower()) for r in rows}
-    added = []
+    added, excluded = [], {}
+    import employerlib as el
+    rule_set = el.rules(env)
     for j in flat_jobs(tracker):
         hit = board_of(j.get("apply_url") or j.get("url") or "") or board_of(j.get("url") or "")
         if not hit or (hit[0], hit[1].lower()) in have:
             continue
+        name = j.get("company", "")
+        if name and name not in excluded:
+            excluded[name] = el.check_view(env, name, rule_set)["verdict"] == "exclude"
+        if j.get("status") == "excluded" or excluded.get(name):
+            continue  # an employer the person's rules exclude gets no search
         have.add((hit[0], hit[1].lower()))
         next_id = max([r["id"] for r in rows], default=0) + 1
         rows.append({"id": next_id, "site": j.get("company", "") or hit[1], "employer": j.get("company", ""),
                      "query": env.get("ROLE_TERMS", ""),
                      "alert": False, "gmail": "", "every_days": 1, "added": today.isoformat(), "last_checked": "",
-                     "last_found": None, "method": "script", "source": hit[0], "board": hit[1]})
+                     "last_found": None, "method": "script", "source": hit[0], "board": hit[1],
+                     **({"place": env["PLACES"]} if env.get("PLACES") else {})})
         added.append(f"{next_id} {rows[-1]['site']} | {hit[0]} {hit[1]}")
     save(data)
     print("\n".join(added + [f"{len(added)} script searches added"]))

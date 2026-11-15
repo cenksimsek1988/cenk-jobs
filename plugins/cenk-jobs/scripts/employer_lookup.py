@@ -14,7 +14,9 @@ python -I employer_lookup.py <name> [<name> ...] [--file <search file>] [--recor
     employer is looked up twice. --out: the verdicts as JSON for the workflow. --from <dir>: Wikidata's answers from
     <dir>/<name>.json ({search, entity, labels}) instead of the web, for tests.
 Wikidata throttled one request a second (three 429s in 30 requests, 15 Nov 2026): the script waits 2 seconds between
-requests and 30 seconds after a 429, then stops and leaves the rest undecided. About 3 requests per employer: about
+requests and 30 seconds after a 429 and tries again; a second 429 puts the employer at the end of the queue after a
+pause of 60 seconds (--wait <seconds>), at most 5 pauses a run; only then is the rest "undecided: not looked up"
+(seen: one 429 left 29 of 55 employers unlooked). A name holding " | " is printed with " / ". About 3 requests per employer: about
 6 seconds, so about 3 minutes for a run of 30 postings; run it during the search, before the funnel.
 What it reads: the item's industry (P452), country (P17), country of origin (P495), parent (P749) and owner (P127).
 What it finds: defence by the industry or the item's description (arms, defence, military, weapons, munitions),
@@ -51,6 +53,10 @@ class Throttled(Exception):
     pass
 
 
+throttled_once = set()
+PAUSES = 5
+
+
 def ask(params):
     wait = 2.0 - (time.monotonic() - last_call[0])
     if wait > 0:
@@ -79,6 +85,11 @@ def facts_of(name, from_dir):
     item matches. exact: the item's name is the employer's name (web suffix and legal form aside); otherwise it is
     the only item whose name starts with the employer's name, and the result only informs the cheap check."""
     if from_dir:
+        # Tests: <name>.throttle answers 429 to the first request for that name in a run.
+        if os.path.isfile(os.path.join(from_dir, re.sub(r"[^A-Za-z0-9]+", "-", name) + ".throttle")) \
+                and name not in throttled_once:
+            throttled_once.add(name)
+            raise Throttled("HTTP 429")
         path = os.path.join(from_dir, re.sub(r"[^A-Za-z0-9]+", "-", name) + ".json")
         if not os.path.isfile(path):
             return None
@@ -151,7 +162,7 @@ def judge(env, name, found, rule_set):
 def main():
     args = sys.argv[1:]
     opts = {}
-    for flag in ("--env", "--file", "--out", "--from"):
+    for flag in ("--env", "--file", "--out", "--from", "--wait"):
         if flag in args:
             i = args.index(flag)
             if i + 1 >= len(args):
@@ -174,8 +185,14 @@ def main():
         with open(cache_path, encoding="utf-8") as fh:
             cache = json.load(fh)
     rule_set = el.rules(env)
-    out, throttled = {}, ""
-    for name in dict.fromkeys(names):
+    out, throttled, pauses = {}, "", 0
+    try:
+        wait = float(opts.get("--wait", 60))
+    except ValueError:
+        sys.exit("--wait takes seconds")
+    queue = list(dict.fromkeys(names))
+    while queue:
+        name = queue.pop(0)
         start = time.monotonic()
         view = el.check_view(env, name, rule_set)
         if view["verdict"] == "exclude":
@@ -197,8 +214,16 @@ def main():
         else:
             try:
                 found = facts_of(name, opts.get("--from"))
-            except (Throttled, OSError, ValueError) as problem:
+            except Throttled as problem:
+                if pauses < PAUSES:
+                    # Wikidata asks to slow down: a pause, and this employer goes again after the others.
+                    pauses += 1
+                    time.sleep(wait)
+                    queue.append(name)
+                    continue
                 throttled = str(problem)
+                out[name] = {"verdict": "undecided", "why": f"not looked up: Wikidata {problem}"}
+            except (OSError, ValueError) as problem:
                 out[name] = {"verdict": "undecided", "why": f"not looked up: Wikidata {problem}"}
             else:
                 verdict, why, checks = judge(env, name, found, rule_set)
@@ -209,8 +234,8 @@ def main():
                     cache[name] = {"date": datetime.date.today().isoformat(), "found": list(found) if found else None,
                                    **out[name]}
         out[name]["seconds"] = round(time.monotonic() - start, 1)
-        print(" | ".join((name, out[name]["verdict"], out[name]["why"], out[name].get("item", ""),
-                          f"{out[name]['seconds']} s")))
+        print(" | ".join(str(x).replace(" | ", " / ") for x in (name, out[name]["verdict"], out[name]["why"],
+                                                                 out[name].get("item", ""), f"{out[name]['seconds']} s")))
     if record and cache_path:
         os.makedirs(os.path.dirname(cache_path), exist_ok=True)
         with open(cache_path + ".tmp", "w", encoding="utf-8", newline="\n") as fh:

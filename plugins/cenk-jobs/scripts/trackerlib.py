@@ -212,6 +212,26 @@ def job_urls(job):
     return [u for u in (job.get("apply_url"), prep.get("apply_url"), job.get("prep_apply_url"), job.get("url")) if u]
 
 
+def pay_table(env):
+    """(path, {city: figure}) of PAY_TABLE (default apply/pay-by-city.json): the person's private pay figure per city,
+    each worked out once from their pay rule. Example: {"Vienna": "75000 EUR gross a year"}."""
+    path = env.path("PAY_TABLE") if env.get("PAY_TABLE") else os.path.join(env.home, "apply", "pay-by-city.json")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return path, json.load(fh)
+    except (OSError, ValueError):
+        return path, {}
+
+
+def pay_for(table, location):
+    """The figure of the city the location names (whole words, case aside), or "". Example: "Vienna, Austria"."""
+    low = str(location or "").lower()
+    for city, figure in table.items():
+        if re.search(r"(?<![a-z])" + re.escape(city.lower()) + r"(?![a-z])", low):
+            return figure
+    return ""
+
+
 def login_of(job):
     """One name per sign-in: "<platform> · <employer>" for an employer's own site; a Workday site is named so by its
     URL too, never by its tenant host. Example: a job on acme.wd5.myworkdayjobs.com -> "Workday · Acme"."""

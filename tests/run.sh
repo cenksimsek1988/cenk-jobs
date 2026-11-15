@@ -416,6 +416,14 @@ use "$T/emp-not"
 employer alias --not "Examplia" "Examplia Internet GmbH" >/dev/null 2>&1
 employer check "Examplia" >"$T/c-examplia3.json" 2>&1
 check "alias --not: the pair is never offered again" sh -c '"$1" -I "$2/q.py" "$3" 0.match eq none && "$1" -I "$2/q.py" "$3" 0.verdict eq allow' _ "$PY" "$T" "$T/c-examplia3.json"
+cp -R "$T/emp" "$T/emp-not2"
+use "$T/emp-not2"
+employer alias "Examplia Internet GmbH" "Examplia" >/dev/null 2>&1
+employer alias --not "Examplia Internet GmbH" "Examplia Cloud" >/dev/null 2>&1
+employer check "Examplia Cloud" >"$T/c-examplia4.json" 2>&1
+check "alias --not: the other employer is not offered by any of its keys, an alias key included" \
+    q "$T/c-examplia4.json" 0.possible len 0
+use "$T/emp-not"
 
 cp -R "$T/emp" "$T/emp-split"
 use "$T/emp-split"
@@ -1943,6 +1951,113 @@ check "logins sync: a Workday job matches its tenant host's row, whatever the em
     '{r["id"]: r["jobs"] for r in R["logins"]}["Workday · Zeta Works SpA"] == ["W1"]'
 check "logins sync: a row named by its host takes the employer's name; only an unmatched one stays" dq "$H/apply/logins.json" \
     '{r["id"]: r["jobs"] for r in R["logins"]}.get("Workday · Acme") == ["W2"] and [r["id"] for r in R["logins"] if "myworkdayjobs" in r["id"]] == ["beta.wd1.myworkdayjobs.com"]'
+
+# --- 0.35.1: the first real run's faults ---------------------------------------------------------------------------
+mkhome "$T/r1" old
+use "$T/r1"
+cat >"$H/apply/targets.json" <<'EOF'
+{"companies": [
+ {"name": "Acme (Parent)", "verdict": "allow", "jobs": [
+  {"id": "A0", "title": "Senior Software Engineer (m/f/d)", "status": "submitted", "applied": "2026-11-02"}]},
+ {"name": "Acme", "verdict": "allow", "jobs": [
+  {"id": "A1", "title": "Platform Engineer", "status": "found", "date": "2026-11-14"},
+  {"id": "A2", "title": "Tester", "status": "found", "date": "2026-11-13"}]}]}
+EOF
+cat >"$T/r1-search.json" <<'EOF'
+{"companies": [{"name": "Acme", "jobs": [{"id": "P1", "title": "Software Engineer - Senior"},
+                                          {"id": "P2", "title": "Staff Software Engineer"}]}]}
+EOF
+"$PY" -I "$S/reposts.py" "$T/r1-search.json" --env "$ENVF" >"$T/r1-reposts.out" 2>&1
+check "reposts: the same employer (a bracketed name) and the same title words are a repost; another title is not" sh -c '
+    grep -q "^P1 | Acme | Software Engineer - Senior | repost of A0$" "$1" && ! grep -q "^P2" "$1"' _ "$T/r1-reposts.out"
+# Sync: the plugin's labels count even when the person's settings list only older ones; a fit's decision is a status.
+echo "TRACKER_SETTINGS=apply/tracker-settings.json" >>"$ENVF"
+echo '{"sync": {"labels": {"prep": ["prep-old:"], "exclusion": ["excl-old:"]}}}' >"$H/apply/tracker-settings.json"
+cat >"$T/r1-journal.jsonl" <<'EOF'
+{"type": "started", "agentId": "f1", "label": "prep-fit:Acme"}
+{"type": "result", "agentId": "f1", "result": {"jobs": [{"id": "A1", "action": "apply", "title": "Platform Engineer", "gaps": []}, {"id": "A2", "action": "skip", "title": "Tester", "reason": "a junior role", "gaps": []}]}}
+EOF
+track sync "$T/r1-journal.jsonl" >/dev/null 2>&1
+check "sync: a prep-fit: result counts though the person's settings list only older prep labels" \
+    q "$H/apply/targets.json" "companies.name=Acme.jobs.0.prep.grade" eq high
+check "sync: a fit's apply becomes pending, its skip skipped with the reason" sh -c '
+    "$1" -I "$2/dq.py" "$3" "[(j[\"status\"], j.get(\"outcome\", \"\")) for j in R[\"companies\"][1][\"jobs\"]] == [(\"pending\", \"fit: apply\"), (\"skipped\", \"fit: a junior role\")]"' \
+    _ "$PY" "$T" "$H/apply/targets.json"
+printf 'A1\tneeds-person\tWorkday sign-in\nA2\tclosed\tthe posting is gone\nA0\tsubmitted\tsent\n' >"$T/r1-batch.tsv"
+track set --file "$T/r1-batch.tsv" >/dev/null 2>&1
+check "track set --file: three changes in one write, each in its job's history" sh -c '
+    "$1" -I "$2/dq.py" "$3" "[j[\"status\"] for c in R[\"companies\"] for j in c[\"jobs\"]] == [\"submitted\", \"needs-person\", \"closed\"] and R[\"companies\"][1][\"jobs\"][1][\"history\"][-1][\"outcome\"] == \"the posting is gone\""' \
+    _ "$PY" "$T" "$H/apply/targets.json"
+check "track set --file: a line without a status is refused" sh -c '
+    printf "A1\n" >"$4/r1-bad.tsv" && ! "$1" -I "$2/track.py" set --file "$4/r1-bad.tsv" --env "$3" >/dev/null 2>&1' _ "$PY" "$S" "$ENVF" "$T"
+# Title terms match whole words; a phrase as a whole.
+check "collect: a term matches whole words of the title, a phrase as a whole" "$PY" -I -c '
+import sys; sys.path.insert(0, sys.argv[1]); import collect_postings as c
+assert not c.title_has("Leadership Coach", ["lead"]) and c.title_has("Tech Lead, Payments", ["tech lead"])
+assert not c.title_has("Lead Project Manager", ["tech lead"]) and c.title_has("Senior Java Engineer", ["java"])' "$S"
+check "collect: a ruled-out city never passes, also inside an accepted country; PLACES where a search names none" "$PY" -I -c '
+import sys; sys.path.insert(0, sys.argv[1]); import collect_postings as c
+c.PLACES, c.NOT_PLACES = ["rome", "italy", "vienna"], ["turin"]
+assert c.place_ok("Rome, Italy", c.PLACES, []) and c.place_ok("Vienna, Austria", c.PLACES, [])
+assert not c.place_ok("Jerome, Idaho", ["rome"], [])
+assert not c.place_ok("Turin, Italy", c.PLACES, []) and not c.place_ok("Oslo, Norway", c.PLACES, [])
+assert c.place_ok("Remote", c.PLACES, []) and not c.place_ok("Remote, US", c.PLACES, ["eu"])
+assert c.wanted({"query": "engineer"}, "Software Engineer", "Vienna, Austria", [], [])' "$S"
+"$PY" -I "$S/career_view.py" pay Vienna --set "75000 EUR gross a year" --env "$ENVF" >/dev/null 2>&1
+check "career_view pay: a city's figure is kept in the private table and given to the posting in that city" sh -c '
+    [ "$("$1" -I "$2/career_view.py" pay vienna --env "$3")" = "75000 EUR gross a year" ] &&
+    "$1" -I "$2/career_view.py" pay Lisbon --env "$3" | grep -q "^no figure for Lisbon" &&
+    "$1" -I -c "import sys; sys.path.insert(0, sys.argv[1]); import trackerlib as t; assert t.pay_for({\"Vienna\": \"x\"}, \"Vienna, Germany\") == \"x\" and t.pay_for({\"Vienna\": \"x\"}, \"Viennagasse, Rome\") == \"\"" "$2"' \
+    _ "$PY" "$S" "$ENVF"
+check "workflow: the grades are counted before the APPLY_FITS cut" grep -q "raw_grade === g" "$S/../workflows/screen-and-prepare.js"
+# The free lookup: a 429 is a pause and a second pass, not the end; a name holding " | " keeps the line's fields.
+mkdir -p "$T/r1-lk"
+echo '{"id": "Q7", "label": "Plainsoft", "description": "software company", "facts": {"country": ["Italy"], "industry": ["software"]}}' >"$T/r1-lk/Plainsoft.json"
+: >"$T/r1-lk/Plainsoft.throttle"
+echo '{"id": "Q8", "label": "Pipe Co", "description": "software company", "facts": {"country": ["Italy"], "industry": ["software"]}}' >"$T/r1-lk/Pipe-Co.json"
+"$PY" -I "$S/employer_lookup.py" Plainsoft "Pipe | Co" --from "$T/r1-lk" --wait 0 --env "$ENVF" >"$T/r1-lk.out" 2>&1
+check "employer_lookup: after a 429 the employer is looked up again later, and decided" grep -q "^Plainsoft | go on |" "$T/r1-lk.out"
+check "employer_lookup: a name holding \" | \" is printed with \" / \"" grep -q "^Pipe / Co | go on |" "$T/r1-lk.out"
+# workflow_args: small args, the rules in a file, an excluded employer left out.
+mkdir -p "$T/r1-out"
+echo '{"companies": [{"name": "Acme", "jobs": [{"id": "P2", "title": "Staff Software Engineer"}]}, {"name": "ACME", "jobs": [{"id": "P4", "title": "Engineer"}]}, {"name": "Beta Ltd", "jobs": [{"id": "P3", "title": "Analyst"}]}]}' >"$T/r1-out/search.json"
+echo '{"Beta Ltd": {"verdict": "exclude", "why": "in the list"}, "Acme": {"verdict": "undecided", "why": "two items"}}' >"$T/r1-lookup.json"
+CLAUDE_CONFIG_DIR="$T/no-config" "$PY" -I "$S/workflow_args.py" --search "$T/r1-out/search.json" --lookup "$T/r1-lookup.json" --env "$ENVF" >"$T/r1-args.out" 2>&1
+check "workflow_args: args under 8 KB with the rules in a file; an excluded employer is left out and named" sh -c '
+    grep -q "^left out: Beta Ltd | exclude" "$1" && [ "$(wc -c <"$2/args.json")" -lt 8192 ] &&
+    "$3" -I "$4/dq.py" "$2/args.json" "[c[\"name\"] for c in R[\"companies\"]] == [\"Acme\", \"ACME\"] and R[\"companies\"][0][\"quick\"] and R[\"rulesFile\"].endswith(\"rules.json\") and \"what\" not in str(R[\"employerRules\"])" &&
+    [ -s "$2/rules.json" ] && [ -s "$2/fit.json" ]' _ "$T/r1-args.out" "$T/r1-out" "$PY" "$T"
+check "workflow_args: one jobs file per employer, a unique name whatever the case, named in its entry" sh -c '
+    "$1" -I "$2/dq.py" "$3/args.json" "[c[\"jobs_file\"].rsplit(\"/\", 1)[1] for c in R[\"companies\"]] == [\"Acme.json\", \"ACME-2.json\"]" &&
+    grep -q "\"P4\"" "$3/jobs/ACME-2.json" && ! grep -q "\"P4\"" "$3/jobs/Acme.json"' _ "$PY" "$T" "$T/r1-out"
+# searches: --since reaches a script search read earlier today; sites --add skips an excluded employer.
+cat >"$H/apply/searches.json" <<'EOF'
+{"searches": [{"id": 1, "site": "Acme", "query": "engineer", "method": "script", "source": "greenhouse", "board": "acme",
+  "alert": false, "every_days": 1, "last_checked": "2026-11-15T01:00"}]}
+EOF
+check "searches due --since: a script search read since then is due again" sh -c '
+    "$1" -I "$2/searches.py" due --json --since 2026-11-15T00:00 --today 2026-11-15 --env "$3" | grep -q "\"id\": 1" &&
+    ! "$1" -I "$2/searches.py" due --json --today 2026-11-15 --env "$3" | grep -q "\"id\": 1"' _ "$PY" "$S" "$ENVF"
+cat >"$H/apply/targets.json" <<'EOF'
+{"companies": [{"name": "Beta Ltd", "verdict": "exclude", "jobs": [{"id": "B1", "title": "Analyst", "status": "excluded",
+  "url": "https://boards.greenhouse.io/betaltd/jobs/1"}]}]}
+EOF
+echo "ROLE_TERMS=engineer" >>"$ENVF"
+searches sites --add >"$T/r1-sites.out" 2>&1
+check "searches sites --add: no search for an employer the person excluded" grep -q "^0 script searches added" "$T/r1-sites.out"
+# sessions: a scheduled run's session is a coordinator, never a piece; the lock keeps a second coordinator out.
+printf '[{"sessionId": "local_r1", "title": "Job search: weekday run", "cwd": "%s"}, {"sessionId": "local_r2", "title": "You · Acme answers", "cwd": "%s"}]' "$H" "$H" >"$T/r1-list.json"
+sessions sync "$T/r1-list.json" >/dev/null 2>&1
+check "sessions sync: a scheduled run's session is no piece" sh -c '
+    "$1" -I "$2/dq.py" "$3" "[s[\"id\"] for s in R[\"sessions\"]] == [\"local_r2\"]"' _ "$PY" "$T" "$H/apply/sessions.json"
+check "sessions lock: the first coordinator takes it; a second one is refused and named" sh -c '
+    "$1" -I "$2/sessions.py" lock local_a --env "$3" | grep -q "^lock: local_a" &&
+    ! "$1" -I "$2/sessions.py" lock local_b --env "$3" >"$4/r1-lock.out" &&
+    grep -q "another coordinator holds the lock: local_a" "$4/r1-lock.out"' _ "$PY" "$S" "$ENVF" "$T"
+check "sessions unlock: freed, the next one takes it; a stale lock is taken over" sh -c '
+    "$1" -I "$2/sessions.py" unlock local_a --env "$3" >/dev/null && "$1" -I "$2/sessions.py" lock local_b --env "$3" >/dev/null &&
+    echo "{\"id\": \"local_b\", \"beat\": \"2026-01-01T00:00:00\"}" >"$4/.coordinator.lock" &&
+    "$1" -I "$2/sessions.py" lock local_c --env "$3" | grep -q "stale lock of local_b"' _ "$PY" "$S" "$ENVF" "$H"
 
 use "$T/cp"
 # variants.py: off by default; a rotation once on; the good-fit count of a run 10 days back.

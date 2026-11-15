@@ -13,7 +13,8 @@ tracker, and nothing is prepared or sent.
 1. Read the person's rules from the master record: where they will work (cities, remote, relocation), the pay
    rule, the roles they want, the languages they work in, and `EMPLOYER_RULES`.
 2. First `collect_postings.py --out <outDir>/search.json --add` (the window starts at the last finished run;
-   the search file holds at most `MAX_NEW_PER_RUN` postings, the rest wait for the next run): every due search a script can read (method
+   the search file holds at most `MAX_NEW_PER_RUN` postings, the rest wait for the next run; a repost of a role
+   already applied to or declined is left out and recorded `skipped`, `reposts.py`): every due search a script can read (method
    `script`: a job board's public API, LinkedIn's guest search) without a model; it adds the new postings to the
    tracker with `found_by`. Then `searches.py due` for the rest (method `agent`): a run reads only these, never every
    site again. With none saved it says so: create them first ("Saved searches"). For each, the cheapest source that
@@ -51,14 +52,14 @@ tracker, and nothing is prepared or sent.
    `employer.py alias "<saved name>" "<name>"` (same employer) or `alias --not "<saved name>" "<name>"` (different);
    unsure: the job waits (`track.py set <id> needs-person`) and the main session asks the person in the chat, since
    `questions.py add decision` needs a category. Example: "Examplia" against the saved "Examplia Internet GmbH".
-4. The funnel, `workflows/screen-and-prepare.js` (Workflow tool): the fit check and the cheap employer check (for
-   a company with `quick: true` and `lookup`, the lookup's line) in the order `variants.py order` gives; the full
-   employer check only for one passed with `screen: true`; then the form answers, the letter and the review.
-   Pass `order` (`variants.py order`: the fit check or the cheap employer check first, from the person's own
-   numbers), `fitRecord` (`career_view.py fit`), `models` (`variants.py models`), `draftAnswers` (the setting `draft_answers`), the person's choices (`choices.py workflow`, merged into the args), `cvs` (`career_view.py cvs`), the search file, `known` (the checks
-   from step 3), `employerRules` (the output of `employer.py rules`), the master record and its two parts (`career_view.py screen --out <outDir>/screen.json` as `screenRecord`, `career_view.py facts --out
-   <outDir>/facts.json` as `factsRecord`; both are deleted after `track.py sync`).
-   Then `track.py sync <journal>`, `variants.py funnel <the workflow's result>`, and `employer.py
+4. The funnel, `workflows/screen-and-prepare.js` (Workflow tool), with the args `workflow_args.py --search
+   <outDir>/search.json --lookup <the lookup's --out file>` builds in `<outDir>/args.json` (about 8 KB; it leaves out
+   each excluded employer and names it; one jobs file per employer; the record parts, deleted after `track.py
+   sync`). Pass that file's content as the Workflow args. The funnel: the fit check and the cheap employer check
+   (for a company with `quick: true`, from its lookup line) in the order `variants.py order` gives; the full
+   employer check only for one with `screen: true`; then the form answers, the letter and the review.
+   Then `track.py sync <journal>` (a fit's skip becomes `skipped` with its reason, an apply `pending`; many single
+   changes by hand go in one `track.py set --file`), `variants.py funnel <the workflow's result>`, and `employer.py
    recheck-running` (RULES/employers.md, "Running applications").
 5. Record every finding as found (RULES.md, "Employer rules"). Postings that closed: `track.py set <id> closed`.
 6. `build_app_folders.py` and the dashboard refresh.

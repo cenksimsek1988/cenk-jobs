@@ -9,6 +9,14 @@ python -I sessions.py set <id|name> [key=value ...]     keys: state=you|ready|do
 python -I sessions.py order <id|name> ... | auto        these first, in this order; the rule orders the rest.
                                                         auto: the rule alone
 python -I sessions.py show                              the order, one line per session, and each title to set
+python -I sessions.py lock <session id>                 before a coordinator writes any record: takes the main
+                                                        folder's lock (.coordinator.lock) or refreshes its own; exit 1
+                                                        while another coordinator's lock is fresh (beat within 30
+                                                        minutes), naming it. A stale lock is taken over and named.
+python -I sessions.py unlock <session id>               at the end of the run: frees its own lock
+Two coordinators in one main folder write the same records (seen: two of them wrote the tracker for two and a half
+hours). Example: `sessions.py lock local_ab12` prints "lock: local_ab12" or "another coordinator holds the lock:
+local_cd34, last beat 18:02".
 The coordinator keeps this record; the dashboard only reads it (export_dashboard.py cannot call the app).
 A session: {id, name, title, state, waits, jobs, due, tab, steps, since, active, running, link}. state: you (it waits on
 the person), ready (it works alone), done (its report is recorded): the three title prefixes "You · ", "Ready · ",
@@ -41,6 +49,8 @@ STATES = ("you", "ready", "done")
 PREFIX = {"you": "You", "ready": "Ready", "done": "Done"}
 TITLE = re.compile(r"^(You|Ready|Done) · ")
 MAIN_TITLE = "Job search coordinator"
+# The scheduled run's sessions (/cenk-jobs:schedule) are coordinators too: never a piece of the work.
+RUN_TITLE = re.compile(r"(?i)^job search(: (weekday|daily) run| coordinator)\b")
 
 
 def record_path(env):
@@ -154,8 +164,8 @@ def sync(env, data, path, today):
         sid = row.get("sessionId") or row.get("id")
         if not sid or (sid not in known and not same_folder(row.get("cwd"), env.home)):
             continue  # another project's session
-        if row.get("title") == MAIN_TITLE:
-            known.pop(sid, None)  # the main session: the person is in it, so it is no row
+        if row.get("title") == MAIN_TITLE or RUN_TITLE.search(row.get("title") or ""):
+            known.pop(sid, None)  # a main session (the person's, or a scheduled run's): no row
             continue
         seen.add(sid)
         if row.get("isArchived"):
@@ -244,6 +254,51 @@ def show(env, data, today):
     print(f"{len(rows)} sessions; synced {data.get('synced') or 'never'}")
 
 
+LOCK_MINUTES = 30
+
+
+def lock(env, sid, take):
+    """Take or free the main folder's coordinator lock; the exit code: 0 done, 1 another coordinator holds it.
+    Best effort: two coordinators starting in the same second can both take it; list_sessions is the second check."""
+    path = os.path.join(env.home, ".coordinator.lock")
+    now = datetime.datetime.now()
+    held = {}
+    if os.path.isfile(path):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                held = json.load(fh)
+        except (OSError, ValueError):
+            held = {}  # an unreadable lock is no lock
+        if not isinstance(held, dict):
+            held = {}
+    other = held.get("id") and held["id"] != sid
+    try:
+        beat = datetime.datetime.fromisoformat(held.get("beat", ""))
+    except ValueError:
+        beat = None
+    fresh = beat and now - beat < datetime.timedelta(minutes=LOCK_MINUTES)
+    if not take:
+        if held.get("id") == sid:
+            os.remove(path)
+            print(f"unlock: {sid}")
+        else:
+            print(f"unlock: {sid} holds no lock here")
+        return 0
+    if other and fresh:
+        print(f"another coordinator holds the lock: {held['id']}, last beat {beat:%H:%M}: write no record; ask it to "
+              "hand off and stop, or wait")
+        return 1
+    if other:
+        print(f"stale lock of {held['id']} (last beat {held.get('beat', '?')}) taken over")
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump({"id": sid, "since": held.get("since") if not other and held else now.isoformat(timespec="seconds"),
+                   "beat": now.isoformat(timespec="seconds")}, fh)
+    os.replace(tmp, path)
+    print(f"lock: {sid}")
+    return 0
+
+
 def main():
     args = sys.argv[1:]
     env_arg = None
@@ -251,11 +306,15 @@ def main():
         i = args.index("--env")
         env_arg = args[i + 1]
         del args[i:i + 2]
-    if not args or args[0] not in ("sync", "set", "order", "show"):
+    if not args or args[0] not in ("sync", "set", "order", "show", "lock", "unlock"):
         sys.exit(__doc__)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")  # a title may hold a character the console cannot print
     env = jsenv.load(env_arg, __file__)
+    if args[0] in ("lock", "unlock"):
+        if len(args) < 2:
+            sys.exit(f"sessions.py {args[0]} <session id>")
+        sys.exit(lock(env, args[1], args[0] == "lock"))
     data = load(env)
     today = datetime.date.today().isoformat()
     if args[0] == "show":
