@@ -8,6 +8,16 @@ python -I variants.py models [<name>]    {step: {model, effort}} of that variant
 python -I variants.py count [--days 7]   for each finished run at least <days> days old and not counted yet: its
                                          good-fit jobs, logged once as a "run-result" row (variant, good_fit)
 python -I variants.py show               each variant's runs, good-fit jobs and the runs still to count
+python -I variants.py funnel <result>    log one run's funnel numbers from the workflow's result (JSON): how many
+                                         employers each of the fit check and the cheap employer check ran on and
+                                         stopped (a "funnel" row in the usage log)
+python -I variants.py order              "employer-first" or "fit-first" for this person: the check that stops the
+                                         most employers per token runs first. Stops from the funnel rows, tokens per
+                                         employer from this computer's transcripts (token_report.py); each starts
+                                         from the measured defaults (fit 60.4k W, stops 6 in 10; employer check
+                                         18.3k W, stops 2 in 10) counted as 10 employers, so a few runs move it
+                                         slowly. Example: "employer-first (employer check 10.9 stops per M W, fit
+                                         9.9)".
 The file: VARIANTS in job-search.env, default apply/variants.json:
   {"on": true, "rotation": ["a", "b"], "variants": {"a": {"fit": {"model": "sonnet", "effort": "low"}},
    "b": {"fit": {"model": "haiku", "effort": "low"}}}}
@@ -29,7 +39,7 @@ sys.path.insert(0, HERE)
 import jsenv  # noqa: E402
 from trackerlib import flat_jobs  # noqa: E402
 
-STEPS = ("fit", "screen", "verify", "judge", "form", "writer", "review", "review_plain", "main")
+STEPS = ("fit", "quick", "screen", "verify", "judge", "form", "writer", "review", "review_plain", "main")
 PASSED = ("to-apply", "needs-person", "account-needed", "submitted")
 DROPPED = ("skipped", "excluded")
 
@@ -93,6 +103,43 @@ def good_fit(jobs, start, end):
     return count
 
 
+DEFAULTS = {"fit": (60400, 6, 10), "quick": (18300, 2, 10)}  # W per employer, stops, runs: measured 15 Nov 2026
+AGENT_OF = {"fit": "cenk-jobs:fitter", "quick": "cenk-jobs:checker"}
+
+
+def order(env, rows):
+    """The check that stops the most employers per token goes first; the defaults count as 10 employers each."""
+    funnel = [r for r in rows if r.get("step") == "funnel"]
+    import glob
+    import token_report as tr
+    cost, step_of = {}, {kind: step for step, kind in AGENT_OF.items()}
+    folder = tr.projects_dir(env)
+    skipped = 0
+    for meta in glob.glob(os.path.join(folder, "*", "subagents", "**", "agent-*.meta.json"), recursive=True) \
+            if os.path.isdir(folder) else []:
+        try:
+            with open(meta, encoding="utf-8") as fh:
+                step = step_of.get(json.load(fh).get("agentType"))
+            if step:
+                w = sum(tr.weight(u, m) for t, m, u in tr.messages(meta[:-10] + ".jsonl"))
+                total, n = cost.get(step, (0, 0))
+                cost[step] = (total + w, n + 1)
+        except (OSError, ValueError):
+            skipped += 1
+    if skipped:
+        print(f"order: {skipped} agent transcripts not read; the rest and the defaults used", file=sys.stderr)
+    score, parts = {}, []
+    for step, (w0, s0, n0) in DEFAULTS.items():
+        runs_ = n0 + sum(r.get(f"{step}_runs", 0) for r in funnel)
+        stops = s0 + sum(r.get(f"{step}_stops", 0) for r in funnel)
+        total_w, n_w = cost.get(step, (0, 0))
+        w = (w0 * n0 + total_w) / (n0 + n_w)
+        score[step] = stops / runs_ / w * 1e6
+        parts.append(f"{'employer check' if step == 'quick' else 'fit'} {score[step]:.1f}")
+    first = "employer-first" if score["quick"] >= score["fit"] else "fit-first"
+    return f"{first} (stops per M W: {', '.join(parts)})"
+
+
 def main():
     args = sys.argv[1:]
     env_arg = None
@@ -102,12 +149,31 @@ def main():
             sys.exit("--env takes the path of a job-search.env")
         env_arg = args[i + 1]
         del args[i:i + 2]
-    if not args or args[0] not in ("current", "models", "count", "show"):
+    if not args or args[0] not in ("current", "models", "count", "show", "funnel", "order"):
         sys.exit(__doc__)
     env = jsenv.load(env_arg, __file__)
     conf = load_json(variants_file(env), {})
     log_path, rows = usage_rows(env)
-    if args[0] == "current":
+    if args[0] == "funnel":
+        if len(args) < 2:
+            sys.exit("variants.py funnel <the workflow's result, a JSON file>")
+        with open(args[1], encoding="utf-8") as fh:
+            result = json.load(fh)
+        result = result.get("result", result) if isinstance(result, dict) else result
+        if not isinstance(result, list):
+            sys.exit("the workflow's result is a list of companies (or {\"result\": [...]})")
+        row = {"time": datetime.datetime.now().replace(microsecond=0).isoformat(), "step": "funnel", "result": "ok",
+               "fit_runs": sum(1 for r in result if r.get("fit_ran")),
+               "fit_stops": sum(1 for r in result if r.get("fit_ran") and not r.get("fits")),
+               "quick_runs": sum(1 for r in result if r.get("quick_ran")),
+               "quick_stops": sum(1 for r in result if r.get("route") == "quick-excluded")}
+        with open(log_path, "a", encoding="utf-8", newline="\n") as fh:
+            fh.write(json.dumps(row) + "\n")
+        print(f"logged: fit {row['fit_stops']} of {row['fit_runs']} stopped, employer check {row['quick_stops']} "
+              f"of {row['quick_runs']}")
+    elif args[0] == "order":
+        print(order(env, rows))
+    elif args[0] == "current":
         print(current(conf, rows))
     elif args[0] == "models":
         name = args[1] if len(args) > 1 else current(conf, rows)

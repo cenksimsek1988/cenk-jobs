@@ -46,7 +46,8 @@ established outlets, a court ruling, a fine, a sanctions listing or an official 
      boycott"; past successes do not count), the UN OHCHR settlement-business database (latest edition), Who Profits
      (read its index `/companies?page=N`; its search does not filter), AFSC Investigate. A hit is a direct tie.
   2. From the company's own site, careers page or annual report, each answer with a source link. Direct:
-     headquartered in the state; an owner from the state; operating only there or working only for it; selling to a
+     founded in the state or headquartered there (example: a software firm founded in Tel Aviv and now based in San
+     Francisco); an owner from the state; operating only there or working only for it; selling to a
      body of the state or a state-owned company (government, ministries, armed forces, police, state companies).
      Indirect: its own office, R&D team or subsidiary there (example: "Tel Aviv" on its careers page); selling there,
      itself or through a reseller; a minority investor, an investor's other holdings, or another firm between it and
@@ -95,6 +96,12 @@ established outlets, a court ruling, a fine, a sanctions listing or an official 
   holds needs none. Then `recheck-running`.
   Example: "Shared list update for Acme Corp: Defence industry: flagged indirect -> flagged direct. Your setting:
   allow since 2026-11-10. Allow, or exclude?"
+- **A new employer, cheapest first:** the list (`employer.py check`), then the free public-data lookup
+  (`employer_lookup.py`: founding, headquarters, owners, industry; no model; cached), then, where it cannot decide,
+  the cheap check (the `checker` agent, at most 2 web searches; cached in the records). Whether the fit check or the
+  cheap check runs first is the person's own numbers' choice (`variants.py order`). Example: Arma AG, an arms
+  maker, with a note that excludes Western arms producers: the lookup finds the industry, the cheap check applies
+  the note and excludes it.
 - **Only an excluded employer stops an application.** Unknown, warn and "discuss" go on: the jobs are prepared and
   sent, and the person decides about a "discuss" employer (or an undecided level) only once it answers with a hiring
   step, on the Questions page. The full check (screen, then the second check on a hit or an unknown) runs for an

@@ -640,8 +640,8 @@ def lookup(env, name, facts=True, history=False, employers=None):
 
 
 def check_view(env, name, rule_set=None, full=False, employers=None):
-    """What employer.py check prints for a name: {name, match, matched, verdict, reasons, checks, unknown, recheck,
-    has_environment, possible}; full adds the environment finding and each check's history. A possible match with no
+    """What employer.py check prints for a name: {name, match, matched, verdict, reasons, never_checked, checks, unknown,
+    recheck, has_environment, possible}; full adds the environment finding and each check's history. A possible match with no
     exact or group match turns an "allow" into "discuss" ("possible match: <name> (<verdict>)"): never a silent allow.
     recheck: the categories whose second check is due (second_check_due; none once the person decided); while one is
     due, an "allow" is "discuss" too."""
@@ -656,7 +656,13 @@ def check_view(env, name, rule_set=None, full=False, employers=None):
         verdict = "discuss"
     shared = find_entry(blacklist().get("employers", []), name)[1] or {}
     saved = bool((entry or {}).get("details", {}).get("environment") or (entry or {}).get("environment"))
+    # Never checked: no record of the person's, no shared entry, no finding. It goes on (only an excluded employer
+    # stops); it is checked when it answers with a hiring step, and the run report counts it.
+    never = how == "none" and not shared and not any(k.get("status") in ("flagged", "clear") for k in checks.values())
+    if never:
+        reasons.append("unknown, never checked: looked up in the list only; checked when it answers with a hiring step")
     out = {"name": name, "match": how, "matched": entry_name or "", "verdict": verdict, "reasons": reasons,
+           "never_checked": never,
            "checks": checks,
            "unknown": [c for c in rule_set["categories"] if checks.get(c, {}).get("status", "unknown") == "unknown"],
            "recheck": recheck, "opinion": has_opinion(entry),

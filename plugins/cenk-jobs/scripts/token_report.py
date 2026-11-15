@@ -114,7 +114,9 @@ def main():
                "w_per_good_fit": round((mw + aw) / g) if g else None}
         out["runs"].append(row)
         print(f"run {row['start']} {variant:10} {row['minutes']:4} min  main {mw/1e6:7.2f}M  agents {aw/1e6:6.2f}M  "
-              f"good-fit {g if g is not None else '-':>3}  per good-fit {(row['w_per_good_fit'] or 0)/1e6:6.2f}M W")
+              f"good-fit {g if g is not None else '-':>3}  per good-fit "
+              + (f"{row['w_per_good_fit']/1e6:6.2f}M W" if row["w_per_good_fit"]
+                 else "     - (counted 7 days after the run)" if g is None else "     - (no good fit)"))
     for kind, lst in sorted(kinds.items(), key=lambda kv: -len(kv[1])):
         w = sum(weight(u, m) for ms in lst for t, m, u in ms)
         models = collections.Counter(re.sub(r"^claude-", "", ms[0][1]) for ms in lst)

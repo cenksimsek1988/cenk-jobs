@@ -52,7 +52,7 @@ are attached: only an excluded employer stops. A
 second check against the person's own rules (own: excl-own:) adds own_level beside its finding, and the verdict uses it.
 sync reads workflow journals (rows {type: started, agentId, label} and {type: result, agentId, result}); an agent's
 label is "<kind prefix><company name, maybe cut short>". By default the kinds are the ones workflows/
-screen-and-prepare.js writes (exclusion: excl-judge:, excl-verify:, excl-screen:; own: excl-own:; prep: prep-jobs:,
+screen-and-prepare.js writes (exclusion: excl-judge:, excl-verify:, excl-screen:, then excl-quick:, the cheap check; own: excl-own:; prep: prep-jobs:,
 whose result may be the path of the JSON file the agent wrote, then prep-fit:, the fit check alone, used when no
 file was written because no job fitted). Older runs, search-result files to merge and per-company decisions
 come from the "sync" part of the TRACKER_SETTINGS file (see templates/tracker-settings-example.json).
@@ -267,7 +267,7 @@ def sync(journals):
     # The defaults are the labels workflows/screen-and-prepare.js gives its agents: the judge's verdict when the two
     # checks disagreed, else the second check's, else the first's.
     preps = labels.get("prep", ["prep-jobs:", "prep-fit:"])
-    exclusions = labels.get("exclusion", ["excl-judge:", "excl-verify:", "excl-screen:"])
+    exclusions = labels.get("exclusion", ["excl-judge:", "excl-verify:", "excl-screen:", "excl-quick:"])
     owns = labels.get("own", ["excl-own:"])  # the second check against the person's own rules (their notes)
     refute_also = set(rules.get("refute_incomplete", []))
     overrides = rules.get("verdict_overrides", {})

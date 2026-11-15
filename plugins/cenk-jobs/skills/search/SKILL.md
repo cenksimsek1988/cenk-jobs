@@ -12,7 +12,8 @@ tracker, and nothing is prepared or sent.
 
 1. Read the person's rules from the master record: where they will work (cities, remote, relocation), the pay
    rule, the roles they want, the languages they work in, and `EMPLOYER_RULES`.
-2. First `collect_postings.py --out <outDir>/search.json --add`: every due search a script can read (method
+2. First `collect_postings.py --out <outDir>/search.json --add` (the window starts at the last finished run;
+   the search file holds at most `MAX_NEW_PER_RUN` postings, the rest wait for the next run): every due search a script can read (method
    `script`: a job board's public API, LinkedIn's guest search) without a model; it adds the new postings to the
    tracker with `found_by`. Then `searches.py due` for the rest (method `agent`): a run reads only these, never every
    site again. With none saved it says so: create them first ("Saved searches"). For each, the cheapest source that
@@ -37,21 +38,28 @@ tracker, and nothing is prepared or sent.
    board's card dated this week is often a repost: `first_published` (Greenhouse), `publishedAt` (Ashby),
    `createdAt` (Lever).
 3. Look up each employer without a model: `employer.py check "<name>" ...`. "exclude": record the job as `excluded`
-   with its category; nothing else stops. A `recheck` list (a second check against the person's own rules is due)
+   with its category; nothing else stops. An employer it calls "unknown, never checked" goes on, and the run report
+   counts such employers. A `recheck` list (a second check against the person's own rules is due)
    sends it to step 4 with `screen: true`, `known` and `own` (those categories); so does a recorded finding still to
    judge. Unknown, warn and "discuss" go to step 4 without a screen: the funnel checks fit first, and the person is
-   asked about a "discuss" employer only once it answers (RULES/employers.md). Not excluded and `has_environment` is
-   false: look up its employee reviews once, after a posting fits (RULES.md, "Employer rules").
+   asked about a "discuss" employer only once it answers (RULES/employers.md). Then, for every employer never
+   checked: `employer_lookup.py --file <outDir>/search.json --record` (free public data, about 6 seconds an employer,
+   no model): "exclude" stops its jobs at once; "undecided" is passed with `quick: true` and `lookup` (its line,
+   so the cheap check starts from what was found). Not excluded and `has_environment` is false: look up its employee reviews once, after a posting fits
+   (RULES.md, "Employer rules").
    `match` "possible" is "discuss" until Claude settles it: after the company register or the site's legal notice,
    `employer.py alias "<saved name>" "<name>"` (same employer) or `alias --not "<saved name>" "<name>"` (different);
    unsure: the job waits (`track.py set <id> needs-person`) and the main session asks the person in the chat, since
    `questions.py add decision` needs a category. Example: "Examplia" against the saved "Examplia Internet GmbH".
-4. The funnel, `workflows/screen-and-prepare.js` (Workflow tool): the fit check first; the employer check only for
-   an employer passed with `screen: true` and a posting that fits; then the form answers, the letter and the review.
-   Pass `models` (`variants.py models`), `draftAnswers` (the setting `draft_answers`), the search file, `known` (the checks
+4. The funnel, `workflows/screen-and-prepare.js` (Workflow tool): the fit check and the cheap employer check (for
+   a company with `quick: true` and `lookup`, the lookup's line) in the order `variants.py order` gives; the full
+   employer check only for one passed with `screen: true`; then the form answers, the letter and the review.
+   Pass `order` (`variants.py order`: the fit check or the cheap employer check first, from the person's own
+   numbers), `fitRecord` (`career_view.py fit`), `models` (`variants.py models`), `draftAnswers` (the setting `draft_answers`), `cvs` (`career_view.py cvs`), the search file, `known` (the checks
    from step 3), `employerRules` (the output of `employer.py rules`), the master record and its two parts (`career_view.py screen --out <outDir>/screen.json` as `screenRecord`, `career_view.py facts --out
    <outDir>/facts.json` as `factsRecord`; both are deleted after `track.py sync`).
-   Then `track.py sync <journal>`, and `employer.py recheck-running` (RULES/employers.md, "Running applications").
+   Then `track.py sync <journal>`, `variants.py funnel <the workflow's result>`, and `employer.py
+   recheck-running` (RULES/employers.md, "Running applications").
 5. Record every finding as found (RULES.md, "Employer rules"). Postings that closed: `track.py set <id> closed`.
 6. `build_app_folders.py` and the dashboard refresh.
 

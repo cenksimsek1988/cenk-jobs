@@ -1,12 +1,19 @@
 """One part of the master record, so a job reads what it needs instead of the whole file.
 
 python -I career_view.py screen [--out <file>]   the employer rules and the person's decisions: for screening an employer
+python -I career_view.py fit [--out <file>]      what the fit check needs, about a third of facts: profile,
+                                                 employment timeline, education, skills, languages, where they will
+                                                 work, pay rule, availability, and the person's languages, location
+                                                 and work authorisation from their profile
 python -I career_view.py facts [--out <file>]    what a letter or a form may use: profile (CV wording), experience,
                                                  skills, education, where they will work, pay rule, form answers, CV
                                                  rules, never-claim lists; from the person's profile (profilelib.py):
                                                  person (name, pronouns, contact, location, languages, links,
                                                  nationality, work authorisation), employment, and the names in
                                                  the setting form_facts. Never private or contacts.
+python -I career_view.py cvs [--out <file>]     the CV versions for the workflow's cvs: [{variant, file, use}], only
+                                                 those whose PDF exists in CVS_DIR (each missing one is named on
+                                                 stderr: build it with build_cv.py)
 Prints the JSON, or with --out writes it and prints the path and size. Add --env <job-search.env> to pick the env file.
 """
 import json
@@ -20,6 +27,8 @@ import profilelib as pl  # noqa: E402
 
 SCOPES = {
     "screen": ("preferences.employer_rules", "decisions"),
+    "fit": ("profile", "employment_timeline", "education", "skills", "languages", "preferences.locations",
+            "preferences.work_modes", "preferences.pay", "preferences.availability"),
     "facts": ("profile", "employment_timeline", "experience", "education", "certificates", "skills", "languages",
               "preferences.locations", "preferences.work_modes", "preferences.pay", "preferences.availability",
               "form_answers", "cv_rules"),
@@ -41,6 +50,31 @@ def option(name):
 
 
 env_arg, out = option("--env"), option("--out")
+if args == ["cvs"]:
+    import glob
+    from build_cv import pdf_name
+    env = jsenv.load(env_arg, __file__)
+    found = []
+    for path in sorted(glob.glob(os.path.join(env.path("CV_VERSIONS_DIR"), "*.json"))):
+        name = os.path.basename(path)
+        if " " not in os.path.splitext(name)[0]:
+            continue  # not "<n> <Variant>.json"
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        pdf = env.path("CVS_DIR", pdf_name(name, data.get("name") or env.get("PERSON_NAME", "")))
+        if not os.path.isfile(pdf):
+            print(f"no PDF for {name}: build it with build_cv.py; left out", file=sys.stderr)
+            continue
+        found.append({"variant": os.path.splitext(name)[0].split(" ", 1)[1], "file": pdf.replace(os.sep, "/"),
+                      "use": data.get("use") or data.get("title", "")})
+    text = json.dumps(found, ensure_ascii=False, indent=1)
+    if out:
+        with open(out, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+        print(out, len(text.encode("utf-8")), "bytes")
+    else:
+        print(text)
+    sys.exit(0)
 if len(args) != 1 or args[0] not in SCOPES:
     sys.exit(__doc__)
 scope = args[0]
@@ -56,6 +90,12 @@ for key in SCOPES[scope]:
         target = target.setdefault(parent, {})
     if leaf in source:
         target[leaf] = source[leaf]
+if scope == "fit":
+    profile = pl.load(env)
+    if profile["exists"] and not profile["error"]:
+        person = profile["data"].get("person") or {}
+        view["person"] = {k: v for k, v in person.items() if k in ("languages", "location", "nationality",
+                                                                   "work_authorisation")}
 if scope == "facts":  # every list of things never to claim, wherever the person's record keeps one
     view.update({k: v for k, v in record.items() if re.search(r"never|not_known", k)})
     profile = pl.load(env)

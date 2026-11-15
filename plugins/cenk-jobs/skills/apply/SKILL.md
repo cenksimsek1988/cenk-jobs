@@ -12,7 +12,7 @@ waits on the person.
 ## Before filling
 
 - Check the posting is still open and its link lands on the employer's own form (RULES.md, "Links"). The site's
-  own notes are in `references/sites/<site>.md` (greenhouse, ashby, linkedin, successfactors, workday, eightfold):
+  own notes are in `references/sites/<site>.md` (greenhouse, ashby, linkedin, smartrecruiters, successfactors, workday, eightfold):
   read the one for the form in hand.
 - Write a letter only for a form with a letter field: many have none (often Workable, Rippling, HiBob, Ashby, Lever).
   Each essay question goes to the Questions page before filling.

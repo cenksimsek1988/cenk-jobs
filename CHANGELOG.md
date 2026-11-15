@@ -6,6 +6,52 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.34.1] - 2026-11-15
+
+Fixes from the first real run of 0.34.0.
+
+### Added
+
+- `searches.py sites --add`: a script search for every employer whose job links are on a board the script reads,
+  named by the employer; setup runs it. `searches.py fail`: a board that answers 404 twice is marked gone, no longer
+  due, and listed.
+- `collect_postings.py --since`; keys `ROLE_TERMS`, `REMOTE_REGIONS` and `MAX_NEW_PER_RUN` (default 30).
+- `career_view.py cvs`: the CV list for the workflow, only versions whose PDF exists.
+- `references/sites/smartrecruiters.md`.
+- `employer_lookup.py`: the free public-data lookup (Wikidata: founding, headquarters, owners, industry) for an
+  employer never checked; one request every 2 seconds (it was throttled at one a second); cached in
+  `EMPLOYERS_DIR/public-lookup.json` with the facts found, which are judged again under the person's rules of the
+  day. Only an item whose name is the employer's own decides; a prefix match (one item whose name only starts with
+  it) is a lead for the cheap check. An exclusion it finds stops the job before any token; what only the person's
+  notes can decide goes to the cheap check.
+- The cheap employer check: agent `checker` (Sonnet, low effort, at most 2 web searches), label `excl-quick:`, run
+  for an employer the lookup could not decide. Measured on 10 real employers: 18.3k W each, against 60.4k W for the
+  fit check.
+- `variants.py order` and `funnel`: the fit check or the cheap employer check runs first, whichever stops the most
+  employers per token for this person; it starts from the measured defaults and follows each run's numbers.
+- `career_view.py fit`: a smaller view for the fit check (31 KB against 86 KB for the facts view on a real record).
+
+### Changed
+
+- The plugin's levels: an employer founded in a state, or headquartered there, has a direct tie to it.
+
+### Fixed
+
+- The search window starts at the last finished run (it kept every open posting of a new search, and LinkedIn
+  always looked 7 days back); a search's own later check wins; `last_checked` holds date and time.
+- A remote posting passes only with one of the search's places or `REMOTE_REGIONS`, or as a bare "Remote" (220 of
+  497 were US or Canada remote). A search without terms uses `ROLE_TERMS`; with neither it is skipped.
+- A board's postings carry the employer's name from the search row (`employer`, else the site without a trailing
+  "jobs" or "careers"), not the board's slug. A search read before starts at its own last read.
+- At most `MAX_NEW_PER_RUN` postings enter the funnel per run, newest first; the rest wait in the tracker.
+- LinkedIn: up to 3 pages a search over the run's window; a refusal stops LinkedIn for the run and leaves its
+  searches due.
+- `employer.py check` says "unknown, never checked" for an employer the list does not know (`never_checked`); it
+  still goes on, as the person decided.
+- The fit check sets salary for each job's own city and never guesses "no letter field" for a form it did not read;
+  the form step keeps the fit check's salary and CV file.
+- `token_report.py` shows "-" for a run's good-fit figures until they are counted.
+
 ## [0.34.0] - 2026-11-14
 
 Fewer tokens per run: search by script where it can, a funnel that checks fit before employers, one agent per kind

@@ -1736,21 +1736,134 @@ cat >"$T/cp-src/linkedin-search.html" <<'EOF'
 <h3 class="base-search-card__title">Backend Developer</h3><h4 class="base-search-card__subtitle"><a>Zeta Works</a></h4>
 <span class="job-search-card__location">Rome, Lazio</span><time datetime="2026-11-12">1 day ago</time></div></li>
 EOF
-"$PY" -I "$S/collect_postings.py" --from "$T/cp-src" --out "$T/cp-search.json" --add --env "$ENVF" >"$T/cp.out" 2>&1
+# A US-remote posting is left out; a bare "Remote" one passes; REMOTE_REGIONS lets "Remote, EU" through.
+cat >"$T/cp-src/greenhouse-acme.json" <<'EOF'
+{"jobs": [
+ {"title": "Senior Engineer", "location": {"name": "Rome, Italy"}, "absolute_url": "https://boards.example.com/acme/jobs/1", "first_published": "2026-11-12T08:00:00Z"},
+ {"title": "Sales Lead", "location": {"name": "Rome, Italy"}, "absolute_url": "https://boards.example.com/acme/jobs/2", "first_published": "2026-11-12T08:00:00Z"},
+ {"title": "Engineer", "location": {"name": "Berlin"}, "absolute_url": "https://boards.example.com/acme/jobs/3", "first_published": "2026-11-12T08:00:00Z"},
+ {"title": "Platform Engineer", "location": {"name": "Remote"}, "absolute_url": "https://boards.example.com/acme/jobs/4", "first_published": "2026-11-12T08:00:00Z"},
+ {"title": "Data Engineer", "location": {"name": "Remote, US"}, "absolute_url": "https://boards.example.com/acme/jobs/5", "first_published": "2026-11-12T08:00:00Z"},
+ {"title": "Cloud Engineer", "location": {"name": "Remote, EU"}, "absolute_url": "https://boards.example.com/acme/jobs/6", "first_published": "2026-11-12T08:00:00Z"},
+ {"title": "Old Engineer", "location": {"name": "Rome, Italy"}, "absolute_url": "https://boards.example.com/acme/jobs/7", "first_published": "2026-10-20T08:00:00Z"}
+]}
+EOF
+echo "REMOTE_REGIONS=EU, Europe" >>"$ENVF"
+"$PY" -I "$S/collect_postings.py" --since 2026-11-01 --from "$T/cp-src" --out "$T/cp-search.json" --add --env "$ENVF" >"$T/cp.out" 2>&1
 check "collect_postings: the title and place filters, remote kept, the tracker's link dropped" sh -c '
-    grep -q "^acme | Senior Engineer | Rome, Italy | 2026-11-12 | https://boards.example.com/acme/jobs/1 | script:greenhouse:acme$" "$1" &&
-    grep -q "| Platform Engineer | Remote |" "$1" && ! grep -q "Sales Lead\|jobs/3\|1234567890" "$1" &&
+    grep -q "^Acme | Senior Engineer | Rome, Italy | 2026-11-12 | https://boards.example.com/acme/jobs/1 | script:greenhouse:acme$" "$1" &&
+    grep -q "| Platform Engineer | Remote |" "$1" && grep -q "| Cloud Engineer | Remote, EU |" "$1" &&
+    ! grep -q "Sales Lead\|jobs/3\|Remote, US\|Old Engineer\|1234567890" "$1" &&
     grep -q "^Zeta Works | Backend Developer | Rome, Lazio | 2026-11-12 | https://www.linkedin.com/jobs/view/2222222222/ | script:linkedin:search$" "$1" &&
-    grep -q "^3 new postings from 2 searches read by script, added to the tracker$" "$1"' _ "$T/cp.out"
+    grep -q "^4 new postings from 2 searches read by script, added to the tracker; window from 2026-11-01 00:00$" "$1"' _ "$T/cp.out"
 check "collect_postings --add: each new posting is in the tracker with found_by" sh -c '
-    "$1" -I "$2/dq.py" "$3/apply/targets.json" "len([j for j in R[\"jobs\"] if j.get(\"found_by\", \"\").startswith(\"script:\")]) == 3"' _ "$PY" "$T" "$H"
+    "$1" -I "$2/dq.py" "$3/apply/targets.json" "len([j for j in R[\"jobs\"] if j.get(\"found_by\", \"\").startswith(\"script:\")]) == 4"' _ "$PY" "$T" "$H"
 check "collect_postings --out: a search file the workflow reads" sh -c '
-    "$1" -I "$2/dq.py" "$3" "sorted(c[\"name\"] for c in R[\"companies\"]) == [\"Zeta Works\", \"acme\"] and all(j[\"id\"].startswith(\"P\") for c in R[\"companies\"] for j in c[\"jobs\"])"' \
+    "$1" -I "$2/dq.py" "$3" "sorted(c[\"name\"] for c in R[\"companies\"]) == [\"Acme\", \"Zeta Works\"] and all(j[\"id\"].startswith(\"P\") for c in R[\"companies\"] for j in c[\"jobs\"])"' \
     _ "$PY" "$T" "$T/cp-search.json"
 searches due >"$T/cp-due.out" 2>&1
 check "collect_postings: the script searches are marked read; the agent search is still due" sh -c '
     grep -q "Beta careers" "$1" && ! grep -q "Acme jobs\|LinkedIn" "$1"' _ "$T/cp-due.out"
 
+# 0.34.1: the window from the last run, the cap, LinkedIn's refusal, a board that is gone, sites --add, terms.
+cat >"$T/mklog.py" <<'PYEOF'
+import json
+import sys
+
+with open(sys.argv[1], "a", encoding="utf-8") as f:
+    f.write(json.dumps({"time": "2026-11-12T19:00:00", "step": "run", "result": "started"}) + "\n")
+    f.write(json.dumps({"time": "2026-11-12T19:40:00", "step": "run", "result": "ok"}) + "\n")
+PYEOF
+"$PY" -I "$T/mklog.py" "$H/apply/usage-log.jsonl"
+searches add "Gone board" "engineer" source=ashby board=gone >/dev/null 2>&1
+echo 404 >"$T/cp-src/ashby-gone.status"
+echo 429 >"$T/cp-src/linkedin-search.status"
+searches add LinkedIn "developer" source=linkedin place="Milan" >/dev/null 2>&1
+echo "MAX_NEW_PER_RUN=1" >>"$ENVF"
+"$PY" -I "$S/collect_postings.py" --from "$T/cp-src" --out "$T/cp2.json" --env "$ENVF" >"$T/cp2.out" 2>&1
+check "collect_postings: the window starts at the last finished run's start" grep -q "window from 2026-11-12 19:00$" "$T/cp2.out"
+check "collect_postings: LinkedIn refused (429) stops LinkedIn for the run; its searches stay due" sh -c '
+    grep -q "not read (HTTP 429): LinkedIn stops for this run; it stays due" "$1" &&
+    "$2" -I "$3/searches.py" due --env "$4" | grep -q "LinkedIn | developer"' _ "$T/cp2.out" "$PY" "$S" "$ENVF"
+check "collect_postings --out: at most MAX_NEW_PER_RUN jobs; the tracker's unprepared finds wait" sh -c '
+    grep -q "^1 postings for this run.s funnel (MAX_NEW_PER_RUN=1); 3 wait for the next run$" "$1" &&
+    "$2" -I "$3/dq.py" "$4" "sum(len(c[\"jobs\"]) for c in R[\"companies\"]) == 1"' _ "$T/cp2.out" "$PY" "$T" "$T/cp2.json"
+"$PY" -I "$S/collect_postings.py" --from "$T/cp-src" --env "$ENVF" >/dev/null 2>&1
+searches list >"$T/cp-list.out" 2>&1
+check "searches fail: a board that answers 404 twice is gone, not due, and listed so" sh -c '
+    grep -q "Gone board .* gone since" "$1" && ! "$2" -I "$3/searches.py" due --env "$4" | grep -q "Gone board"' \
+    _ "$T/cp-list.out" "$PY" "$S" "$ENVF"
+check "searches add: a script search without terms is refused when ROLE_TERMS is not set" sh -c '
+    ! "$1" -I "$2/searches.py" add "Acme jobs" "" source=lever board=acme --env "$3" >"$4" 2>&1 && grep -q "needs terms" "$4"' \
+    _ "$PY" "$S" "$ENVF" "$T/terms.out"
+mkhome "$T/sa" flat
+use "$T/sa"
+track add S1 "Grafana Labs" "Engineer" "https://boards.greenhouse.io/grafanalabs/jobs/123" >/dev/null 2>&1
+track add S2 "Beta Ltd" "Analyst" "https://jobs.lever.co/beta/abc" >/dev/null 2>&1
+track add S3 "Grafana Labs" "Designer" "https://boards.greenhouse.io/grafanalabs/jobs/456" >/dev/null 2>&1
+echo "ROLE_TERMS=engineer, analyst" >>"$ENVF"
+searches sites --add >"$T/sa.out" 2>&1
+check "searches sites --add: one script row per board, named by the employer, with ROLE_TERMS" sh -c '
+    grep -q "^2 script searches added$" "$1" && grep -q "Grafana Labs | greenhouse grafanalabs" "$1" &&
+    "$2" -I "$3/dq.py" "$4/apply/searches.json" "[r[\"query\"] for r in R[\"searches\"]] == [\"engineer, analyst\"] * 2"' \
+    _ "$T/sa.out" "$PY" "$T" "$H"
+use "$T/cp"
+check "employer check: an employer nobody checked says unknown, never checked, and goes on" sh -c '
+    "$1" -I "$2/employer.py" check "Neverseen Widgets" --env "$3" >"$4" 2>&1 &&
+    grep -q "unknown, never checked" "$4" && grep -q "\"never_checked\": true" "$4" && ! grep -q "\"verdict\": \"exclude\"" "$4"' \
+    _ "$PY" "$S" "$ENVF" "$T/never.out"
+mkdir -p "$H/CVs/versions"
+echo '{"name": "Jane Doe", "title": "Backend Lead"}' >"$H/CVs/versions/1 Backend Lead.json"
+echo '{"name": "Jane Doe", "title": "Data Lead"}' >"$H/CVs/versions/2 Data Lead.json"
+echo "made up" >"$H/CVs/Jane-Doe-CV-Backend-Lead.pdf"
+"$PY" -I "$S/career_view.py" cvs --env "$ENVF" >"$T/cvs.out" 2>"$T/cvs.err"
+check "career_view cvs: only the versions whose PDF exists; a missing one is named" sh -c '
+    "$1" -I "$2/dq.py" "$3" "[c[\"variant\"] for c in R] == [\"Backend Lead\"] and R[0][\"file\"].endswith(\"Jane-Doe-CV-Backend-Lead.pdf\")" &&
+    grep -q "no PDF for 2 Data Lead.json" "$4"' _ "$PY" "$T" "$T/cvs.out" "$T/cvs.err"
+# The free employer lookup: founded or headquartered in a state is direct; the settings exclude, or the notes decide.
+mkhome "$T/lk" flat
+use "$T/lk"
+echo "EMPLOYER_RULES=apply/employer-rules.json" >>"$ENVF"
+cat >"$H/apply/employer-rules.json" <<'EOF'
+{"categories": {"israel": {"action": "exclude", "indirect": "warn"},
+                "defence": {"action": "discuss", "indirect": "discuss", "notes": "Western arms producers are excluded"}},
+ "changes": []}
+EOF
+mkdir -p "$T/lk-src"
+echo '{"id": "Q1", "label": "Gamma.io", "description": "software company", "facts": {"country": ["United States"], "origin": ["Israel"], "industry": ["software"]}}' >"$T/lk-src/Gamma.json"
+echo '{"id": "Q2", "label": "Arma AG", "description": "German arms maker", "facts": {"country": ["Germany"], "industry": ["arms industry"]}}' >"$T/lk-src/Arma-AG.json"
+echo '{"id": "Q3", "label": "Plainsoft", "description": "software company", "facts": {"country": ["Italy"], "industry": ["software"]}}' >"$T/lk-src/Plainsoft.json"
+echo '{"id": "Q4", "label": "Delta Defence Systems", "description": "arms maker", "facts": {"country": ["Israel"], "industry": ["arms industry"]}, "exact": false}' >"$T/lk-src/Delta.json"
+"$PY" -I "$S/employer_lookup.py" Gamma "Arma AG" Plainsoft Unseenco Delta --from "$T/lk-src" --record --out "$T/lk.json" --env "$ENVF" >"$T/lk.out" 2>&1
+check "employer_lookup: founded in Israel is a direct tie and the settings exclude it, before any token" sh -c '
+    grep -q "^Gamma | exclude | israel: Wikidata (Gamma.io): founded in Israel" "$1"' _ "$T/lk.out"
+check "employer_lookup: a finding the person's notes decide goes to the cheap check" \
+    grep -q "^Arma AG | undecided | defence: .* the person.s notes for the category decide" "$T/lk.out"
+check "employer_lookup: a name that only starts another item's name never excludes: the cheap check decides" \
+    grep -q "^Delta | undecided | not certain it is the same employer: Wikidata Q4" "$T/lk.out"
+check "employer_lookup: nothing that touches a rule goes on; no item is undecided" sh -c '
+    grep -q "^Plainsoft | go on |" "$1" && grep -q "^Unseenco | undecided | no single Wikidata item" "$1"' _ "$T/lk.out"
+"$PY" -I "$S/employer_lookup.py" Gamma Plainsoft --from "$T/lk-src" --env "$ENVF" >"$T/lk2.out" 2>&1
+check "employer_lookup --record: the findings are in the records and every lookup in the cache: never twice" sh -c '
+    grep -q "^Gamma | exclude | in the list" "$1" && grep -q "^Plainsoft | go on | looked up " "$1" &&
+    "$2" -I "$3/dq.py" "$4/apply/employers/public-lookup.json" "sorted(R) == [\"Arma AG\", \"Delta\", \"Gamma\", \"Plainsoft\", \"Unseenco\"]"' \
+    _ "$T/lk2.out" "$PY" "$T" "$H"
+# The order: from the measured defaults the employer check goes first; a person whose fit check stops more goes fit-first.
+check "variants order: with no history, the employer check first (it stops more per token)" sh -c '
+    CLAUDE_CONFIG_DIR="$4/no-config" "$1" -I "$2/variants.py" order --env "$3" | grep -q "^employer-first"' _ "$PY" "$S" "$ENVF" "$T"
+cat >"$T/funnel.json" <<'EOF'
+[{"name": "A", "route": "no-fit", "fits": 0, "fit_ran": true, "quick_ran": false},
+ {"name": "B", "route": "no-fit", "fits": 0, "fit_ran": true, "quick_ran": true},
+ {"name": "C", "route": "verified", "fits": 1, "fit_ran": true, "quick_ran": true}]
+EOF
+for n in 1 2 3 4 5 6 7 8 9 10; do "$PY" -I "$S/variants.py" funnel "$T/funnel.json" --env "$ENVF" >/dev/null 2>&1; done
+check "variants funnel and order: a fit check that stops most employers moves the order to fit-first" sh -c '
+    grep -q "\"fit_stops\": 2" "$4/apply/usage-log.jsonl" &&
+    CLAUDE_CONFIG_DIR="$5/no-config" "$1" -I "$2/variants.py" order --env "$3" | grep -q "^fit-first"' _ "$PY" "$S" "$ENVF" "$H" "$T"
+"$PY" -I "$S/career_view.py" fit --out "$T/fit-view.json" --env "$ENVF" >/dev/null 2>&1
+check "career_view fit: the fit check's smaller view" q keys "$T/fit-view.json" _about,languages,preferences,profile,skills,person
+
+use "$T/cp"
 # variants.py: off by default; a rotation once on; the good-fit count of a run 10 days back.
 check "variants: with no file the run's variant is default and its models are empty" sh -c '
     [ "$("$1" -I "$2/variants.py" current --env "$3")" = default ] && [ "$("$1" -I "$2/variants.py" models --env "$3")" = "{}" ]' _ "$PY" "$S" "$ENVF"

@@ -163,6 +163,8 @@ reports. Keep job-search work out of other sessions." From here on it runs `cenk
 ## 10. The schedule and the first search
 
 With the defaults accepted, create the scheduled run with `/cenk-jobs:schedule` (weekdays at 19:00 local time), then run the first
-search now with `/cenk-jobs:search`: it saves one search per site and query and offers the sites' free email alerts
+search now with `/cenk-jobs:search`: first `searches.py sites --add` saves a script search for every employer whose
+job links are on a board the script reads (after asking for `ROLE_TERMS` and `REMOTE_REGIONS`); then it saves one
+search per other site and query and offers the sites' free email alerts
 (`search`, "Saved searches"), so later runs read only what is new. Job sites that need an account come out of that search: the person creates each
 account and leaves its profile empty, because Claude fills it when applying.
