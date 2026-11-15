@@ -104,7 +104,8 @@ Do now. Then read `RULES/run.md`.
   - The setting `draft_answers` (the profile's `settings.cenk-jobs`, `profilelib.py get cenk-jobs draft_answers`;
     unset or `no`: the line above) set to `yes`: Claude writes each open free-text answer in full from the person's
     records, shows it, and fills it only after their approval or changes. A fact the records do not hold is asked
-    as a specific question, never guessed. A self-rating stays theirs.
+    as a specific question, never guessed. A self-rating stays theirs. With `free_text` left out of `ASK_FIRST`, a
+    drafted answer is filled without that approval.
   - An employer that asks candidates not to use AI: the draft is still written, and it opens with one warning line
     that quotes the employer's rule; the person chooses. Example: "Warning: the posting says 'answers must be your
     own work, without AI tools'."
@@ -130,10 +131,13 @@ Do now. Then read `RULES/run.md`.
   The exception: a job alert the person said yes to for that site, made on purpose for a saved search
   (`searches.py`). A job-alert tick-box on an application form stays off.
 - Messages and emails: drafts only (the setting `send_mode`); the person sends them.
-- Applications: the setting `APPLY_MODE`. `auto` (the default): Claude fills and submits every application whose
-  answers all come from the person's records, and reports after; the daily run does the same on its own. A form
-  that sends a one-time code on Submit waits until the person is active or at the PC ("Urgent steps"). `review`:
-  Claude stops at the review page and submits after the person's go-ahead for that job or batch. In both, Claude
+- Applications: the person's choices (`choices.py show`). `APPLY=auto` (the default): Claude fills and submits
+  every application whose answers all come from the person's records, and reports after, unless `ASK_FIRST` holds
+  `send` (a new setup's default: the person can drop it); the daily run does the
+  same on its own. A form that sends a one-time code on Submit waits until the person is active or at the PC
+  ("Urgent steps"). With `send` in `ASK_FIRST` (or the older `APPLY_MODE=review`): Claude stops at the review page
+  and submits after the person's go-ahead for that job or batch. `APPLY=list`: nothing is filled; the run lists the
+  fitting jobs with their links. In every case, Claude
   stops only where it cannot act: a CAPTCHA, a password, a sign-up, an emailed code, an ID number, an essay or
   self-rating, pay below the person's target, or a question the records do not answer; each goes to Do now, and a
   question to the Questions page.

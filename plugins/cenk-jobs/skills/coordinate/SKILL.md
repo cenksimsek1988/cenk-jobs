@@ -6,7 +6,7 @@ description: "The main job-search session: owns the records, dashboard and decis
 # Coordinate: the main session
 
 Read `../../RULES.md` first: its rules (honesty, consents, never an ID number, password, verification code or
-CAPTCHA, `APPLY_MODE` for applications, drafts for emails) hold in every session, the coordinator's and its
+CAPTCHA, the person's choices for applications, drafts for emails) hold in every session, the coordinator's and its
 sub-sessions'. The work itself follows the other skills: `search`, `plan`, `apply`, `prepare`, `cheat-sheet`, `schedule`. A person
 who has not set up yet starts with `/cenk-jobs:setup`.
 
@@ -38,10 +38,18 @@ A session cannot be moved under a new coordinator: it is reached by message, and
 
 ## The coordinator session
 
-- Reads `APPLY_MODE` in `job-search.env` at the start of every run and names it in the first line of the run's
-  report. Under `auto`, an application whose answers all come from the person's records is sent without asking;
-  under `review`, it waits at the review page. Example: "Job-search run started at 19:02 (scheduled); apply mode:
-  auto."
+- Reads the person's choices (`choices.py show`) at the start of every run and names the apply ones in the first
+  line of the run's report, with the plan's share when `statusline.py read` prints one. Under `APPLY=auto`, an
+  application whose answers all come from the records is sent without asking, unless `ASK_FIRST` holds `send`: then
+  it waits at the review page. Under `APPLY=list`, nothing is filled: the report lists the fitting jobs with links.
+  Example: "Job-search run started at 19:02 (scheduled); apply: auto, high fits, sent alone. Plan used: 5 hours 23%,
+  7 days 41%."
+- A job that waits on the person gets its status and a to-do with its link as soon as the wait is known:
+  `track.py wait <id> needs-person|account-needed "<what>"`. A wait kept only in a chat or a hand-off note is
+  invisible on the dashboard. Example: `track.py wait J7 account-needed "Workday sign-in for Acme"`.
+- A data question asked in the chat also goes on the Questions page (`questions.py add`, RULES/questions.md): the
+  chat is compacted, the page keeps it. Example: "your notice period?" asked in chat is also
+  `questions.py add fact "What is your notice period?" key=notice_period job=J7`.
 - A finished search's questions go to the person at once, in one ordered list (the order of "Answer first"), even
   while another task is open; they never wait for that task to end.
 - Runs in the main folder and is titled **Job search coordinator**. It tells the person, at the start of each run,
@@ -122,12 +130,12 @@ must end with.
 
 If the app will not start a session (a turn that another session or a trigger started), propose the piece as a
 card the person starts with one click. When a sign-in would expire before then, run the piece as a subagent inside
-the coordinator session, with the same brief and report: it submits by `APPLY_MODE` (in review mode it stops at the
+the coordinator session, with the same brief and report: it submits by `ASK_FIRST` (with `send` it stops at the
 review page and the go-ahead is forwarded to it by message).
 
 | Piece | What the sub-session does | Example name |
 |---|---|---|
-| Apply | One `cenk-jobs:applier` subagent per application, started together, one tab each: fills the form and submits by `APPLY_MODE` (review: after the forwarded go-ahead), reports. At most `APPLY_PARALLEL` at once, never two on the same site. A form that needs the person live: a sub-session with `/cenk-jobs:apply`. | `apply-acme` |
+| Apply | One `cenk-jobs:applier` subagent per application, started together, one tab each: fills the form and submits by `ASK_FIRST` (with `send`: after the forwarded go-ahead), reports. At most `APPLY_PARALLEL` at once, never two on the same site. A form that needs the person live: a sub-session with `/cenk-jobs:apply`. | `apply-acme` |
 | Prepare one step | `/cenk-jobs:prepare` prep notes for one hiring step, in its own folder. | `prep-acme-18nov` |
 | Study for one step | `/cenk-jobs:prepare` studying: brief, weak points, practice, with the person. | `study-acme-6nov` |
 | Search sweep | `/cenk-jobs:search`; one row per posting. | `search-2026-11-06` |

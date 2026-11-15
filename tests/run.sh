@@ -1327,9 +1327,9 @@ check "export: the order is urgent, then dates with the past due first, then the
     'R[0]["kind"] == "urgent" and pos("call the recruiter") < pos("the older to-do") < pos("the newer to-do")'
 check "export: a job whose site is signed in is Claude's next" dq "$OUT/actions.json" \
     'any(r["kind"] == "queued" and r["apps"] == ["D6"] and "ready to send" in r["text"] for r in R)'
-check "export: a found job nobody owns is Claude's next, last in the list" dq "$OUT/actions.json" \
-    'K["queued:new"]["apps"] == ["D7"] and R[-1]["kind"] == "queued"'
-check "export: the new kinds are counted" dq "$OUT/index.json" 'K["actions:late"]["n"] == 2 and K["actions:queued"]["n"] == 2'
+check "export: a found job nobody owns is a Do now row of its own: the gap is never silent" dq "$OUT/actions.json" \
+    'K["D7:noowner"]["kind"] == "todo" and K["D7:noowner"]["text"].startswith("Waits on you: unknown, ask Claude")'
+check "export: the new kinds are counted" dq "$OUT/index.json" 'K["actions:late"]["n"] == 2 and K["actions:queued"]["n"] == 1'
 check "export: an excluded employer's own site is left out, whatever its state" sh -c '
     "$1" -I "$2/dq.py" "$3/logins.json" "not any(\"Eta Labs\" in r[\"id\"] for r in R) and len(R) == 3" &&
     "$1" -I "$2/dq.py" "$3/actions.json" "not any(r[\"key\"].startswith(\"login:\") for r in R)"' _ "$PY" "$T" "$OUT"
@@ -1862,6 +1862,87 @@ check "variants funnel and order: a fit check that stops most employers moves th
     CLAUDE_CONFIG_DIR="$5/no-config" "$1" -I "$2/variants.py" order --env "$3" | grep -q "^fit-first"' _ "$PY" "$S" "$ENVF" "$H" "$T"
 "$PY" -I "$S/career_view.py" fit --out "$T/fit-view.json" --env "$ENVF" >/dev/null 2>&1
 check "career_view fit: the fit check's smaller view" q keys "$T/fit-view.json" _about,languages,preferences,profile,skills,person
+
+# choices.py: the cost choices, their defaults, a folder from before 0.35.0, and the fit grade.
+mkhome "$T/ch" flat
+use "$T/ch"
+check "choices show: a folder without the keys gets the defaults; ASK_FIRST keeps drafts for approval, sends alone" sh -c '
+    "$1" -I "$2/choices.py" show --env "$3" >"$4/ch.out" &&
+    grep -q "^APPLY_FITS=normal  (default)" "$4/ch.out" && grep -q "^ASK_FIRST=free_text  (older folder: from APPLY_MODE)" "$4/ch.out"' _ "$PY" "$S" "$ENVF" "$T"
+echo "APPLY_MODE=review" >>"$ENVF"
+check "choices workflow: the older APPLY_MODE=review asks before sending" sh -c '
+    "$1" -I "$2/choices.py" workflow --env "$3" | grep -q "\"askFirst\": \[\"send\", \"free_text\"\]"' _ "$PY" "$S" "$ENVF"
+check "choices set: a wrong value is refused and nothing is written" sh -c '
+    ! "$1" -I "$2/choices.py" set APPLY_FITS=low --env "$3" >/dev/null 2>&1 && ! grep -q "^APPLY_FITS" "$3"' _ "$PY" "$S" "$ENVF"
+"$PY" -I "$S/choices.py" set APPLY_FITS=high MAX_NEW_PER_RUN=unlimited ASK_FIRST= --env "$ENVF" >/dev/null 2>&1
+"$PY" -I "$S/choices.py" set APPLY_FITS=normal --env "$ENVF" >/dev/null 2>&1
+check "choices set: each key one line, replaced in place; an empty ASK_FIRST means all alone" sh -c '
+    [ "$(grep -c "^APPLY_FITS=" "$3")" = 1 ] && grep -q "^APPLY_FITS=normal$" "$3" && grep -q "^MAX_NEW_PER_RUN=unlimited$" "$3" &&
+    "$1" -I "$2/choices.py" workflow --env "$3" | grep -q "\"askFirst\": \[\]"' _ "$PY" "$S" "$ENVF"
+check "choices suggest pro: list only, no letters, one run a week" sh -c '
+    "$1" -I "$2/choices.py" suggest pro --env "$3" >"$4/sg.out" && grep -q "^APPLY=list$" "$4/sg.out" &&
+    grep -q "^LETTERS=never$" "$4/sg.out" && grep -q "^PLAN=pro$" "$4/sg.out"' _ "$PY" "$S" "$ENVF" "$T"
+cat >"$T/graded.json" <<'EOF'
+{"jobs": [{"id": "G1", "action": "apply", "gaps": []},
+          {"id": "G2", "action": "apply", "gaps": [{"kind": "pay_below", "what": "5% under"}]},
+          {"id": "G3", "action": "apply", "gaps": [{"kind": "seniority", "what": "lead"}, {"kind": "missing_must_have", "what": "Go"}]},
+          {"id": "G4", "action": "apply", "gaps": [{"kind": "hard", "what": "on site in Oslo"}]},
+          {"id": "G5", "action": "skip", "reason": "closed", "gaps": []}]}
+EOF
+"$PY" -I "$S/choices.py" grade "$T/graded.json" --env "$ENVF" >"$T/gr.out" 2>&1
+check "choices grade: no gap high, one soft gap normal, two soft gaps a weak fit, a hard gap a skip" sh -c '
+    grep -q "^G1 | apply | high |" "$1" && grep -q "^G2 | apply | normal |" "$1" &&
+    grep -q "^G3 | skip | - | weak fit: lead; Go" "$1" && grep -q "^G4 | skip | - | a hard gap: on site in Oslo" "$1" &&
+    grep -q "^G5 | skip | - |" "$1"' _ "$T/gr.out"
+"$PY" -I "$S/choices.py" set APPLY_FITS=high --env "$ENVF" >/dev/null 2>&1
+check "choices grade: with APPLY_FITS=high a normal fit is a skip" sh -c '
+    "$1" -I "$2/choices.py" grade "$3" --env "$4" | grep -q "^G2 | skip | - | not a high fit (APPLY_FITS=high): 5% under"' _ "$PY" "$S" "$T/graded.json" "$ENVF"
+# statusline.py: the plan's share saved by the status line, read back for the run report.
+echo '{"rate_limits": {"five_hour": {"used_percentage": 23.4}, "seven_day": {"used_percentage": 41}}}' |
+    "$PY" -I "$S/statusline.py" --out "$H/apply/plan-usage.json" >"$T/sl.out" 2>&1
+check "statusline: prints both windows and saves them; read gives the report's line" sh -c '
+    grep -q "^5h 23% .* 7d 41%" "$1" &&
+    "$2" -I "$3/statusline.py" read --env "$4" | grep -q "^Plan used: 5 hours 23%, 7 days 41%$"' _ "$T/sl.out" "$PY" "$S" "$ENVF"
+check "statusline read: nothing without the file" sh -c '
+    rm -f "$4/apply/plan-usage.json" && [ -z "$("$1" -I "$2/statusline.py" read --env "$3")" ]' _ "$PY" "$S" "$ENVF" "$H"
+
+# track.py wait and logins sync: a wait is a status and a to-do with its link; one row per Workday tenant host.
+mkhome "$T/wk" flat
+use "$T/wk"
+cat >"$H/apply/targets.json" <<'EOF'
+{"companies": [
+ {"name": "Zeta Works", "verdict": "allow", "jobs": [{"id": "W1", "title": "Architect", "company": "Zeta Works", "status": "found",
+   "apply_url": "https://zw-hr.wd3.myworkdayjobs.com/en-US/careers/job/1"}]},
+ {"name": "Acme", "verdict": "allow", "jobs": [{"id": "W2", "title": "Engineer", "company": "Acme", "status": "account-needed",
+   "apply_url": "https://acme.wd5.myworkdayjobs.com/x/job/2"}]}]}
+EOF
+cat >"$H/apply/logins.json" <<'EOF'
+{"logins": [
+ {"id": "Workday · Zeta Works SpA", "name": "Workday · Zeta Works SpA", "kind": "site", "status": "signed-in",
+  "link": "https://zw-hr.wd3.myworkdayjobs.com/en-US/careers", "note": "set by hand", "jobs": []},
+ {"id": "beta.wd1.myworkdayjobs.com", "name": "beta.wd1.myworkdayjobs.com", "kind": "site", "status": "signed-in",
+  "note": "set by hand", "jobs": []},
+ {"id": "acme.wd5.myworkdayjobs.com", "name": "acme.wd5.myworkdayjobs.com", "kind": "site", "status": "needs-sign-in",
+  "note": "an application waits on this site's sign-in or account", "jobs": ["W2"]}]}
+EOF
+check "track wait: only needs-person or account-needed, with what it waits on" sh -c '
+    ! "$1" -I "$2/track.py" wait W1 found "x" --env "$3" >/dev/null 2>&1 && ! "$1" -I "$2/track.py" wait W1 needs-person --env "$3" >/dev/null 2>&1' \
+    _ "$PY" "$S" "$ENVF"
+"$PY" -I "$S/track.py" wait W1 account-needed "Workday sign-in" --env "$ENVF" >/dev/null 2>&1
+"$PY" -I "$S/track.py" wait W1 account-needed "Workday sign-in" --env "$ENVF" >/dev/null 2>&1
+check "track wait: the status and one sign-in to-do with the job's own link, never twice" dq "$H/apply/targets.json" \
+    '[(j["status"], [(t["kind"], t["text"], t.get("link"), t.get("login")) for t in j["todo"]]) for j in R["companies"][0]["jobs"]] == [("account-needed", [("click", "Workday sign-in", "https://zw-hr.wd3.myworkdayjobs.com/en-US/careers/job/1", "Workday · Zeta Works SpA")])]'
+"$PY" -I "$S/track.py" wait W1 needs-person "Self-ratings on the form" --env "$ENVF" >/dev/null 2>&1
+"$PY" -I "$S/track.py" wait W1 account-needed "Self-ratings on the form" --env "$ENVF" >/dev/null 2>&1
+check "track wait: the same wait again takes the new kind and sign-in; still one to-do of that text" dq "$H/apply/targets.json" \
+    '[(t["kind"], t.get("login")) for t in R["companies"][0]["jobs"][0]["todo"] if t["text"] == "Self-ratings on the form"] == [("click", "Workday \u00b7 Zeta Works SpA")]'
+"$PY" -I "$S/logins.py" sync --env "$ENVF" >/dev/null 2>&1
+check "logins sync: a host-named row no job matches keeps its state" dq "$H/apply/logins.json" \
+    '{r["id"]: r["status"] for r in R["logins"]}.get("beta.wd1.myworkdayjobs.com") == "signed-in"'
+check "logins sync: a Workday job matches its tenant host's row, whatever the employer's spelling" dq "$H/apply/logins.json" \
+    '{r["id"]: r["jobs"] for r in R["logins"]}["Workday · Zeta Works SpA"] == ["W1"]'
+check "logins sync: a row named by its host takes the employer's name; only an unmatched one stays" dq "$H/apply/logins.json" \
+    '{r["id"]: r["jobs"] for r in R["logins"]}.get("Workday · Acme") == ["W2"] and [r["id"] for r in R["logins"] if "myworkdayjobs" in r["id"]] == ["beta.wd1.myworkdayjobs.com"]'
 
 use "$T/cp"
 # variants.py: off by default; a rotation once on; the good-fit count of a run 10 days back.

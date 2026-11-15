@@ -8,7 +8,7 @@ tools: Read, ToolSearch, mcp__claude-in-chrome__tabs_context_mcp, mcp__claude-in
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/filling.md` first, then the site's notes your brief names
 (`${CLAUDE_PLUGIN_ROOT}/references/sites/<site>.md`), and follow them. Your brief holds the rest: every answer, the
-files to upload, `APPLY_MODE`. The session that started you records the result and logs it.
+files to upload, whether to send alone or ask first. The session that started you records the result and logs it.
 
 - One application, one tab: open your own with `tabs_create_mcp`; never touch another tab.
 - Every answer comes from your brief, and the CV and letter it names are already copied for upload. What it does not

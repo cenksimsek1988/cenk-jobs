@@ -13,13 +13,15 @@ Read `../../RULES.md` first. This skill writes the plan into the tracker; it sen
    send. Leave out excluded, skipped, closed and declined ones.
 2. Order them: deadline first, then fit, then the sites the person is signed in to (`logins.py show`).
 3. For each job, the CV version that fits the role (`CV_VERSIONS_DIR`) and its letter template; the letter itself is
-   written now (`LETTER_BODIES_DIR`), only for a form with a letter field (`apply`, "Before filling"), and its PDF
+   written now (`LETTER_BODIES_DIR`) by `LETTERS` (`asked`: only for a form with a letter field, `apply`, "Before
+   filling"; `always`; `never`), and its PDF
    built on the day it is sent (`make_letter_pdf.py`).
 4. Group by sign-in: one group per site or hiring system. A group needs the person signed in before it can start.
 5. List what only the person can do, per job, as to-do items in the tracker (`track.py todo <id> add <kind>
    "<text>" link=<form>`): sign-ins (`click`), answers and essays (`todo`). Open free-text questions are never
    filled for them, unless their setting `draft_answers` is `yes` (RULES.md, "Honesty and what Claude never does").
-6. Propose today's batch: the groups the person can start now. Every role that fits at one employer is proposed
+6. Propose today's batch: the groups the person can start now, high fits first, then the newest (the order
+   `track.py sync` prints). Every role that fits at one employer is proposed
    and applied to at the same time: an application already running there is no reason to wait. The running ones are
    listed beside it (role, stage, next date), as information. On their OK, `/cenk-jobs:apply` (or the coordinator's
    sessions, one per site) takes them. Refresh the dashboard.

@@ -15,7 +15,7 @@ installs on its own). Skills:
 | `cenk-jobs:coordinate` | your main session, every day: "run my job search now", "open a session for this job" |
 | `cenk-jobs:search` | finding and screening postings only: "find me jobs" |
 | `cenk-jobs:plan` | putting the applications in order, with the CV and letter for each: "what should I apply to today?" |
-| `cenk-jobs:apply` | filling and sending applications, on their own or after your go-ahead (`APPLY_MODE`): "apply to these jobs" |
+| `cenk-jobs:apply` | filling and sending applications, on their own or after your go-ahead (`ASK_FIRST`): "apply to these jobs" |
 | `cenk-jobs:prepare` | interviews and hiring steps: "prepare my interview", "let's practise" |
 | `cenk-jobs:cheat-sheet` | your keyword cheat sheet as one page beside a call: "open my cheat sheet" |
 | `cenk-jobs:schedule` | the scheduled run: "run it on weekdays at 19:00", "run it every day", "stop the daily run" |
@@ -108,7 +108,8 @@ anything is sent.
 
 - It applies only with true facts from your record, and asks before anything it doesn't know.
 - It never creates accounts, types passwords, verification codes or ID numbers, solves CAPTCHAs, or sends an email
-  or message without your go-ahead. Applications go out on their own (`APPLY_MODE=auto`) unless you choose review mode.
+  or message without your go-ahead. Setup asks each cost choice with its token cost (letters, employer check, applying, which fits, what
+  waits for you), kept in `job-search.env`: change one by saying so.
 - It ticks only the data-processing consent a form needs; optional consents (talent pools, marketing) stay off.
 - Your pay expectations stay private: never in a CV, letter or the dashboard.
 - Your birth date, references, criminal record and relatives at the company: a form that asks for one waits for

@@ -24,7 +24,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jsenv  # noqa: E402
-from trackerlib import JOB_BOARD, PER_EMPLOYER, employer_link, flat_jobs, login_of  # noqa: E402
+from trackerlib import JOB_BOARD, PER_EMPLOYER, employer_link, flat_jobs, job_urls, login_of, workday_host  # noqa: E402
 
 STATUSES = ("connected", "signed-in", "needs-sign-up", "expired", "needs-sign-in", "needs-reconnect", "blocked",
             "excluded", "unknown")
@@ -62,9 +62,37 @@ rows = {r["id"]: r for r in data["logins"]}
 if args[0] == "sync":
     tracker = json.load(open(env.path("TRACKER"), encoding="utf-8"))
     waiting, links = {}, {}
+    # A Workday site is one row per tenant host: a row named by its host (older syncs) takes the employer's name, or
+    # goes into the named row of the same host; a job matches the row on its host, whatever the employer's spelling.
+    # Seen: a "Workday · <Employer>" row with 0 jobs while a job on its host waited under the host's name.
+    on_host = {}
+    for job in flat_jobs(tracker):
+        h = workday_host(*job_urls(job))
+        if h:
+            on_host.setdefault(h, login_of(job))
+    named = {}
+    for row in [r for r in rows.values() if r.get("kind") == "site"]:
+        h = workday_host(row["id"], row.get("link") or "")
+        if h and row["id"].lower() != h:
+            named.setdefault(h, row["id"])
+    for row in [r for r in rows.values() if r.get("kind") == "site" and workday_host(r["id"]) == r["id"].lower()]:
+        h = row["id"].lower()
+        target = named.get(h) or (on_host.get(h) if on_host.get(h) in rows else "")
+        if target:
+            # The named row stays; the host row's last state goes into its history.
+            del rows[row["id"]]
+            rows[target].setdefault("history", []).append(
+                {k: row[k] for k in ("checked", "status", "note") if k in row} | {"was": row["id"]})
+            named[h] = target
+        elif h in on_host:
+            del rows[row["id"]]
+            name = on_host[h]
+            row.update(id=name, name=name, link=row.get("link") or f"https://{h}")
+            rows[name] = row
+            named[h] = name
     for job in flat_jobs(tracker):
         if job.get("status") == "account-needed":
-            login = login_of(job)
+            login = named.get(workday_host(*job_urls(job))) or login_of(job)
             waiting.setdefault(login, []).append(job["id"])
             if not links.get(login):
                 links[login] = employer_link(job, login)

@@ -198,13 +198,33 @@ def site_of(url):
     return host[4:] if host.startswith("www.") else host
 
 
+def workday_host(*urls):
+    """The Workday tenant host among the URLs or bare hosts, or "". Example: "acme.wd5.myworkdayjobs.com"."""
+    for u in urls:
+        host = (site_of(u) if "://" in (u or "") else ((u or "").split() or [""])[-1].split("/")[0]).lower()
+        if re.search(r"\.myworkday(jobs|site)\.com$", host):
+            return host
+    return ""
+
+
+def job_urls(job):
+    prep = job.get("prep") or {}
+    return [u for u in (job.get("apply_url"), prep.get("apply_url"), job.get("prep_apply_url"), job.get("url")) if u]
+
+
 def login_of(job):
+    """One name per sign-in: "<platform> · <employer>" for an employer's own site; a Workday site is named so by its
+    URL too, never by its tenant host. Example: a job on acme.wd5.myworkdayjobs.com -> "Workday · Acme"."""
     if job.get("login"):
         return job["login"]
     platform = re.split(r"[(;,]", job.get("platform") or "")[0].strip()
+    company = job.get("company", "").split(" (")[0].strip()
     if platform and PER_EMPLOYER.search(platform):
         name = "company site" if re.search(r"(?i)company site|careers site", platform) else platform
-        return f"{name} · {job.get('company', '').split(' (')[0].strip()}"
+        return f"{name} · {company}"
+    host = workday_host(*job_urls(job), platform)
+    if host:
+        return f"Workday · {company}" if company else host
     return platform or site_of(job.get("apply_url"))
 
 

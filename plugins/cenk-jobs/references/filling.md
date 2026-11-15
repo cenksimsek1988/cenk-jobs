@@ -12,7 +12,7 @@ site's notes in `sites/<site>.md`. The safety rules here are `RULES.md`'s, in sh
 - Consents: tick only the data-processing consent the form needs to be sent; every optional one stays off.
 - Guarded items (date of birth, street address, references, criminal record, relatives at the company, health): only
   the answer the brief gives "from the profile", in the form's own field; never invented, never anywhere else.
-- `APPLY_MODE`, from the brief: `auto` submits a form whose answers all come from the brief; `review` stops at the
+- Sending, from the brief: "alone" submits a form whose answers all come from the brief; "ask first" stops at the
   review page and waits for the person's go-ahead. Both stop where Claude cannot act: a CAPTCHA, a password, a
   sign-up, an emailed code, an ID number, an essay or self-rating the brief does not answer, pay below the person's
   target, or a question the brief does not answer.

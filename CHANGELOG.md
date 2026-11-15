@@ -6,6 +6,45 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.35.0] - 2026-11-15
+
+Setup asks each cost choice with its token cost; the person's answers decide what a run spends.
+
+### Added
+
+- `choices.py`: the cost choices in `job-search.env`, one key each: `WRITER_MODEL` (opus, sonnet), `EMPLOYER_CHECK`
+  (cheap, free), `APPLY` (auto, list), `APPLY_FITS` (normal, high), `LETTERS` (asked, always, never), `ASK_FIRST`
+  (send, free_text, interview; empty: all alone), `CALENDAR` (auto, self), `PLAN` (pro, max, other: suggests only).
+  `show`, `set` (checks each value), `workflow` (the workflow's args), `suggest <plan>` and `grade`.
+- Setup's "The cost choices": ten questions, each with its measured cost in W. Example: "Letters by Opus, about 68k
+  W a letter, or the cheaper model, about 40k W".
+- The fit grade, in code: the fit check returns the posting's must-haves and its gaps; no gap is high, one soft gap
+  (a must-have missing, pay up to 10% under, seniority one step off) is normal, a hard gap or two soft gaps is a
+  skip. `APPLY_FITS=high` applies to high fits only. The person reads only "high" and "normal".
+- `statusline.py`, opt-in: a status line script that saves the plan's usage share (5 hours, 7 days) to
+  `PLAN_USAGE`; `read` gives the run report's line. Claude Code gives the share to no other place.
+
+### Changed
+
+- `ASK_FIRST` replaces `APPLY_MODE`: `send` in it is the old review mode. A folder without the key keeps what it did:
+  drafts wait for approval, and applications are sent alone unless `APPLY_MODE=review`.
+- A new setup's default is `ASK_FIRST=send,free_text`: an application waits for the person's go-ahead until they
+  drop `send`.
+- `track.py sync` grades each prepared job and prints the queue high fits first, then the newest.
+- `APPLY=list` stops the workflow after the fit check; `EMPLOYER_CHECK=free` runs no cheap check; `LETTERS` and
+  `WRITER_MODEL` set the writer's work and model; `CALENDAR=self` books no slot and writes no event.
+
+### Fixed
+
+- Waits the dashboard did not show (16 jobs stayed "found" with no to-do for two days): `track.py wait <id>
+  needs-person|account-needed "<what>"` records the status and one to-do with its link together, and the coordinator
+  uses it as soon as a wait is known.
+- A found or pending job nobody owns is a Do now row of its own ("Waits on you: unknown, ask Claude"), not only a
+  check line.
+- Workday sign-ins: one row per tenant host. A job on `<tenant>.wd5.myworkdayjobs.com` is "Workday · <Employer>";
+  `logins.py sync` matches it to the row of the same host, and renames a row named by its host.
+- A data question asked in the chat also goes on the Questions page: a compacted chat loses it.
+
 ## [0.34.1] - 2026-11-15
 
 Fixes from the first real run of 0.34.0.

@@ -6,7 +6,8 @@ A part of `RULES.md`. Read before adding a question or handling the Questions pa
 
 What an application needs and the records do not answer is asked once, on the person's Questions page
 (`QUESTIONS_PAGE`: an artifact with a small database), then written into the records, so it is never asked again.
-- Claude adds each question when it meets it, with the job that needs it:
+- Claude adds each question when it meets it, with the job that needs it, also one it asks in the chat (a chat is
+  compacted and the question lost; the page keeps it):
   - `questions.py add fact "<question>" key=<answer key> job=<id>`: a fact forms ask for; `personal=yes` for
     health, family or identity. The same key again only adds the job. Example: `key=notice_period`. A fact about
     the person themselves takes its profile key. Example: `key=person.birth_date`.

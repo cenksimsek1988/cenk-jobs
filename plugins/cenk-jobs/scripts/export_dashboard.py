@@ -36,8 +36,9 @@ Writes, in <out dir>:
                      person can do that expires: an emailed code, a filled form's CAPTCHA, a task due within 24
                      hours; first in the list), working (Claude or a
                      session with the person is on it: wait), late (a due date that passed: the person says whether
-                     it was done) or queued (Claude's next: jobs nobody owns, one row per reason with their ids in
-                     apps); each points at a job id (app) and/or a login id (login) instead of repeating them. A
+                     it was done) or queued (Claude's next: a signed-in site's jobs, one row per site with their ids
+                     in apps); a found or pending job nobody owns is a to-do row of its own ("Waits on you: unknown, ask
+                     Claude"); each points at a job id (app) and/or a login id (login) instead of repeating them. A
                      "waiting" to-do is never here. An ended job's to-dos are not listed: none for a job ended by
                      its tracker status, and for one ended in PIPELINE only those set on or after that date.
                      Order: urgent, working, rows with a date (the earliest first), rows without one (the older
@@ -634,8 +635,12 @@ def build(env, now):
             new.append(job["id"])
     queued = [(f"queued:ready:{site}", ids, f"{len(ids)} application{'s' if len(ids) > 1 else ''} ready to send: "
                f"{login_by_id[site].get('name', site)} is signed in") for site, ids in sorted(ready.items())]
-    if new:
-        queued.append(("queued:new", new, f"{len(new)} job{'s' if len(new) > 1 else ''} found or cleared, not started yet"))
+    # A found or pending job nobody owns is a gap in the records: a Do now row of its own, so it is never silent.
+    # Seen: 16 jobs waiting on sign-ins and answers stayed "found" with no to-do for two days.
+    for job_id in new:
+        actions.append({"key": f"{job_id}:noowner", "app": job_id, "login": "", "kind": "todo",
+                        "text": "Waits on you: unknown, ask Claude (found or pending; no to-do, question or session)",
+                        "link": job_links.get(job_id, ""), "due": "", "since": ""})
     for key, ids, text in queued:
         actions.append({"key": key, "app": ids[0], "apps": ids, "login": "", "kind": "queued", "text": text,
                         "link": "", "due": "", "since": ""})

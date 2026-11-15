@@ -1,6 +1,6 @@
 ---
 name: apply
-description: "Apply to planned jobs in the person's Chrome: fills each form from their records with the right CV and a fresh letter, submits by APPLY_MODE and records it. Use for 'apply to these jobs', 'send the applications', 'candidati per me', 'başvuru yap'. Stops at codes, CAPTCHAs, passwords, essays."
+description: "Apply to planned jobs in the person's Chrome: fills each form from their records with the right CV and a fresh letter, submits by ASK_FIRST and records it. Use for 'apply to these jobs', 'send the applications', 'candidati per me', 'başvuru yap'. Stops at codes, CAPTCHAs, passwords, essays."
 ---
 
 # Apply: fill, review, send
@@ -14,7 +14,8 @@ waits on the person.
 - Check the posting is still open and its link lands on the employer's own form (RULES.md, "Links"). The site's
   own notes are in `references/sites/<site>.md` (greenhouse, ashby, linkedin, smartrecruiters, successfactors, workday, eightfold):
   read the one for the form in hand.
-- Write a letter only for a form with a letter field: many have none (often Workable, Rippling, HiBob, Ashby, Lever).
+- Write a letter by `LETTERS`: `asked` (the default) only for a form with a letter field: many have none (often
+  Workable, Rippling, HiBob, Ashby, Lever); `always` for every form, attached where it takes a file; `never` none.
   Each essay question goes to the Questions page before filling.
 - Check the employer again if the last check is old (`employer.py check`).
 - Before telling the person a job "only needs a yes", read its tracker status and its `PIPELINE` entry: a job
@@ -43,9 +44,12 @@ never take a screenshot.
 
 ## Sending
 
-- `APPLY_MODE=auto` (the default): submit every form whose answers all come from the person's records, then report;
-  a form that sends a one-time code on Submit waits until the person is active or at the PC (see "Filling").
-- `APPLY_MODE=review`: stop at the review page; submit after the person's go-ahead for that job or batch.
+- `send` not in `ASK_FIRST` (`choices.py show`): submit every form whose answers all come from the person's
+  records, then report; a form that sends a one-time code on Submit waits until the person is active or at the PC
+  (see "Filling").
+- `send` in `ASK_FIRST` (or the older `APPLY_MODE=review`): stop at the review page; submit after the person's
+  go-ahead for that job or batch.
+- `APPLY=list`: no form is filled; the fitting jobs are listed with their links.
 - A form left filled at the review page for the person: the tab's title and the question both say that Submit sends
   the form as it is now (example title: ">>> REVIEW: Submit sends this as it is <<<"). A change asked later waits
   until the person confirms they have not pressed Submit. After a go-ahead, read the page first: a form already sent

@@ -12,6 +12,12 @@ python -I track.py todo <id> add <kind> "<text>" [key=value ...]          add a 
 python -I track.py todo <id> done <n>|all|kind=<kind>|session=<id>        remove to-dos: the one `list` numbers <n>, all,
                                                                            or every one of a kind or a session
 python -I track.py todo <id> list                                         the job's to-dos, numbered
+python -I track.py wait <id> needs-person|account-needed "<what>" [link=<url>]
+                                                                           a wait on the person, recorded where the
+                                                                           dashboard shows it: the status and one to-do
+                                                                           with its link (the job's own form when no
+                                                                           link is given); account-needed: a sign-in
+                                                                           to-do with the site
 python -I track.py show <id> [--full]                                     print one job's summary row and the path of
                                                                            its detail file; --full: the row with its
                                                                            detail merged in (prep, history, earlier)
@@ -68,10 +74,11 @@ import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import choices  # noqa: E402
 import employerlib as el  # noqa: E402
 import jsenv  # noqa: E402
 from trackerlib import (DETAILS, ENDED_STATUS, ISO_DATE, TODO_KINDS, collapse, collapse_row, companies,  # noqa: E402
-                        date_in, entries, expand, expand_company,
+                        date_in, employer_link, entries, expand, expand_company, job_urls, login_of, workday_host,
                         expand_row, flat_jobs, is_company_shape, json_indent, load_settings, needs_of, note_key, split_tracker,
                         write_json)
 
@@ -370,9 +377,13 @@ def sync(journals):
     save(collapse(data, PATH))  # rows with a detail file go back to summary rows and their files
     queue = [(c["name"], j) for c in data["companies"] if c.get("verdict", "") in ("clear", "allow", "discuss", "")
              for j in c["jobs"] if "prep" in j and j["status"] == "pending"]
+    # The best grades first, then the newest: the order the applications go in.
+    queue.sort(key=lambda q: str(q[1].get("date") or next((h.get("date") for h in q[1].get("history") or []
+                                                            if h.get("date")), "")), reverse=True)
+    queue.sort(key=lambda q: {"high": 0, "normal": 1}.get(q[1]["prep"].get("grade"), 2))
     for name, j in queue:
         p = j["prep"]
-        print(j["id"], "|", name, "|", j["title"][:55], "|", p.get("action"), "|", p.get("open"), "|",
+        print(j["id"], "|", name, "|", j["title"][:55], "|", p.get("action"), "|", p.get("grade") or "-", "|", p.get("open"), "|",
               p.get("platform"), "|", "needs:" + str(len(needs_of(p))), "|", (p.get("apply_url") or "")[:100])
     counts = {}
     for c in data["companies"]:
@@ -381,11 +392,13 @@ def sync(journals):
 
 
 def attach_prep(company, prep):
-    """A prepared-jobs result's jobs into the company's jobs, by id."""
+    """A prepared-jobs result's jobs into the company's jobs, by id, each graded from its gaps (choices.grade): a fit
+    below the person's APPLY_FITS is a skip with the reason, as in the workflow."""
+    level = choices.value(env, "APPLY_FITS")[0]
     for pj in (prep or {}).get("jobs", []):
         for job in company["jobs"]:
             if job["id"] == pj.get("id"):
-                job["prep"] = pj
+                job["prep"] = choices.graded(pj, level)
 
 
 # --- split ---------------------------------------------------------------------------------------------------------
@@ -447,7 +460,7 @@ def split_tracker_files(data, apply):
 
 
 # --- the commands -------------------------------------------------------------------------------------------------
-if not args or args[0] not in ("add", "set", "todo", "show", "brief", "list", "summary", "sync", "split"):
+if not args or args[0] not in ("add", "set", "todo", "wait", "show", "brief", "list", "summary", "sync", "split"):
     sys.exit(__doc__)
 cmd = args[0]
 if cmd == "sync":
@@ -498,6 +511,46 @@ elif cmd == "set":
     print(job_id, company.get("name", ""), title_of(job)[:60], "->", status)
     if dropped:
         print(f"dropped {len(dropped)} to-do(s): " + "; ".join(t.get("text", "") for t in dropped))
+elif cmd == "wait":
+    # A wait known only in a chat or a hand-off note is invisible on the dashboard: the status and the to-do go
+    # together. Seen: 16 jobs waiting on sign-ins and answers stayed "found" with no to-do for two days.
+    if len(args) < 4 or args[2] not in ("needs-person", "account-needed") or not args[3].strip():
+        sys.exit('wait <id> needs-person|account-needed "<what it waits on>" [link=<url>]')
+    job_id, status, what = args[1], args[2], args[3].strip()
+    extra = {}
+    for pair in args[4:]:
+        key, eq, value = pair.partition("=")
+        if key != "link" or not eq:
+            sys.exit(f"wait takes only link=<url>: got {pair!r}")
+        extra[key] = value
+    company, row = find(data, job_id)
+    job = expand_row(PATH, row)
+    history = job.setdefault("history", [])
+    old = job.get(NOTE, "")
+    if old and not any(h.get(NOTE) == old for h in history):
+        history.append({"until": today, "status": job.get("status", ""), NOTE: old})
+    history.append({"date": today, "status": status, NOTE: what})
+    job.update(status=status, **{NOTE: what})
+    login, host = login_of(job), workday_host(*job_urls(job))
+    if host and env.get("LOGINS") and os.path.isfile(env.path("LOGINS")):
+        # A Workday site's row is found by its tenant host, as logins.py sync does: one name per site.
+        with open(env.path("LOGINS"), encoding="utf-8") as fh:
+            login = next((r["id"] for r in json.load(fh).get("logins", []) if r.get("kind") == "site"
+                          and r["id"].lower() != host and workday_host(r["id"], r.get("link") or "") == host), login)
+    link = extra.get("link") or employer_link(job, login) or job.get("apply_url", "")
+    collapse_row(PATH, row, job, is_company_shape(data))
+    kind = "click" if status == "account-needed" else "todo"
+    same = next((t for t in row.get("todo") or [] if t.get("text") == what), None)
+    if same:  # the same wait again, maybe now a sign-in: one to-do, with the new kind and site
+        same["kind"] = kind
+        same.pop("login", None)
+        same.update({"login": login} if status == "account-needed" and login else {})
+        same.update({"link": link} if link else {})
+    else:
+        todo_command(row, "add", [kind, what, *([f"link={link}"] if link else []),
+                                  *([f"login={login}"] if status == "account-needed" and login else [])])
+    save(data)
+    print(job_id, company.get("name", ""), title_of(job)[:60], "->", status)
 elif cmd == "todo":
     if len(args) < 3:
         sys.exit("todo <id> add|done|list")

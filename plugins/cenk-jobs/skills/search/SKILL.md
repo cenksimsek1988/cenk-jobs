@@ -55,7 +55,7 @@ tracker, and nothing is prepared or sent.
    a company with `quick: true` and `lookup`, the lookup's line) in the order `variants.py order` gives; the full
    employer check only for one passed with `screen: true`; then the form answers, the letter and the review.
    Pass `order` (`variants.py order`: the fit check or the cheap employer check first, from the person's own
-   numbers), `fitRecord` (`career_view.py fit`), `models` (`variants.py models`), `draftAnswers` (the setting `draft_answers`), `cvs` (`career_view.py cvs`), the search file, `known` (the checks
+   numbers), `fitRecord` (`career_view.py fit`), `models` (`variants.py models`), `draftAnswers` (the setting `draft_answers`), the person's choices (`choices.py workflow`, merged into the args), `cvs` (`career_view.py cvs`), the search file, `known` (the checks
    from step 3), `employerRules` (the output of `employer.py rules`), the master record and its two parts (`career_view.py screen --out <outDir>/screen.json` as `screenRecord`, `career_view.py facts --out
    <outDir>/facts.json` as `factsRecord`; both are deleted after `track.py sync`).
    Then `track.py sync <journal>`, `variants.py funnel <the workflow's result>`, and `employer.py

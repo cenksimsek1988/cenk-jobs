@@ -70,9 +70,8 @@ Show the defaults and ask: "Use these defaults? You can change any of them later
   Questions page, with every other question your records do not answer. Each answer goes into your records, so it
   is asked once.
 - Emails and messages are drafts; you send them.
-- Applications are sent on their own when every answer comes from your records (`APPLY_MODE=auto`); you hear what
-  was sent after each run. Say "ask me before each application" for `APPLY_MODE=review`. Only what Claude cannot
-  do waits for you in Do now: CAPTCHAs, passwords, sign-ups, emailed codes, ID numbers, essays, pay below your
+- Applications: by your cost choices below (`APPLY`, `ASK_FIRST`); you hear what was sent after each run. Only what
+  Claude cannot do waits for you in Do now: CAPTCHAs, passwords, sign-ups, emailed codes, ID numbers, essays, pay below your
   target, answers your records do not hold.
 - Job-search mails Claude has finished get the Gmail label `cenk-jobs/Done` (`GMAIL_DONE_LABEL`); create it once
   the defaults are accepted. Mails waiting on you stay unlabelled.
@@ -100,6 +99,41 @@ another state. Write each as a category with `"custom": true`, an id, a label, `
 state only when the person names it, with `"state"` and its `lists` instead of `what`.
 Write every answer into `EMPLOYER_RULES` (the template is `templates/employer-rules.json`) with `{date, field, new}`
 in `changes`.
+
+### The cost choices
+
+Ask each on its own, with its cost line, after the defaults. W is a cost-weighted Opus token, measured on real runs.
+Write the answers with `choices.py set KEY=value ...`; `choices.py show` lists them. Free in every case: the search
+by script, the list lookup, the public-data lookup, employers the person adds by hand.
+First ask the plan (Pro, Max or larger): `choices.py suggest <plan>` gives the starting answers, never the final ones.
+Example: Pro suggests `APPLY=list`, `LETTERS=never` and one run a week.
+
+1. Letters and free text: Opus, which writes better (about 68k W a letter), or the cheaper model with its review
+   (about 40k W). `WRITER_MODEL=opus|sonnet`, default opus.
+2. Employer check: the list and the public-data lookup always run, free, and their warnings always show. The cheap
+   model check where the lookup cannot decide: about 18k W per new employer, once. `EMPLOYER_CHECK=cheap|free`,
+   default cheap.
+3. Applying: fill and send where the records answer everything (about 210k to 280k W an application), or only a
+   list of fitting jobs with links, sent by the person (the fit check alone, about 60k W an employer).
+   `APPLY=auto|list`, default auto.
+4. Which fits: good fits (no gap, or one soft gap: a must-have missing, pay up to 10% under, seniority one step
+   off), or only high fits (no gap). Each application less saves about 280k W. `APPLY_FITS=normal|high`, default
+   normal. A weaker fit is never applied to.
+5. Cover letters: where the form has or may have a field, always, or never; about 68k W a letter with its review.
+   `LETTERS=asked|always|never`, default asked.
+6. What waits for the person (only with `APPLY=auto`), one answer per step: sending an application (`send`); a
+   free-text answer Claude drafted under `draft_answers` (`free_text`); booking an interview slot (`interview`).
+   `ASK_FIRST=send,free_text` by default; empty: all alone. Asking costs the person's time, not tokens.
+7. Interview slots: Claude books them and keeps the calendar (about 50k to 80k W an invitation, estimated), or the
+   person does and Claude records the date. `CALENDAR=auto|self`, default auto.
+8. Runs: weekdays, some days, weekly or by hand (`SEARCH_DAYS`, `SEARCH_TIME`, through `/cenk-jobs:schedule`).
+   Each run has a start cost (1.7M to 4.7M W measured in long sessions; a fresh run less); fewer runs take more
+   postings each, and some close in between. Default weekdays at 19:00.
+9. Postings per run: a number or `unlimited` (`MAX_NEW_PER_RUN`, default 30). Applications go high fits first, then
+   the newest.
+10. The plan's share in the run report, opt-in: Claude Code gives it only to a status line script. On a yes,
+    `statusline.py install` copies the script into the main folder and prints the `statusLine` setting; add it to
+    the person's Claude Code settings after their yes to that change. An existing status line stays, with `--then`.
 
 ## 5. Documents
 

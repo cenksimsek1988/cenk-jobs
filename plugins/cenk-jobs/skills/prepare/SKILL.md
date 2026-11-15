@@ -12,9 +12,11 @@ prep waits.
 
 1. Gmail, messages without the label `GMAIL_DONE_LABEL`: interview invitations, availability requests, booking
    links, tests and forms, rejections and closed posts, confirmations, and replies to the person's own mails.
-2. Book slots by the person's scheduling rules (the master record's `preferences`); a reply to a recruiter is a
+2. With `CALENDAR=auto` (`choices.py show`): book slots by the person's scheduling rules (the master record's
+   `preferences`); with `interview` in `ASK_FIRST`, propose the slot and book it after their yes. With
+   `CALENDAR=self`: book nothing and write no event; record the date the person gives. A reply to a recruiter is a
    draft the person sends.
-3. Each step and deadline into the calendar (RULES.md, "Calendar"), with its own link and the email link; the same
+3. With `CALENDAR=auto`, each step and deadline into the calendar (RULES.md, "Calendar"), with its own link and the email link; the same
    two into the step's `link` and `mail` in `PIPELINE`. A step due within 24 hours: one notification at once
    (RULES.md, "Urgent steps"). Rejections, closed posts and declines into `PIPELINE` as
    their outcome.
