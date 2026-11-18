@@ -13,6 +13,12 @@ python -I questions.py add decision "<question>" employer="<name>" category=<cat
     [source=<url>]
     allow or exclude for an employer the build does not ask about by itself (example: one excluded through its
     owner, where the person's rule is unclear); allow clears its excluded jobs, exclude excludes the others
+python -I questions.py add general "<question>" [job=<id> ...] [detail="..."] [options="a:A|b:B"]
+    any other question for the person, with no answer key (example: "Which monitor holds the call?"): the answer is
+    kept with a note and printed under "act on", for Claude to act on it
+    options: value:label pairs separated by "|" (a label may hold a comma: "fix:Yes, I correct them|no:No"); with no
+    "|", by commas. keep=yes: the build keeps a question with jobs open until it is answered, even once its jobs are
+    sent; set by itself when a job was already sent or ended at add (example: withdraw from a sent application)
 python -I questions.py list
     the open questions, one line each
 python -I questions.py build <out dir> [--page <dir>]
@@ -22,7 +28,8 @@ python -I questions.py build <out dir> [--page <dir>]
     "Allow, or exclude?" questions from the person's employer rules: an employer whose finding is "discuss" or
     undecided, asked only once it answers (a sent job of it has a PIPELINE entry that has not ended); until then its
     jobs go on and nothing is asked. Then it ends each job question whose jobs all ended: closed, with a note saying when, if one was
-    sent; dropped if none was (excluded, declined, skipped, closed, failed). --page <dir>: the page's questions as an ArtifactData list saved there (<dir>/questions/*.json):
+    sent; dropped if none was (excluded, declined, skipped, closed, failed); one marked keep stays open until
+    answered. --page <dir>: the page's questions as an ArtifactData list saved there (<dir>/questions/*.json):
     prints the ids to delete on the page (done more than 7 days ago, or dropped).
 python -I questions.py record <answers dir>
     the page's answers, an ArtifactData list of "answers" saved there (<dir>/answers/<id>.json). A typed answer (a
@@ -34,7 +41,9 @@ python -I questions.py record <answers dir>
     happened (example: "Allowed: Acme is cleared by your decision; 1 job goes on.") and stays on the page as done.
     Prints the jobs that can go on and the answers to delete on the page. "discuss" (the middle button on every
     allow-or-exclude and yes-or-no question) records nothing: the question stays open with a note, and is printed
-    under "discuss", for Claude to bring up with the person in the chat.
+    under "discuss", for Claude to bring up with the person in the chat. A general question's answer, and a keep
+    question's button answer, is kept with a note and printed under "act on". After record, run build and write the
+    page in the same turn: until then the page shows the recorded questions as open.
 python -I questions.py answer <id> "<answer>" [typed="<their words>"] [replace=yes]
     record one answer the person gave in the chat (example: after discussing it), the same way as record;
     typed=: a page answer Claude read and corrected (spelling, grammar): the record keeps their words and the page
@@ -61,6 +70,7 @@ import profilelib as pl  # noqa: E402
 from trackerlib import ENDED_STAGE, collapse_row, expand_row, flat_jobs, is_company_shape, json_indent  # noqa: E402
 from trackerlib import pipeline_entry  # noqa: E402
 
+KINDS = ("fact", "job", "decision", "general")
 DONE = ("submitted", "excluded", "skipped", "closed", "declined", "failed")  # job statuses
 HANDLED = ("answered", "closed")  # question statuses shown under Done
 KEEP_DONE_DAYS = 7  # a handled question stays on the page this long, with its note
@@ -171,6 +181,23 @@ def asks(tracker, pipeline):
     return out
 
 
+def ended_jobs(tracker, pipeline):
+    """({job id: applied date} of the jobs sent, set of the jobs sent or ended): a DONE status or a PIPELINE row."""
+    flat = flat_jobs(tracker)
+    sent = {j["id"]: j.get("applied") or "" for j in flat if j.get("status") == "submitted" or j["id"] in pipeline}
+    return sent, set(sent) | {j["id"] for j in flat if j.get("status") in DONE}
+
+
+def parse_options(text):
+    """[{value, label}] from "a:A|b:B", or from "a:A,b:B" when there is no "|" (a label with a comma needs "|")."""
+    out = []
+    for o in (o.strip() for o in text.split("|" if "|" in text else ",")):
+        if o:
+            value, _, label = o.partition(":")
+            out.append({"value": value, "label": label or value})  # "yes" alone: its own label
+    return out
+
+
 def page_doc(q, jobs):
     doc = {"kind": q["kind"], "text": q["text"], "detail": q.get("detail", ""), "source": q.get("source", ""),
            "employer": q.get("employer", ""), "role": q.get("role", ""),
@@ -206,7 +233,7 @@ data = load(QUESTIONS, {"_about": "Questions for the person, asked once on their
 qs = data["questions"]
 
 if args[0] == "add":
-    if len(args) < 3 or args[1] not in ("fact", "job", "decision"):
+    if len(args) < 3 or args[1] not in KINDS:
         sys.exit(__doc__)
     kind, text = args[1], args[2]
     job_ids = [a.split("=", 1)[1] for a in args[3:] if a.startswith("job=")]
@@ -225,7 +252,8 @@ if args[0] == "add":
             sys.exit(f"category must be one of {', '.join(el.categories(env))}")
     qid = {"fact": lambda: f"fact-{slug(opts['key'])}",
            "job": lambda: f"job-{slug(opts['job'])}-{slug(text)[:30].rstrip('-')}",
-           "decision": lambda: f"ask-{slug(opts['employer'])}"}[kind]()
+           "decision": lambda: f"ask-{slug(opts['employer'])}",
+           "general": lambda: f"q-{slug(text)[:40].rstrip('-')}"}[kind]()
     q = qs.get(qid)
     if q and q["status"] == "open":
         q["jobs"] += [j for j in job_ids if j not in q["jobs"]]
@@ -239,12 +267,18 @@ if args[0] == "add":
             q["category_label"] = el.rules(env)["categories"].get(opts["category"], {}).get("label", opts["category"])
             q["manual"] = True  # asked by hand: the build keeps it until it is answered
         if opts.get("options"):
-            q["options"] = [dict(zip(("value", "label"), o.split(":", 1))) for o in opts["options"].split(",")]
+            q["options"] = parse_options(opts["options"])
         if kind == "job":
             j = next((x for x in flat_jobs(load(env.path("TRACKER"), {})) if x["id"] == opts["job"]), {})
             q.update(employer=j.get("company", ""), role=j.get("title", ""))
         if opts.get("personal") in ("yes", "true", "1"):
             q["personal"] = True
+    # A question about a job already sent or ended (example: withdraw from a sent application) is never closed by the
+    # build for being moot: it stays open until the person answers it.
+    pipeline = load(env.path("PIPELINE"), {}) if env.get("PIPELINE") else {}
+    if opts.get("keep") in ("yes", "true", "1") or \
+            set(q.get("jobs", [])) & ended_jobs(load(env.path("TRACKER"), {}), pipeline)[1]:
+        q["keep"] = True
     save(QUESTIONS, data)
     print(qid, "->", ", ".join(q["jobs"]) or "no job")
 
@@ -288,11 +322,10 @@ elif args[0] == "build":
             q.update(status="dropped", dropped=today)
     # A job question whose jobs all ended (the asks() rule: a DONE status or a PIPELINE row), so nobody answers it for
     # nothing: closed with a note when one was sent, else dropped, like a decision nobody needs.
-    flat = flat_jobs(tracker)
-    sent = {j["id"]: j.get("applied") or "" for j in flat if j.get("status") == "submitted" or j["id"] in pipeline}
-    ended = set(sent) | {j["id"] for j in flat if j.get("status") in DONE}
+    sent, ended = ended_jobs(tracker, pipeline)
     for qid, q in qs.items():
-        if q["kind"] == "job" and q["status"] == "open" and q.get("jobs") and all(j in ended for j in q["jobs"]):
+        if q["kind"] == "job" and q["status"] == "open" and not q.get("keep") and q.get("jobs") \
+                and all(j in ended for j in q["jobs"]):
             if any(j in sent for j in q["jobs"]):
                 when = max(sent.get(j, "") for j in q["jobs"]) or today
                 q.update(status="closed", closed=today, noted_at=now,
@@ -340,7 +373,7 @@ else:  # record, answer
     jobs = raw_jobs(tracker)
     master = load(env.path("MASTER_RECORD"), {})
     changed = {"tracker": False, "master": False}
-    go_on, delete, discuss, read_first, ask_person, no_profile = [], [], [], [], [], []
+    go_on, delete, discuss, read_first, ask_person, no_profile, act_on = [], [], [], [], [], [], []
     names = labels(tracker)
 
     def titles(ids):
@@ -423,6 +456,15 @@ else:  # record, answer
                         call("track.py", "set", job_id, "pending",
                             f"employer cleared: your decision ({source}, {q.get('category_label', '')}), {today}")
                     go_on.append(job_id)
+        elif q["kind"] == "general" or (q.get("keep") and q.get("options")):
+            # Not a form field: Claude acts on it (example: drafts the withdrawal mail after "Withdraw").
+            if q.get("options") and answer not in [o["value"] for o in q["options"]]:
+                print(f"{qid}: skipped (not one of the options)")
+                continue
+            label = next((o["label"] for o in q.get("options", []) if o["value"] == answer), answer)
+            q["answer"] = dict(entry, answer=label)
+            act_on.append(f"{qid} | {q['text']} | {label}" + (f" | {', '.join(q['jobs'])}" if q.get("jobs") else ""))
+            note = f"Your answer: \"{label[:80]}\". Claude acts on it and notes here what it did."
         elif q["kind"] == "fact" and profile_key(q):
             # The person's own facts live only in their profile (profilelib.py), never written over another value.
             key = profile_key(q)
@@ -501,8 +543,11 @@ else:  # record, answer
     print("go on with:", " ".join(go_on) or "none")
     print("delete these answers on the page (their questions stay as done; then run build):", " ".join(delete) or "none")
     print("discuss with the person:", "; ".join(discuss) or "none")
+    print("act on (do what the answer says, then questions.py note):", "; ".join(act_on) or "none")
     print("ask the person (not recorded; the answer stays on the page):", "; ".join(ask_person) or "none")
     print("no profile (not recorded; ask the person where it goes, then profilelib.py create <folder>):",
           "; ".join(no_profile) or "none")
     print("read first (record each plain answer with answer, spelling and grammar fixed; reply to a question):")
     print("\n".join(read_first) or "none")
+    print("next, in this turn: questions.py build <dir> --page <dir> and write the page; until then it shows these "
+          "questions as open")

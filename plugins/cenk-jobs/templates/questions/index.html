@@ -3,8 +3,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
 <style>
-/* Layout: one reading column; a send bar under the title; three groups of open questions (employers, facts about the
-   person, one job), each a list of cards with the answer control on the card; then Done, with Claude's note on each. */
+/* Layout: one reading column; four groups of open questions (employers, facts about the
+   person, one job, other questions), each a list of cards with the answer control on the card; the send bar under them; then Done, with Claude's note on each. */
 :root {
   --bg: #f6f7f5; --panel: #ffffff; --ink: #1d2422; --muted: #5c6763; --line: #d9dfdb;
   --accent: #1f5f63; --accent-ink: #ffffff; --exclude: #8a3b2e; --ok: #2f6b3a; --chip: #eaefec; --note: #eef4f2;
@@ -74,10 +74,6 @@ textarea { min-height: 7rem; resize: vertical; }
     <p class="tally" id="tally">Loading the questions…</p>
     <p class="tally" id="handled" hidden></p>
     <p class="hint" id="dash-link" hidden>All your applications, logins and interviews: <a target="_blank" rel="noopener noreferrer">your dashboard</a>.</p>
-    <div class="sendbar" id="sendbar" hidden>
-      <div class="row"><button type="button" class="save" id="send" disabled>Send my answers to Claude</button></div>
-      <p class="hint" id="send-hint" aria-live="polite"></p>
-    </div>
   </header>
   <p class="notice" id="notice" hidden></p>
 
@@ -99,11 +95,22 @@ textarea { min-height: 7rem; resize: vertical; }
     <div class="list" id="list-job"></div>
   </section>
 
+  <section id="sec-general" hidden>
+    <h2>Other questions</h2>
+    <p class="lede">Anything else Claude needs from you, such as how you want something done.</p>
+    <div class="list" id="list-general"></div>
+  </section>
+
+  <div class="sendbar" id="sendbar" hidden>
+    <div class="row"><button type="button" class="save" id="send" disabled>Send my answers to Claude</button></div>
+    <p class="hint" id="send-hint" aria-live="polite"></p>
+  </div>
+
   <p class="notice" id="empty" hidden>No questions are waiting. New ones appear here after each run.</p>
 
   <section id="sec-done" hidden>
     <h2>Done</h2>
-    <p class="lede">Handled by Claude in the last 7 days, each with what happened.</p>
+    <p class="lede">Sent to Claude, and handled by Claude in the last 7 days, each with what happened.</p>
     <div class="list" id="list-done"></div>
   </section>
 </main>
@@ -130,7 +137,7 @@ textarea { min-height: 7rem; resize: vertical; }
   function pending() {
     const handled = (state.status && state.status.at) || '';
     const since = state.sentAt > handled ? state.sentAt : handled;
-    return state.questions.filter((q) => q.open !== false && !q.done && state.answers[q.id]
+    return state.questions.filter((q) => q.open !== false && !q.done && state.answers[q.id] && !state.answers[q.id].sent
       && (!since || String(state.answers[q.id].at || '') > since));
   }
 
@@ -164,19 +171,26 @@ textarea { min-height: 7rem; resize: vertical; }
   async function sendAll() {
     const items = pending();
     if (!items.length) return;
-    const kinds = { decision: 0, fact: 0, job: 0 };
+    const kinds = { decision: 0, fact: 0, job: 0, general: 0 };
     items.forEach((q) => { kinds[q.kind] = (kinds[q.kind] || 0) + 1; });
     // Ids and counts only: a question's text can hold pay figures or an employer's words, and comments are not
     // covered by the page's owner-only store. Claude reads the questions and answers from that store.
     const talk = items.filter((q) => state.answers[q.id].answer === 'discuss' && !q.personal).map((q) => q.id);
     const text = `Questions page: please record my answers (${items.length} new: ${kinds.decision} employer, `
-      + `${kinds.fact} about me, ${kinds.job} for one job).` + (talk.length ? ` To discuss: ${talk.join(', ')}.` : '');
+      + `${kinds.fact} about me, ${kinds.job} for one job, ${kinds.general} other).` + (talk.length ? ` To discuss: ${talk.join(', ')}.` : '');
     $('send').disabled = true;
     renderSend('Sending…');
     try {
       if (!(await send($('sendbar'), text))) { refreshSend(); return; }
       state.sentAt = new Date().toISOString();
-      renderSend('Sent. Your main session is recording them; notes appear under each question as it goes.');
+      // Each sent answer is marked, so its card is shown as sent (no buttons) at once and after a reload.
+      // A mark that fails leaves its card open (it may be sent again): counted and said, never hidden.
+      const marked = await Promise.all(items.map((q) => db.collection('answers').doc(q.id)
+        .set(Object.assign({}, state.answers[q.id], { sent: state.sentAt }))
+        .then(() => true, (err) => { console.warn('answer not marked sent', q.id, err); return false; })));
+      const missed = marked.filter((ok) => !ok).length;
+      renderSend('Sent. Your main session is recording them; notes appear under each question as it goes.'
+        + (missed ? ` ${missed} answer${missed === 1 ? '' : 's'} could not be marked sent and stay open here.` : ''));
     } catch (e) {
       const code = e && e.code;
       renderSend(code === 'rate_limited' ? 'Sent a moment ago: wait a little before sending again.'
@@ -309,17 +323,28 @@ textarea { min-height: 7rem; resize: vertical; }
     header(c, q);
     const chips = chipsOf(q);
     if (chips) c.appendChild(chips);
-    const note = noteOf(q) || el('p', 'result', 'Done.');
+    const ans = !q.done && state.answers[q.id];
+    let note = noteOf(q) || el('p', 'result', 'Done.');
+    if (ans && ans.sent) {
+      // Sent, not yet recorded: shown like Done, with the answer given, until Claude's build marks it done.
+      const label = (Array.isArray(q.options) && (q.options.find((o) => o.value === ans.answer) || {}).label)
+        || (q.kind === 'decision' && { allow: 'Allow', exclude: 'Exclude' }[ans.answer]) || ans.answer;
+      note = el('p', 'result');
+      note.appendChild(el('b', null, 'Sent to Claude, ' + day(ans.sent) + ': '));
+      note.appendChild(document.createTextNode(String(label)));
+    }
     c.appendChild(note);
     return c;
   }
 
   function render() {
     if (!state.loaded.q) return;
-    const open = state.questions.filter((q) => q.open !== false && !q.done);
-    const done = state.questions.filter((q) => q.done)
-      .sort((a, b) => String(b.noted_at || '').localeCompare(String(a.noted_at || '')));
-    const groups = { decision: [], fact: [], job: [] };
+    const sent = (q) => !!(state.answers[q.id] && state.answers[q.id].sent);
+    const open = state.questions.filter((q) => q.open !== false && !q.done && !sent(q));
+    const done = state.questions.filter((q) => q.done || (q.open !== false && sent(q)))
+      .sort((a, b) => String((state.answers[b.id] || {}).sent || b.noted_at || '')
+        .localeCompare(String((state.answers[a.id] || {}).sent || a.noted_at || '')));
+    const groups = { decision: [], fact: [], job: [], general: [] };
     open.forEach((q) => (groups[q.kind] || groups.fact).push(q));
     let answered = 0;
     open.forEach((q) => { if (state.answers[q.id]) answered += 1; });

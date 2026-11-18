@@ -7,6 +7,8 @@ description: "First run of the job search, once: checks programs and logins, cre
 
 Read `../../RULES.md` first (honesty, consents, never an ID, password, code or CAPTCHA). Run these steps in order and
 ask before moving on. Each step is safe to run again: it skips what is already there and says so.
+Once the Questions page exists, every question setup asks goes there as it is asked (RULES/questions.md); one
+asked before it and still open is added when it is created.
 
 ## 1. Programs
 

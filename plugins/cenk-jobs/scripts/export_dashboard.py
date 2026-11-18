@@ -13,7 +13,13 @@ job, set before its job was sent, without "since", or naming a session the recor
 job whose site is signed in and that nobody started; a found or pending job with no owner; a job waiting on a
 sign-in with no row; sign-ins not checked for days; a session that is over, whose title differs from its state or
 names an employer whose jobs ended; a sessions record not synced for a day; PIPELINE and a folder with different
-steps; an excluded employer without a source.
+steps; an excluded employer without a source; a job recorded rejected whose reason says the role closed or was filled.
+--calendar <file> (with either form): the Google Calendar list_events answer for today to 60 days ahead, saved as
+JSON; adds "calendar:" lines: a job-search event of a job that ended, a coming PIPELINE step with no event of its
+job on its date, or one at another time. Example: "calendar: 2026-11-19 "Job search · Acme: reply due" is for J3
+Acme, which ended (rejected 2026-11-16) -> after the person's yes, delete the event".
+--page <file> (with either form): the dashboard store's files/index.html as saved (ArtifactData list with out_dir);
+a first check line when it is not the plugin's templates/dashboard/index.html.
 After the files it prints "upload:" (the files that differ from the ones on the page) and "unchanged:" (no new
 upload needed), against the record --uploaded keeps beside the tracker (dashboard-uploads.json).
 Writes, in <out dir>:
@@ -92,6 +98,11 @@ LOGIN_CHECK_DAYS = 3  # a sign-in older than this is a check line; with no run r
 # Claude's own queue.
 GROUP = {"urgent": 0, "session": 1, "working": 2, "queued": 4}
 KIND_RANK = {"late": 0, "task": 1, "click": 2, "todo": 3, "info": 4}
+# A rejection's reason that says the role itself ended: "closed" (RULES/hiring-steps.md, Outcomes), not "rejected".
+CLOSED_WORDS = re.compile(r"(?i)\b(?:filled|no longer (?:open|available|hiring)|(?:position|role|posting|vacancy|job)"
+                          r" (?:has been |was |is )?(?:closed|cancell?ed|withdrawn|put on hold|on hold|paused))\b")
+TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templates", "dashboard", "index.html")
+JOB_TAG = re.compile(r"\[job-search: ([^\s\]]+)")
 COUNTED = ("urgent", "session", "working", "task", "click", "todo", "info", "late", "queued")
 
 
@@ -365,7 +376,104 @@ def session_checks(record, ranked, jobs, pipeline, today, now, keys):
     return out
 
 
-def build(env, now):
+def outcome_checks(jobs, pipeline):
+    """A sent job recorded rejected whose reason says the role closed or was filled: that is "closed"."""
+    out = []
+    for job in jobs:
+        entry = pipeline_entry(pipeline, job["id"])
+        reason = str(entry.get("reason") or "")
+        if entry.get("stage") == "rejected" and CLOSED_WORDS.search(reason):
+            out.append(f"recorded rejected, its reason reads closed: {job['id']} {job.get('company', '')} "
+                       f"(\"{short(reason, 80)}\") -> PIPELINE stage closed (RULES/hiring-steps.md, Outcomes)")
+    return out
+
+
+def event_rows(answer):
+    """[{id, title, day, at, job, colour}] from a saved Google Calendar list_events answer (or its events list): day
+    is the local date, at the local HH:MM ("" all day), job the id in "[job-search: <id> ...]" of the description."""
+    events = answer.get("events", []) if isinstance(answer, dict) else answer
+    rows = []
+    for e in events or []:
+        start = e.get("start") or {}
+        if start.get("dateTime"):
+            when = datetime.datetime.fromisoformat(start["dateTime"].replace("Z", "+00:00"))
+            when = when.astimezone() if when.tzinfo else when
+            day, at = when.date().isoformat(), when.strftime("%H:%M")
+        else:
+            day, at = str(start.get("date") or "")[:10], ""
+        tag = JOB_TAG.search(e.get("description") or "")
+        rows.append({"id": e.get("id", ""), "title": e.get("summary") or "", "day": day, "at": at,
+                     "job": tag.group(1) if tag else "", "colour": str(e.get("colorId") or "")})
+    return rows
+
+
+def calendar_checks(env, answer, jobs, pipeline, today, days=60):
+    """The calendar against the records: an event of a job that ended; a coming step with no event of its job on its
+    date, or one at another time. An event belongs to a job by its "[job-search: <id>" tag, else by the company's
+    name in its title; only job-search events count (the colour, the title prefix or the tag)."""
+    import employerlib as el
+    colour = str(env.get("CALENDAR_COLOR") or "3")
+    prefix = env.get("CALENDAR_PREFIX") or "Job search · "
+    until = (datetime.date.fromisoformat(today) + datetime.timedelta(days=days)).isoformat()
+    by_id = {j["id"]: j for j in jobs}
+    events = [e for e in event_rows(answer)
+              if e["colour"] == colour or e["title"].startswith(prefix.strip()) or e["job"]]
+
+    def owner(e, among):
+        if e["job"] in by_id:
+            return [by_id[e["job"]]]
+        title = " " + re.sub(r"[^a-z0-9]+", " ", e["title"].lower()) + " "
+        return [j for j in among if any(f" {k} " in title for k in el.keys(j.get("company") or ""))]
+
+    out = []
+    for e in events:
+        if e["day"] < today:
+            continue
+        mine = owner(e, jobs)
+        if mine and all(ended(j, pipeline)[0] for j in mine):
+            j = mine[0]
+            how, end = ended(j, pipeline)
+            out.append(f"calendar: {e['day']} \"{short(e['title'], 70)}\" is for {j['id']} {j.get('company', '')}, "
+                       f"which ended ({how}{' ' + end if end else ''}) -> after the person's yes, delete the event "
+                       "(an invitation: remove its colour)")
+    for job in jobs:
+        if ended(job, pipeline)[0]:
+            continue
+        mine = [e for e in events if job in owner(e, [job])]
+        for n, step in enumerate(pipeline_entry(pipeline, job["id"]).get("steps") or [], 1):
+            day = str(step.get("date") or "")[:10]
+            if not ISO_DATE.fullmatch(day) or not today <= day <= until or step.get("cancelled") or step_done(step):
+                continue
+            name = f"{job['id']} {job.get('company', '')} step {n} \"{short(step.get('name') or 'Step', 50)}\""
+            same = [e for e in mine if e["day"] == day]
+            hit = re.match(r"\d{1,2}:\d{2}", str(step.get("time") or ""))
+            at = hit.group(0).zfill(5) if hit else ""  # no time in PIPELINE: any event that day counts
+            if not same:
+                other = sorted({e["day"] for e in mine if e["day"] >= today})
+                out.append(f"calendar: no event for {name} on {day}"
+                           + (f"; its job's events are on {', '.join(other)}" if other else "")
+                           + " -> create it or correct the date (RULES/hiring-steps.md, Calendar)")
+            elif at != "00:00" and at and not any(e["at"] in ("", at) for e in same):
+                out.append(f"calendar: {name} is at {at} in PIPELINE, its event at "
+                           f"{', '.join(sorted(e['at'] for e in same))} -> correct the one that is wrong")
+    return out
+
+
+def page_check(saved):
+    """The dashboard's page code (its store's files/index.html, saved as JSON with "text", or as HTML) against the
+    plugin's templates/dashboard/index.html: an older copy reads fields the export no longer writes."""
+    if isinstance(saved, dict) and not isinstance(saved.get("text"), str):
+        return ["the saved dashboard page has no \"text\" field: save the store's files/index.html again "
+                "(ArtifactData list with out_dir)"]
+    text = saved["text"] if isinstance(saved, dict) else str(saved)
+    with open(TEMPLATE, encoding="utf-8") as fh:
+        want = fh.read()
+    same = text.replace("\r\n", "\n").strip() == want.replace("\r\n", "\n").strip()
+    return [] if same else ["the dashboard page is not the plugin's template: write files/index.html from "
+                            "templates/dashboard/index.html (RULES/run.md, Dashboard)"]
+
+
+def build(env, now, calendar=None, page=None):
     """([(file name, rows)], [check lines], the one-line summary): the seven files and what in the records disagrees
     with them. Writes nothing."""
     checks = []
@@ -668,6 +776,11 @@ def build(env, now):
         checks.append(f"reads signed in or connected, but its note asks for a sign-in or an account: {', '.join(odd)} "
                       "-> logins.py set <id> needs-sign-in or needs-sign-up")
     checks += session_checks(record, ranked, jobs, pipeline, today, now, el.keys)
+    checks += outcome_checks(jobs, pipeline)
+    if calendar is not None:
+        checks += calendar_checks(env, calendar, jobs, pipeline, today)
+    if page is not None:
+        checks = page_check(page) + checks
     bare = [x["employer"] for x in excluded if not x.get("source")]
     if bare:
         checks.append(f"excluded employers without a source: {', '.join(bare)}")
@@ -723,6 +836,21 @@ def main():
         i = args.index("--env")
         env_arg = args[i + 1]
         del args[i:i + 2]
+    given = {}
+    for opt in ("--calendar", "--page"):
+        if opt in args:
+            i = args.index(opt)
+            if i + 1 >= len(args):
+                sys.exit(f"{opt} takes a saved file: " + ("a Google Calendar list_events answer (JSON)"
+                         if opt == "--calendar" else "the dashboard store's files/index.html (JSON or HTML)"))
+            try:
+                with open(args[i + 1], encoding="utf-8") as fh:
+                    raw = fh.read()
+                given[opt] = raw if opt == "--page" and not raw.lstrip().startswith("{") else json.loads(raw)
+            except (OSError, ValueError) as e:
+                sys.exit(f"{opt}: {args[i + 1]} is not readable ({e})")
+            del args[i:i + 2]
+    calendar = given.get("--calendar")
     flags, rest = {a for a in args if a.startswith("--")}, [a for a in args if not a.startswith("--")]
     if flags - {"--check", "--uploaded"} or len(flags) > 1:
         sys.exit(__doc__)
@@ -764,7 +892,7 @@ def main():
         if never:
             print(f"never recorded as uploaded: {' '.join(never)}")
         return
-    files, checks, summary = build(env, now)
+    files, checks, summary = build(env, now, calendar, given.get("--page"))
     if "--check" not in flags:
         out_dir = rest[0]
         os.makedirs(out_dir, exist_ok=True)

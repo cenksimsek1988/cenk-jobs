@@ -53,7 +53,10 @@ python -I employer.py environment "<name>" reviews=<n> [rating=<x>] [scale=5] [c
 python -I employer.py decide "<name>" <exclude|allow> [<category>] [--group]
                                                         the person's answer to a "discuss": the value and the date,
                                                         with the category it was about (no quote); --group: the
-                                                        decision covers the group's units too ("Acme": "Acme Cloud")
+                                                        decision covers the group's units too ("Acme": "Acme Cloud");
+                                                        exclude prints the employer's running applications ("running:
+                                                        u021 | Engineer | sent 2026-11-14 | stage sent"), each one for
+                                                        the withdrawal question
 python -I employer.py repair-clear [--apply]            an israel or defence "clear" with no fact or source
                                                         becomes "unknown"; prints the counts, and with --apply writes them after a backup
 python -I employer.py import-tracker                    fill EMPLOYER_CHECKS from an older {companies: [...]} tracker's
@@ -317,6 +320,15 @@ elif cmd == "decide":
             os.replace(path + ".tmp", path)
             break
     print(args[1], "->", args[2])
+    # The decision is saved now, so recheck-running sees no move: the running applications are named here instead.
+    if args[2] == "exclude":
+        pipeline = el.load_json(env.path("PIPELINE"), {}) if env.get("PIPELINE") else {}
+        wanted = el.keys(args[1])
+        for company, jobs_of in sorted(el.running(flat_jobs(tracker), pipeline).items(), key=lambda kv: kv[0] or ""):
+            if el.keys(company or "") & wanted:
+                for j in jobs_of:
+                    print(f"running: {j.get('id', '')} | {j.get('title', '')} | sent {j.get('applied') or '?'} | "
+                          f"stage {el.pipeline_row(pipeline, j.get('id')).get('stage', 'sent')}")
 elif cmd == "repair-clear":
     path = env.path("EMPLOYER_CHECKS")
     data = el.load_json(path, {"employers": {}})

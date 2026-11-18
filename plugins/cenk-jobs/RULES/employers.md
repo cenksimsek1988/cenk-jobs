@@ -115,6 +115,10 @@ established outlets, a court ruling, a fine, a sanctions listing or an official 
   `employer.py own`), then `recheck-running` again. Each moved one goes to the Questions page: `questions.py add
   decision` with the finding, its source and the running jobs (Allow = go on; Exclude = withdraw, below). Example:
   the person sets indirect defence ties to exclude; an employer at the interview stage with one is listed.
+  `recheck-running` lists only moves: an exclusion the person decides (`employer.py decide <name> exclude`) is
+  saved at once, so `decide` itself prints that employer's running applications (`running: <id> | ...`), each one
+  for the withdrawal question below. Example: `decide Acme exclude` prints `running: J7 | Engineer | sent
+  2026-11-14 | stage sent`.
 - **Withdrawal:** an excluded employer the person applied to, once it writes beyond an automatic confirmation (an
   invitation to a step, a task or test, a recruiter's mail) or offers a job; also an employer that a new check or a
   rule change excludes while its process runs. Ask the person first, in two questions: send a withdrawal mail at

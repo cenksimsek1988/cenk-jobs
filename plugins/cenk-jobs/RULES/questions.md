@@ -6,8 +6,12 @@ A part of `RULES.md`. Read before adding a question or handling the Questions pa
 
 What an application needs and the records do not answer is asked once, on the person's Questions page
 (`QUESTIONS_PAGE`: an artifact with a small database), then written into the records, so it is never asked again.
-- Claude adds each question when it meets it, with the job that needs it, also one it asks in the chat (a chat is
-  compacted and the question lost; the page keeps it):
+- Every question for the person goes on the page the moment it is asked, whoever asks it (the coordinator or a
+  sub-session), in a run or in the chat: `questions.py add`, then `build`, then write the page, in the same turn. The
+  chat may ask it too; the page is where it lives, since a chat is compacted and the question lost. A sub-session
+  never writes `QUESTIONS`: it sends the question to the coordinator, which adds it. Example: "Withdraw from Acme
+  J7?" asked in chat is also `questions.py add job "Withdraw from Acme J7?" job=J7
+  options="withdraw:Withdraw|keep:Keep it"`. The kinds:
   - `questions.py add fact "<question>" key=<answer key> job=<id>`: a fact forms ask for; `personal=yes` for
     health, family or identity. The same key again only adds the job. Example: `key=notice_period`. A fact about
     the person themselves takes its profile key. Example: `key=person.birth_date`.
@@ -15,6 +19,13 @@ What an application needs and the records do not answer is asked once, on the pe
     `options="apply:Apply,decline:Don't apply"` asks whether to apply to that job (pay below target, a weak fit).
   - `questions.py add decision "<question>" employer="<name>" category=<category> job=<id>`: allow or exclude, for
     an employer whose rule is unclear (example: excluded only through an investor-owner's office).
+  - `questions.py add general "<question>" [job=<id>] [options=...]`: any other question, with no answer key.
+    Example: "Which monitor holds the call?". `record` prints its answer under "act on": Claude does what it says,
+    then `questions.py note`.
+  - Options are `value:label` pairs separated by `|`, so a label may hold a comma; with no `|`, by commas. Example:
+    `options="fix:Yes, I correct them|no:No"`.
+  - A question about a job already sent or ended is marked keep at `add` and stays open until answered (example:
+    withdraw from a sent application); `keep=yes` sets it by hand.
 - The person answers, then presses "Send my answers to Claude": the page sends one message (a comment sent to
   Claude) to the Claude sessions watching it, so the main session handles them at once. The daily run handles any
   answers left. Discuss sends that question the same way, to talk it through in the main session.
@@ -25,7 +36,11 @@ What an application needs and the records do not answer is asked once, on the pe
 - Handling them, every time: save the page's `answers` (ArtifactData list with `out_dir`), run `questions.py record
   <dir>`, delete the answers it lists, go on with the jobs it names and bring up each "discuss" in the chat. Then
   `questions.py build <dir> --page <dir>` (it also adds every employer the rules leave to the person), write each
-  file into the page's `questions` and `status` collections, and delete the ids it lists.
+  file into the page's `questions` and `status` collections, and delete the ids it lists. `record` is never left
+  without the build and the page write in the same turn: until then the page shows the recorded questions as open.
+- Pressing Send marks each sent answer (`sent` on its answer): the page shows it at once under Done, greyed and
+  without buttons, until the build marks it done. An answer Claude deletes unrecorded (a remark it replied to)
+  opens its question again.
 - `record` saves button answers at once; every typed answer comes under "read first", and Claude reads it. A plain
   answer: `questions.py answer <id> "<answer>" typed="<their words>"`, its spelling and grammar fixed, its meaning and
   facts unchanged; the record keeps their words. A question or remark to Claude (example: "did we already send
@@ -35,7 +50,9 @@ What an application needs and the records do not answer is asked once, on the pe
   sub-session's brief or a report.
 - `build` closes a job question whose jobs all ended, with a note when one was sent (example: "Closed: the
   application was sent on 2026-11-10; nothing to answer now."); with none sent (excluded, declined, skipped, closed,
-  failed), it drops it.
+  failed), it drops it. A question marked keep stays open until it is answered.
+- A plugin version that changes `templates/questions/index.html`: the coordinator publishes it again to
+  `QUESTIONS_PAGE` (its `url`, capabilities left out so the page keeps them); the questions and answers stay.
 - Every handled question gets a note saying what happened and stays on the page under Done until the first build
   after 7 days. When its
   job moves on, a new note: `questions.py note <id> "Submitted on 8 Nov; the confirmation is in Gmail."`.

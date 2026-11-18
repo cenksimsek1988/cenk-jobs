@@ -51,9 +51,17 @@ A session cannot be moved under a new coordinator: it is reached by message, and
 - A job that waits on the person gets its status and a to-do with its link as soon as the wait is known:
   `track.py wait <id> needs-person|account-needed "<what>"`. A wait kept only in a chat or a hand-off note is
   invisible on the dashboard. Example: `track.py wait J7 account-needed "Workday sign-in for Acme"`.
-- A data question asked in the chat also goes on the Questions page (`questions.py add`, RULES/questions.md): the
-  chat is compacted, the page keeps it. Example: "your notice period?" asked in chat is also
-  `questions.py add fact "What is your notice period?" key=notice_period job=J7`.
+- Every question for the person, its own or a sub-session's, goes on the Questions page as it is asked: `questions.py
+  add`, `build`, write the page, in the same turn (RULES/questions.md). Example: "your notice period?" asked in chat
+  is also `questions.py add fact "What is your notice period?" key=notice_period job=J7`.
+- Fact answers (residence, citizenship, work permit, notice period) come only from the records: a prepared answer
+  is changed only by the records or the person, never from memory. Example: the record says resident in Spain and
+  Italy, so "resident in Spain: Yes" stays.
+- At each turn on a search day: `usage.py run-due`. "due" (example: the scheduled session stood aside while this one
+  was active): this coordinator starts a fresh session for today's run at once ("Run /cenk-jobs:coordinate for
+  today's run."), never runs it itself: a run inside a long coordinator cost 1.4M tokens on 16 Nov. A turn the app
+  will not let start a session (one a message or a trigger started) proposes it as a card and names it in Do now. A
+  message from the scheduled session saying the run is due is checked the same way.
 - A finished search's questions go to the person at once, in one ordered list (the order of "Answer first"), even
   while another task is open; they never wait for that task to end.
 - Runs in the main folder and is titled **Job search coordinator**: only the person's own main session, started in
@@ -63,7 +71,8 @@ A session cannot be moved under a new coordinator: it is reached by message, and
 - Before it writes any record: `sessions.py lock <its own local_... id>`; again before each later step that writes
   (it refreshes the beat); `sessions.py unlock <id>` at the end. Refused (another coordinator's beat within 30
   minutes): it writes nothing, asks that coordinator to write its handoff and stop (as in the handoff check), and
-  takes the lock once it is free. Also `list_sessions`: another running "Job search coordinator" in the same folder
+  takes the lock once it is free. A scheduled run refused this way sends the holder one message instead: "Today's
+  scheduled run is due: usage.py run-due", and ends. Also `list_sessions`: another running "Job search coordinator" in the same folder
   is the same case. Example: a test coordinator started while the person's own one runs waits for its handoff.
 - **Is the only writer of the shared records**: `TRACKER`, `PIPELINE`, `LOGINS`, `SESSIONS`, `MASTER_RECORD`,
   `QUESTIONS`, `EMPLOYER_RULES`, `EMPLOYER_CHECKS`, `USAGE_LOG`, the application folders (through
@@ -77,7 +86,8 @@ A session cannot be moved under a new coordinator: it is reached by message, and
 - Each run: "run started", the handoff check, the shared-list update, `check_setup.py --needs`, the health check, then the pieces of the day (`/cenk-jobs:schedule` lists the order),
   one sub-session per piece; "run finished" and the short report at the end.
 - Each run, before the pieces: read the Questions page's answers and record them (`questions.py record`, RULES.md
-  "Questions for the person"), so the jobs they free go on in this run; bring up every "Discuss" in the chat. After
+  "Questions for the person"), then `build` and write the page in the same turn, so the jobs they free go on in this
+  run and the page shows them done; act on each "act on" line; bring up every "Discuss" in the chat. After
   the pieces: add the run's new questions to the page (`questions.py build`).
 - Each run, after the handoff check: `employer.py shared-update` (a dry run), its `ask` items to the Questions page,
   then `employer.py shared-update --apply`; each `updated` item is one line in the run report (RULES/employers.md,

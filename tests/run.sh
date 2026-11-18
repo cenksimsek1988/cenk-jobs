@@ -630,6 +630,10 @@ employer recheck-running >"$T/lv-r4.out" 2>&1
 check "recheck-running: the next run lists it only when it moves again" grep -q "nothing moved" "$T/lv-r4.out"
 employer record "Lambda Two" defence flagged level=undecided fact="an unsettled reseller claim" source=https://example.com/u2 >/dev/null 2>&1
 "$PY" -I "$S/usage.py" report --out "$T/lv-report.json" --env "$ENVF" >/dev/null 2>&1
+check "usage run-due: due on a search day after its time with no run started; not before, not on a weekend" sh -c '
+    "$1" -I "$2/usage.py" run-due at=2026-11-16T19:05 --env "$3" | grep -q "^due: today.s 19:00 run has not started" &&
+    "$1" -I "$2/usage.py" run-due at=2026-11-16T18:30 --env "$3" | grep -q "^not due: today.s run is at 19:00" &&
+    "$1" -I "$2/usage.py" run-due at=2026-11-15T19:05 --env "$3" | grep -q "^not due: no run on Sun"' _ "$PY" "$S" "$ENVF"
 "$PY" -I "$S/employer.py" merge --from-checks --into "$T/lv-blacklist.json" --env "$ENVF" >/dev/null 2>&1
 check "an undecided level is never shared: not in the usage report, not in a merge" sh -c '
     [ -s "$1" ] && [ -s "$2" ] && ! grep -q "unsettled reseller claim" "$1" && ! grep -q "unsettled reseller claim" "$2"' _ "$T/lv-report.json" "$T/lv-blacklist.json"
@@ -787,6 +791,32 @@ check "answer typed=: a private answer goes into the profile with the person's w
     [ ! -e "$3/career-records/personal.json" ]' _ "$PY" "$T" "$H"
 questions answer fact-notice-period "One month." >/dev/null 2>&1
 check "answer: the answer Claude read and checked is recorded" q "$H/career-records/career.json" form_answers.notice_period.answer eq "One month."
+# 0.37.0: a question about a sent job stays open; "|" separates options with a comma; general questions.
+questions add job "Withdraw from Acme?" job=F1 options="withdraw:Yes, withdraw it|keep:No, keep it" >/dev/null 2>&1
+questions build "$T/qp-out" >/dev/null 2>&1
+check "add: a question about a job already sent is kept open by the build, its comma labels whole" sh -c '
+    "$1" -I "$2/q.py" "$3" "questions.job-f1-withdraw-from-acme.status" eq open &&
+    "$1" -I "$2/q.py" "$3" "questions.job-f1-withdraw-from-acme.keep" eq True &&
+    "$1" -I "$2/q.py" "$3" "questions.job-f1-withdraw-from-acme.options" len 2 &&
+    "$1" -I "$2/q.py" "$3" "questions.job-f1-withdraw-from-acme.options.0.label" eq "Yes, withdraw it"' _ "$PY" "$T" "$QF"
+questions add general "Which monitor holds the call?" >"$T/qp-gen.out" 2>&1
+check "add general: a question with no job or key" sh -c 'grep -q "^q-which-monitor-holds-the-call -> no job$" "$1"' _ "$T/qp-gen.out"
+rm -f "$T/qp-ans/answers/"*.json
+echo '{"answer": "withdraw", "sent": "2026-11-17T10:00:00.000Z"}' >"$T/qp-ans/answers/job-f1-withdraw-from-acme.json"
+questions record "$T/qp-ans" >"$T/qp-rec3.out" 2>&1
+check "record: a keep question's button answer is kept and listed under act on, never as a form answer; build is named next" sh -c '
+    "$1" -I "$2/q.py" "$3" "questions.job-f1-withdraw-from-acme.status" eq answered &&
+    "$1" -I "$2/q.py" "$3" "questions.job-f1-withdraw-from-acme.answer.answer" eq "Yes, withdraw it" &&
+    grep -q "^act on (.*): job-f1-withdraw-from-acme | Withdraw from Acme? | Yes, withdraw it | F1$" "$4" &&
+    grep -q "^next, in this turn: questions.py build" "$4"' _ "$PY" "$T" "$QF" "$T/qp-rec3.out"
+questions answer q-which-monitor-holds-the-call "Monitor 2" >/dev/null 2>&1
+check "answer: a general question's answer is kept with a note" q "$QF" "questions.q-which-monitor-holds-the-call.answer.answer" eq "Monitor 2"
+employer decide "Acme Corp" exclude >"$T/qp-decide.out" 2>&1
+check "decide exclude: the employer's running applications are printed, for the withdrawal question" \
+    grep -q "^running: F1 | Developer | sent .* | stage sent$" "$T/qp-decide.out"
+check "keys: a board's name in brackets is no part of the employer's name" "$PY" -I -c '
+import sys; sys.path.insert(0, sys.argv[1]); import employerlib as el
+assert el.keys("Examplia (ashby)") == {"examplia"} and "aws" in el.keys("Amazon (AWS)")' "$S"
 
 # --- searches ------------------------------------------------------------------------------------------------------------------
 use "$T/flat"
@@ -1269,6 +1299,57 @@ cp "$T/targets-letter.bak" "$H/apply/targets.json"
 rm -f "$SENTDIR/prepared-letter.pdf" "$H/apply/letters/prepared-letter.pdf"
 build >/dev/null 2>&1
 OUT="$T/dash-out"
+# 0.37.0: the calendar and the page against the records. D1's step 2 is in 5 days; D3 (Beta Ltd) was rejected.
+cat >"$T/mkcal.py" <<'PYEOF'
+import datetime
+import json
+import sys
+
+day = lambda n: (datetime.date.today() + datetime.timedelta(days=n)).isoformat()  # noqa: E731
+ev = lambda i, summary, start, desc="", colour="3": {"id": i, "summary": summary, "description": desc,  # noqa: E731
+                                                   "colorId": colour, "start": start, "end": start}
+with open(sys.argv[1], "w", encoding="utf-8") as f:
+    json.dump({"events": [ev("e1", "Job search · Beta Ltd: reply due", {"date": day(2)}, "[job-search: D3 due]"),
+                          ev("e2", "Lunch", {"date": day(1)}, colour="")]}, f)
+with open(sys.argv[2], "w", encoding="utf-8") as f:
+    json.dump({"events": [ev("e3", "Online test with Acme Corp", {"date": day(5)})]}, f)
+PYEOF
+"$PY" -I "$T/mkcal.py" "$T/cal-1.json" "$T/cal-2.json"
+export_dash --check --calendar "$T/cal-1.json" >"$T/cal-1.out" 2>&1
+check "export --calendar: an event of an ended job, and a coming step with no event, are named; another event is not" sh -c '
+    grep -q "^check: calendar: .* \"Job search · Beta Ltd: reply due\" is for D3 Beta Ltd, which ended (rejected " "$1" &&
+    grep -q "^check: calendar: no event for D1 Acme Corp step 2 \"Online test\" on " "$1" && ! grep -q "Lunch" "$1"' _ "$T/cal-1.out"
+export_dash --check --calendar "$T/cal-2.json" >"$T/cal-2.out" 2>&1
+check "export --calendar: an invitation titled with the company on the step's date counts as its event" sh -c '
+    ! grep -q "calendar:" "$1" && grep -q "mismatches$" "$1"' _ "$T/cal-2.out"
+check "calendar check: an event at another time than the step, by its job tag" "$PY" -I -c '
+import sys; sys.path.insert(0, sys.argv[1]); import export_dashboard as x
+env = {"CALENDAR_COLOR": "3"}
+jobs = [{"id": "J1", "company": "Acme", "status": "submitted"}]
+pipe = {"J1": {"stage": "approved", "steps": [{"date": "2026-12-01", "time": "10:00-11:00", "name": "Interview"}]}}
+cal = {"events": [{"id": "a", "summary": "Job search · Acme interview", "colorId": "3", "description": "[job-search: J1 step 1]",
+                   "start": {"dateTime": "2026-12-01T09:00:00"}}]}
+out = x.calendar_checks(env, cal, jobs, pipe, "2026-11-20")
+assert len(out) == 1 and "is at 10:00 in PIPELINE, its event at 09:00" in out[0], out
+cal["events"][0]["start"]["dateTime"] = "2026-12-01T10:00:00"
+assert x.calendar_checks(env, cal, jobs, pipe, "2026-11-20") == []
+del pipe["J1"]["steps"][0]["time"]
+assert x.calendar_checks(env, cal, jobs, pipe, "2026-11-20") == []' "$S"
+check "outcome check: a rejection whose reason says the role was filled reads closed; a plain no does not" "$PY" -I -c '
+import sys; sys.path.insert(0, sys.argv[1]); import export_dashboard as x
+jobs = [{"id": "J1", "company": "Acme"}, {"id": "J2", "company": "Beta"}, {"id": "J3", "company": "Gamma"}]
+pipe = {"J1": {"stage": "rejected", "reason": "email: the position has been filled"},
+        "J2": {"stage": "rejected", "reason": "we will not move forward with you"},
+        "J3": {"stage": "closed", "reason": "the role was filled"}}
+out = x.outcome_checks(jobs, pipe)
+assert len(out) == 1 and out[0].startswith("recorded rejected, its reason reads closed: J1 Acme"), out' "$S"
+cp "$S/../templates/dashboard/index.html" "$T/page-now.html"
+sed 's/data-tab="sessions"/data-tab="old"/' "$S/../templates/dashboard/index.html" >"$T/page-old.html"
+check "export --page: the plugin's template passes; an older copy is the first check line" sh -c '
+    "$1" -I "$2/export_dashboard.py" --check --page "$3" --env "$5" | grep -qv "dashboard page is not" &&
+    ! "$1" -I "$2/export_dashboard.py" --check --page "$3" --env "$5" | grep -q "dashboard page is not" &&
+    "$1" -I "$2/export_dashboard.py" --check --page "$4" --env "$5" | head -n 1 | grep -q "^check: the dashboard page is not the plugin.s template"' \
+    _ "$PY" "$S" "$T/page-now.html" "$T/page-old.html" "$ENVF"
 export_dash "$OUT" >"$T/dash-export.out" 2>&1
 check "export: runs and writes the seven files" sh -c 'grep -q "applications, " "$1" && for f in index applications steps actions logins excluded sessions; do [ -f "$2/$f.json" ] || exit 1; done' \
     _ "$T/dash-export.out" "$OUT"
@@ -1631,10 +1712,10 @@ fi
 
 # --- the cheat-sheet page -----------------------------------------------------------------------------------------------
 cheat() { "$PY" -I "$S/cheat_sheet.py" "$@" --env "$ENVF"; }
-check "cheat_sheet: without a cheat-sheet.md it says who writes it" sh -c '
-    ! "$1" -I "$2/cheat_sheet.py" D1 --env "$3" >"$4" 2>&1 && grep -q "no cheat-sheet.md for step 2 of D1" "$4"' _ "$PY" "$S" "$ENVF" "$T/cs0.out"
+check "cheat_sheet: without a keywords.md it says who writes it" sh -c '
+    ! "$1" -I "$2/cheat_sheet.py" D1 --env "$3" >"$4" 2>&1 && grep -q "no keywords.md for step 2 of D1" "$4"' _ "$PY" "$S" "$ENVF" "$T/cs0.out"
 CSDIR=$(ls -d "$H"/job-applications/approved/*"Acme Corp - Engineer"/02\ * | head -n 1)
-cat >"$CSDIR/cheat-sheet.md" <<'EOF'
+cat >"$CSDIR/keywords.md" <<'EOF'
 # Numbers
 - 12 engineers, **3 teams**
 - <uptime> 99.9
@@ -1654,14 +1735,23 @@ check "cheat_sheet spot=: two columns in a corner, and the spot is kept in job-s
     grep -q "column-count: 2" "$1" && grep -q "^CHEAT_SHEET_SPOT=corner$" "$2"' _ "$CSDIR/cheat-sheet-wide.html" "$ENVF"
 cheat D1 >"$T/cs3.out" 2>&1
 check "cheat_sheet: the kept spot is used the next time" grep -q "spot corner, 2 columns" "$T/cs3.out"
-printf '# __BLOCKS__ and __TOP__\n- a line with __COLUMNS__\n' >"$CSDIR/cheat-sheet.md"
+printf '# __BLOCKS__ and __TOP__\n- a line with __COLUMNS__\n' >"$CSDIR/keywords.md"
 cheat D1 >/dev/null 2>&1
 check "cheat_sheet: a line that holds a placeholder's text is shown as it is" sh -c '
     grep -q "<h2>__BLOCKS__ and __TOP__</h2>" "$1" && grep -q "<p>a line with __COLUMNS__</p>" "$1" &&
     [ "$(grep -c "class=\"block\"" "$1")" -eq 1 ]' _ "$CSDIR/cheat-sheet-wide.html"
+check "cheat_sheet: a spot's place on a monitor, and the page goes on a monitor other than the call's" "$PY" -I -c '
+import sys; sys.path.insert(0, sys.argv[1]); import cheat_sheet as c
+a, b = (-1920, 0, 1920, 1080, False), (0, 0, 3440, 1400, True)
+assert c.place(b, "top") == (0, 0, 3440, 700) and c.place(a, "corner") == (-960, 0, 960, 540)
+assert c.page_monitor([a, b], 1) == b and c.page_monitor([a, b], 2) == a and c.page_monitor([b], 1) == b
+assert c.page_monitor([a, b], 0) == a and c.page_monitor([], 1) is None' "$S"
+check "cheat_sheet call=: a monitor number only, kept in job-search.env" sh -c '
+    ! "$1" -I "$2/cheat_sheet.py" D1 call=left --env "$3" >/dev/null 2>&1 &&
+    "$1" -I "$2/cheat_sheet.py" D1 call=2 --env "$3" >/dev/null 2>&1 && grep -q "^CALL_MONITOR=2$" "$3"' _ "$PY" "$S" "$ENVF"
 check "cheat_sheet: an unknown spot is refused" sh -c '! "$1" -I "$2/cheat_sheet.py" D1 spot=middle --env "$3" >/dev/null 2>&1' _ "$PY" "$S" "$ENVF"
-sed '/^CHEAT_SHEET_SPOT=/d' "$ENVF" >"$T/env.tmp" && cp "$T/env.tmp" "$ENVF"
-rm -f "$CSDIR/cheat-sheet.md" "$CSDIR/cheat-sheet-wide.html"
+sed '/^CHEAT_SHEET_SPOT=/d; /^CALL_MONITOR=/d' "$ENVF" >"$T/env.tmp" && cp "$T/env.tmp" "$ENVF"
+rm -f "$CSDIR/keywords.md" "$CSDIR/cheat-sheet-wide.html"
 
 # --- 0.34.0: the funnel, collect_postings, variants, token_report -------------------------------------------------------
 mkhome "$T/s34" old
@@ -1789,6 +1879,11 @@ searches list >"$T/cp-list.out" 2>&1
 check "searches fail: a board that answers 404 twice is gone, not due, and listed so" sh -c '
     grep -q "Gone board .* gone since" "$1" && ! "$2" -I "$3/searches.py" due --env "$4" | grep -q "Gone board"' \
     _ "$T/cp-list.out" "$PY" "$S" "$ENVF"
+searches add "Examplia (ashby)" "engineer" source=ashby board=examplia >/dev/null 2>&1
+echo '{"jobs": [{"title": "Backend Engineer", "location": "Remote", "jobUrl": "https://jobs.example.com/examplia/9", "publishedAt": "2026-11-16T08:00:00Z"}]}' >"$T/cp-src/ashby-examplia.json"
+"$PY" -I "$S/collect_postings.py" --since 2026-11-01 --from "$T/cp-src" --env "$ENVF" >"$T/cp-ashby.out" 2>&1
+check "collect_postings: a site named \"<employer> (ashby)\" gives the employer without the board" \
+    grep -q "^Examplia | Backend Engineer | Remote | " "$T/cp-ashby.out"
 check "searches add: a script search without terms is refused when ROLE_TERMS is not set" sh -c '
     ! "$1" -I "$2/searches.py" add "Acme jobs" "" source=lever board=acme --env "$3" >"$4" 2>&1 && grep -q "needs terms" "$4"' \
     _ "$PY" "$S" "$ENVF" "$T/terms.out"

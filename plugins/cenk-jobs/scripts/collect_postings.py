@@ -273,7 +273,9 @@ def main():
                 if u and wanted(row, t, p, role_terms, regions) and not (d and d < since)]
         by = f"script:{row['source']}:{row.get('board') or 'search'}"
         # A board's postings carry the employer's name as the search row names it, never the board's slug.
-        employer = row.get("employer") or re.sub(r"(?i)[\s-]+(jobs|careers|career site|careers page)$", "", row["site"]).strip()
+        # A site named "Examplia (ashby)" loses its board too, or the employer check matches the board "Ashby".
+        site = re.sub(r"\s*\(" + re.escape(row["source"]) + r"\)\s*$", "", row["site"], flags=re.I)
+        employer = row.get("employer") or re.sub(r"(?i)[\s-]+(jobs|careers|career site|careers page)$", "", site).strip()
         name = (lambda c: c or row["site"]) if row["source"] == "linkedin" else (lambda c: employer)
         found += [dict(title=t, company=name(c), location=p, date=d, url=u, found_by=by, search=row["id"])
                   for t, c, p, d, u in kept]

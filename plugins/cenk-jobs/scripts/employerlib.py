@@ -76,6 +76,8 @@ SOURCE_URL = re.compile(r"https?://\S{1,500}")
 DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 LEGAL = re.compile(r"\b(inc|incorporated|ltd|limited|llc|plc|gmbh|ag|bv|nv|sa|spa|srl|sas|sarl|oy|oyj|ab|as|asa|"
                    r"aps|kg|co|corp|corporation|company|se|group|holding|holdings)\b")
+# A board search's site name ends in its source in brackets ("Examplia (ashby)"): never part of the employer's name.
+BOARD_SUFFIX = re.compile(r"\s*\((greenhouse|lever|ashby|smartrecruiters|workable|linkedin)\)\s*$", re.I)
 
 
 def today():
@@ -100,8 +102,9 @@ def save_json(path, data):
 def keys(name):
     """Lookup keys for an employer name: the name without punctuation and legal forms, plus each part in brackets
     ("Amazon (AWS)" -> "amazon aws", "amazon", "aws"). A name that would reduce below 2 characters keeps its legal
-    form ("A Co" -> "a co")."""
+    form ("A Co" -> "a co"). A job board's name in brackets is not a part: "Examplia (ashby)" -> "examplia"."""
     out = set()
+    name = BOARD_SUFFIX.sub("", name)
     parts = [name] + re.findall(r"\(([^)]*)\)", name) + [re.sub(r"\([^)]*\)", " ", name)]
     for i, part in enumerate(parts):
         plain = re.sub(r"[^a-z0-9]+", " ", part.lower().replace(".", ""))  # "N.V." -> "nv"

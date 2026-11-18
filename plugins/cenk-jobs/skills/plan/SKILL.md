@@ -6,6 +6,7 @@ description: "Plan the applications: orders the cleared postings by deadline and
 # Plan: which applications, in which order
 
 Read `../../RULES.md` first. This skill writes the plan into the tracker; it sends nothing.
+Every question this skill asks the person goes on the Questions page as it is asked, in a run or in the chat (RULES/questions.md); in a sub-session, by a message to the coordinator, which adds it.
 
 ## Steps
 

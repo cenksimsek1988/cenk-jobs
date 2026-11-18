@@ -214,22 +214,29 @@ dash.loader('calendar', {
       id: e.id, start: (e.start && (e.start.dateTime || e.start.date)) || '', end: (e.end && (e.end.dateTime || e.end.date)) || '',
       all_day: !!(e.start && e.start.date), title: e.summary || '', color: e.colorId || '', where: e.location || '',
       meet: (e.conferenceData && e.conferenceData.videoEntryPoint && e.conferenceData.videoEntryPoint.uri) || e.conferenceUrl || '',
-      link: e.htmlLink || '',
+      link: e.htmlLink || '', job: ((e.description || '').match(/\[job-search: ([^\s\]]+)/) || [])[1] || '',
     }));
   },
 });
 
 dash.calc('calendar_jobs', {
-  inputs: ['calendar'],
+  inputs: ['calendar', 'applications'],
   title: 'Job-search events',
-  description: 'Calendar events in the job-search color (Grape) or titled "Job search" that have not ended yet, soonest first.',
-  fn: (calendar) => calendar
-    .filter((e) => e.color === '3' || e.title.startsWith('Job search'))
-    // An all-day event's end is the next day's date (exclusive): it ends at that local midnight.
-    .filter((e) => !e.end || new Date(e.all_day ? e.end + 'T00:00:00' : e.end) > new Date())
-    .map((e) => ({id: e.id, day: e.start.slice(0, 10), time: e.all_day ? 'all day' : e.start.slice(11, 16) + '–' + e.end.slice(11, 16),
-                  title: e.title.replace(/^Job search · /, ''), where: e.where, link: e.meet || e.link}))
-    .sort((x, y) => (x.day + x.time).localeCompare(y.day + y.time)),
+  description: 'Calendar events in the job-search color (Grape) or titled "Job search" that have not ended yet, soonest first, in local time; an event tagged with a job that ended (rejected, closed, declined) is left out.',
+  fn: (calendar, applications) => {
+    const over = new Set(applications.filter((a) => ['Rejected', 'Closed', 'Declined'].includes(a.stage)).map((a) => a.id));
+    // The viewer's own clock: an event stored with another offset (an invitation from London) shows local time.
+    const hm = (s) => d3.timeFormat('%H:%M')(new Date(s));
+    return calendar
+      .filter((e) => e.color === '3' || e.title.startsWith('Job search'))
+      .filter((e) => !(e.job && over.has(e.job)))
+      // An all-day event's end is the next day's date (exclusive): it ends at that local midnight.
+      .filter((e) => !e.end || new Date(e.all_day ? e.end + 'T00:00:00' : e.end) > new Date())
+      .map((e) => ({id: e.id, day: e.all_day ? e.start.slice(0, 10) : d3.timeFormat('%Y-%m-%d')(new Date(e.start)),
+                    time: e.all_day ? 'all day' : hm(e.start) + '–' + (e.end ? hm(e.end) : ''),
+                    title: e.title.replace(/^Job search · /, ''), where: e.where, link: e.meet || e.link}))
+      .sort((x, y) => (x.day + x.time).localeCompare(y.day + y.time));
+  },
 });
 
 dash.calc('do_now', {

@@ -40,6 +40,11 @@ employers**, **Hiring steps** and **All applications**, under the total count an
   <out dir> <the files you uploaded>`: only those are recorded as on the page, and a bare `--uploaded <out dir>` is
   refused. Example: `upload: index.json actions.json`, both uploaded: `--uploaded <out dir> index.json
   actions.json`; an upload that failed is left out and stays under `upload:` at the next export.
+- Each refresh also passes the page and the calendar: save the store's `files` (ArtifactData list with `out_dir`)
+  and Google Calendar's `list_events` from today to 60 days ahead as JSON, then `export_dashboard.py <out dir>
+  --page <dir>/files/index.html.json --calendar <events.json>`. "the dashboard page is not the plugin's template":
+  write `files/index.html` from `templates/dashboard/index.html` in the same run. Example: after a plugin update the
+  page still lacks the Sessions tab.
 - Every export ends with one `check:` line per mismatch between the records and the page (`export_dashboard.py
   --check` prints them alone and writes nothing). Fix each in the same run, or name it in the run report. Example:
   `check: to-do on an ended job: J3 (rejected 2026-11-10), 2 to-do(s) -> track.py todo J3 done all`.
@@ -105,7 +110,7 @@ employers**, **Hiring steps** and **All applications**, under the total count an
 | `career_view.py` | one part of the master record: screen (rules and decisions), facts (what a letter or form may use, with the profile's person facts but no address, birth date, private answers or contacts) |
 | `profilelib.py` | the person's profile through cenk-base's `lib/profile.py` (from `CENK_BASE`): home, path, get, set (compare-and-set), erase, create, pin; exit 3 when it holds another value; a key under `settings` only with `--yes`, after the person's yes |
 | `move_to_profile.py` | once: moves the person's facts from the master record and the old private record into the profile (dry run, `--apply`, `--confirm <key>`, then `--remove-old` after the person's OK) |
-| `cheat_sheet.py` | a step's cheat-sheet.md as one page for the call (`cheat-sheet-wide.html`), opened in Chrome |
+| `cheat_sheet.py` | a step's keywords.md as one page for the call (`cheat-sheet-wide.html`), opened in Chrome on a monitor other than the call's |
 | `collect_postings.py` | new postings from every saved search a script can read (job board APIs, LinkedIn's guest search), without a model; `--add` puts them in the tracker with `found_by` |
 | `employer_lookup.py` | the free public-data lookup (Wikidata) of an employer never checked: exclude, go on or undecided; cached |
 | `choices.py` | the person's cost choices in `job-search.env`: show, set, the workflow's args, suggestions per plan, the fit grade |
@@ -117,7 +122,7 @@ employers**, **Hiring steps** and **All applications**, under the total count an
 | `searches.py` | saved searches: add, list, due (on a weekday for a site without an alert), done, fail (a board's error; two 404s: gone), sites (the tracker's sites with no saved search; `--add`: a script search for each), seen (is a posting new) |
 | `questions.py` | questions for the person: add, list, build (the Questions page's files), record (answers into the records) |
 | `employer.py` | employer checks: check (`--full`), record, environment, decide, alias (`--not`), split (`--apply`), repair-clear, import-tracker, merge |
-| `usage.py` | usage log (steps and runs) and the weekly usage report (due, report, mark-drafted) |
+| `usage.py` | usage log (steps and runs) and the weekly usage report (due, run-due, report, mark-drafted) |
 | `trackerlib.py`, `employerlib.py` | shared code for the scripts above (`profilelib.py` too) |
 | `workflows/screen-and-prepare.js` | Workflow: screens a batch of employers and prepares the cleared jobs; never submits |
 

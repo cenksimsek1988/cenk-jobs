@@ -12,7 +12,10 @@ A part of `RULES.md`. Read to record an outcome, write a calendar event or handl
 | excluded | the employer rules exclude the employer | `track.py set <id> excluded` |
 | skipped | the screen: the posting does not fit the rules | `track.py set <id> skipped` |
 
-Examples: "the position has now been filled" is closed; "we will not move forward with you" is rejected.
+Examples: "the position has now been filled" is closed; "we will not move forward with you" is rejected. A
+`rejected` whose reason says filled, no longer open, or the position (role, posting, vacancy, job) closed,
+cancelled, withdrawn or on hold is a `check:` line of `export_dashboard.py`: set
+the stage `closed`.
 
 ## Calendar
 
@@ -24,7 +27,9 @@ title prefix `CALENDAR_PREFIX` ("Job search · ").
 - Every event the person owns holds the step's own link (meeting, test, booking, interview page) and the email's
   Gmail link; the same two go into the step's `link` and `mail` in `PIPELINE`.
 - An online interview without a video link: draft a request for it to the recruiter the day before (a draft).
-- Each run, compare the category's coming events with the records. An event of an excluded or withdrawn employer,
+- Each run, compare the category's coming events with the records: `export_dashboard.py --check --calendar
+  <events.json>` prints a `calendar:` line for each event of an ended job, each coming step with no event on its
+  date and each time that differs. An event of an excluded or withdrawn employer,
   or an invitation the person declined that still has the color, is named to the person; after their yes, an event
   they own is deleted and an invitation loses its color. Example: Acme was excluded on 12 Nov; "Job search · Acme
   interview" on 18 Nov is named.

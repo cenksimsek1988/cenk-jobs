@@ -8,6 +8,11 @@ python -I usage.py log <step> <ok|failed|stopped> ["<note>"] [variant=<name>]
                                                                marks a whole run (the dashboard shows it)
 python -I usage.py due                                         "due" when USAGE_SHARING=yes and no report was drafted
                                                                in the last 7 days; "ask" when USAGE_SHARING is not set
+python -I usage.py run-due [at=<YYYY-MM-DDTHH:MM>]             "due" when today is a SEARCH_DAYS day, it is past
+                                                               SEARCH_TIME and no "run started" is logged today:
+                                                               the active coordinator starts a fresh session for
+                                                               it (example: the scheduled session stood aside),
+                                                               else "not due: <why>"
 python -I usage.py report [--out <file>]                       write the report JSON (default: next to USAGE_LOG) and
                                                                print the email text for the developer
 python -I usage.py mark-drafted                                record that this week's report email was drafted
@@ -54,7 +59,7 @@ if "--env" in args:
     i = args.index("--env")
     env_arg = args[i + 1]
     del args[i:i + 2]
-if not args or args[0] not in ("log", "due", "report", "mark-drafted", "stats"):
+if not args or args[0] not in ("log", "due", "run-due", "report", "mark-drafted", "stats"):
     sys.exit(__doc__)
 env = jsenv.load(env_arg, __file__)
 LOG = env.path("USAGE_LOG") if env.get("USAGE_LOG") else os.path.join(env.home, "apply", "usage-log.jsonl")
@@ -320,6 +325,27 @@ elif cmd == "due":
         last = max((e["time"] for e in events() if e.get("event") == "report-drafted"), default="")
         due = not last or (now - datetime.datetime.fromisoformat(last)).days >= 7
         print("due" if due else f"not due: last report drafted {last[:10]}")
+elif cmd == "run-due":
+    if len(args) > 1 and args[1].startswith("at="):  # another time than now (tests)
+        try:
+            now = datetime.datetime.fromisoformat(args[1][3:])
+        except ValueError:
+            sys.exit(f"at= takes a time like 2026-11-16T19:05: got {args[1][3:]!r}")
+    days = (env.get("SEARCH_DAYS") or "weekdays").strip().lower()
+    names = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+    wanted = {"daily": names, "weekdays": names[:5], "none": ()}.get(
+        days, tuple(d for d in names if d in re.findall(r"[a-z]{3}", days)))
+    at = env.get("SEARCH_TIME") or "19:00"
+    started = [e for e in events() if e.get("step") == "run" and e.get("result") == "started"
+               and e.get("time", "")[:10] == now.date().isoformat()]
+    if names[now.weekday()] not in wanted:
+        print(f"not due: no run on {now:%a} (SEARCH_DAYS={days})")
+    elif now.strftime("%H:%M") < at.zfill(5):
+        print(f"not due: today's run is at {at}")
+    elif started:
+        print(f"not due: today's run started at {started[0]['time'][11:16]}")
+    else:
+        print(f"due: today's {at} run has not started; start a fresh session for it now")
 elif cmd == "report":
     ensure_install()
     rep = report()

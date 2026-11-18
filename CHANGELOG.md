@@ -6,6 +6,59 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.37.0] - 2026-11-17
+
+Every question reaches the Questions page; a keyword sheet for the call, on the other monitor.
+
+### Added
+
+- `questions.py add general "<question>"`: a question with no job or answer key; `record` prints its answer under
+  "act on". Example: "Which monitor holds the call?".
+- `questions.py add ... keep=yes`; set by itself when a job was already sent or ended at `add`: the build keeps the
+  question open until it is answered. Example: withdraw from a sent application.
+- `usage.py run-due [at=<time>]`: "due" on a `SEARCH_DAYS` day after `SEARCH_TIME` with no run started today.
+- `cheat_sheet.py call=<n>` (kept as `CALL_MONITOR`) and `--monitors`: on Windows the page opens on a monitor other
+  than the call's, placed and sized to the spot, in its own Chrome app window (profile `.cheat-sheet-chrome` in the
+  main folder).
+- `employer.py decide <name> exclude` prints the employer's running applications (`running: <id> | ...`).
+- `export_dashboard.py --calendar <events.json>`: `calendar:` check lines for an event of an ended job, a coming
+  step with no event on its date, and a step whose event is at another time. Example: "Job search · Acme: reply
+  due 19 Nov" for a job rejected on 16 Nov.
+- `export_dashboard.py --page <files/index.html>`: a first check line when the dashboard's page code is not the
+  plugin's template. RULES/run.md: each refresh passes both.
+- A check line for a sent job recorded `rejected` whose reason says the role was filled, closed or put on hold.
+
+### Changed
+
+- Every skill that asks the person (coordinate, apply, plan, prepare, cheat-sheet, setup): each question goes on the
+  Questions page as it is asked, in a run or in chat; a sub-session sends it to the coordinator, which adds it.
+- `record` is followed by `build` and the page write in the same turn; `record` prints that as its last line.
+- Options separate with `|`, so a label may hold a comma: `options="fix:Yes, I correct them|no:No"`.
+- Questions page: the Send bar sits under the questions; sent answers are marked `sent` and shown at once under Done,
+  greyed, without buttons; a section "Other questions" for `general`. The coordinator publishes the page again.
+- coordinate: fact answers (residence and the like) come only from the records, never from memory; `usage.py
+  run-due` at each turn, and the active coordinator starts a fresh session for a due run, never runs it in its own
+  context (a run inside the coordinator cost 1.4M tokens). schedule: a scheduled run refused by the lock messages the
+  active coordinator.
+- prepare writes `keywords.md` (the keyword sheet for the call) beside `cheat-sheet.md` (the study sheet);
+  `cheat_sheet.py` builds the wide page from `keywords.md`. cheat-sheet opens the page in the same turn with the
+  kept or default spot (top), and asks afterwards.
+- `job-search.env.template`: a `CALL_MONITOR` key; `build_app_folders.py` links a step's `keywords.md` in its
+  overview; the Questions page's Send message counts the "other" questions too.
+- The wide page: coloured heading bands, larger keywords (from 34 px down), spacing, higher contrast.
+
+### Fixed
+
+- A board search's site "Examplia (ashby)" gave the employer "Examplia (ashby)", which `employer.py check` matched to
+  the excluded employer "Ashby": `collect_postings.py` drops the board from the name, and employer name keys ignore a
+  board in brackets.
+- `recheck-running` printed "nothing moved" right after `decide <name> exclude`, which had already saved the verdict:
+  `decide` now names the running applications itself.
+- Dashboard Calendar tab: times in the viewer's local time (an invitation stored with another zone's offset showed
+  that zone's clock), and an event tagged with a job that ended (rejected, closed, declined) is left out.
+- The dashboard kept an older copy of its page, which reads fields the export no longer writes (no Sessions tab;
+  Hiring steps read `upcoming`): the new `--page` check names it, and the refresh writes the template again.
+
 ## [0.36.0] - 2026-11-15
 
 The person's profile moves to the shared base plugin cenk-base.

@@ -7,6 +7,8 @@ description: "Prepare the hiring steps: reads invitations and tests in Gmail, bo
 
 Read `../../RULES.md` first, then `../../RULES/hiring-steps.md` ("Mail", "Calendar", "Outcomes"). Prepare the nearest steps first; a far-off step's
 prep waits.
+Every question this skill asks the person goes on the Questions page as it is asked, in a run or in the chat (RULES/questions.md); in a sub-session, by a message to the coordinator, which adds it. Example: "Which slot, Tuesday 10:00 or Wednesday 15:00?" is
+also `questions.py add job "Which slot for Acme?" job=J7 options="tue:Tuesday 10:00|wed:Wednesday 15:00"`.
 
 ## Mail and calendar
 
@@ -25,11 +27,13 @@ prep waits.
 
 ## Prep notes
 
-For each new step, in its step folder: `prep.md` (from the posting and the master record only) and `cheat-sheet.md`
-(keyword lines only: facts, numbers, names of things; never scripted sentences, since the person reads it in the
-minutes before the call).
+For each new step, in its step folder: `prep.md` (from the posting and the master record only), `cheat-sheet.md`
+(the study sheet, read in the minutes before the call: keyword lines, facts, numbers, names of things; never
+scripted sentences) and `keywords.md` (the keyword sheet for the call itself: the same blocks, a few words per line,
+readable at a glance while listening or speaking). Example: `- 12 engineers, 3 teams` in the study sheet,
+`- 12 eng / 3 teams` in the keyword sheet.
 
-Before a call, `/cenk-jobs:cheat-sheet` shows `cheat-sheet.md` as one page beside the call, with no scrolling.
+Before a call, `/cenk-jobs:cheat-sheet` shows `keywords.md` as one page beside the call, with no scrolling.
 
 When the study starts, read `prep.md` again against the posting and the records as they are now, and correct it
 first: a prep written days before goes stale. Example: a prep of 9 Nov names a CV version replaced on 12 Nov.
