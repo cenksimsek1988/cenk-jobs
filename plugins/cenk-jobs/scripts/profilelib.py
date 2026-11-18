@@ -13,6 +13,8 @@ python -I profilelib.py [--env <job-search.env>] <command>
   set <key> <json|-> [--old <json>] [--yes] | erase <key> [--yes] | create [<folder>] | pin <folder> [--yes]
   Example: profilelib.py get cenk-jobs form_facts
   After erase it also lists the backups move_to_profile.py --remove-old left, which may still hold the value.
+  Also, cenk-jobs' own: coordinator: the path of cenk-base's shared coordinator rules (cenk-base 0.2.0 or later);
+  exit 1 when missing.
 Exit: cenk-base's (0 done, 1 refused, 2 bad arguments, 3 the file holds another value than --old says); 1 when
 cenk-base is not found.
 """
@@ -79,6 +81,17 @@ def need():
     if not base:
         raise ProfileError(MISSING, 1)
     return base
+
+
+def coordinator_rules():
+    """The path of cenk-base's shared coordinator rules (references/coordinator.md, from cenk-base 0.2.0)."""
+    need()
+    path = os.path.join(os.environ["CENK_BASE"].strip(), "references", "coordinator.md")
+    if not os.path.isfile(path):
+        raise ProfileError(f"{path} is missing: cenk-jobs' coordinator needs cenk-base 0.2.0 or later. Run "
+                           "`claude plugin update cenk-base@cenk` (or cenk-base@<its marketplace>), then start a "
+                           "new session.", 1)
+    return path
 
 
 def old_profile_line(env):
@@ -158,7 +171,13 @@ def env_of(argv):
 
 def main(argv):
     argv = list(argv)
+    if argv == ["coordinator"]:  # before env_of: a broken job-search.env must not hide a missing cenk-base
+        print(coordinator_rules())
+        return
     env = env_of(argv)
+    if argv == ["coordinator"]:
+        print(coordinator_rules())
+        return
     old_profile_line(env)
     need().main(argv)
     if argv[:1] == ["create"] and env is not None and env.get("PROFILE"):

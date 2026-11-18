@@ -928,6 +928,19 @@ rc=$?
 check "profilelib without CENK_BASE: exits 1, says cenk-base is not loaded and how to install it" sh -c '
     [ "$1" -eq 1 ] && grep -q "cenk-base is not loaded" "$2" && grep -q "claude plugin install cenk-jobs@cenk" "$2"' \
     _ "$rc" "$T/nobase.out"
+mkdir -p "$T/oldbase/lib"
+cp "$BASE_SRC/lib/profile.py" "$T/oldbase/lib/"
+CENK_BASE=$(win "$T/oldbase") "$PY" -I "$S/profilelib.py" coordinator >"$T/oldbase.out" 2>&1
+rc=$?
+check "profilelib coordinator with a cenk-base older than 0.2.0: exits 1, names 0.2.0 and the update line" sh -c '
+    [ "$1" -eq 1 ] && grep -q "cenk-base 0.2.0 or later" "$2" && grep -q "claude plugin update cenk-base@cenk" "$2"' \
+    _ "$rc" "$T/oldbase.out"
+CENK_BASE= "$PY" -I "$S/profilelib.py" coordinator >"$T/nobase-coord.out" 2>&1
+rc=$?
+check "profilelib coordinator without CENK_BASE: exits 1, says cenk-base is not loaded" sh -c '
+    [ "$1" -eq 1 ] && grep -q "cenk-base is not loaded" "$2"' _ "$rc" "$T/nobase-coord.out"
+check "profilelib coordinator: prints the shared rules file of cenk-base" sh -c '
+    p=$("$1" -I "$2/profilelib.py" coordinator) && [ -f "$p" ] && grep -q "^# Coordinator rules" "$p"' _ "$PY" "$S"
 
 pf() { "$PY" -I "$S/profilelib.py" --env "$ENVF" "$@"; }
 cp -R "$T/flat" "$T/pf"

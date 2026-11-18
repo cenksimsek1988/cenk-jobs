@@ -6,6 +6,21 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.39.0] - 2026-11-18
+
+The coordinator reads the shared coordinator rules from cenk-base.
+
+### Added
+
+- `profilelib.py coordinator`: the path of `$CENK_BASE/references/coordinator.md`; exit 1 with the line to run when
+  cenk-base is not loaded or older than 0.2.0 (`claude plugin update cenk-base@cenk`).
+
+### Changed
+
+- `coordinate` reads the shared rules first and keeps only the job search's own part; its copies of one coordinator
+  per folder, titles, briefs, quoted go-aheads, hand-off files and archiving are gone. Its step 0 checks the shared
+  rules file, so a missing or older cenk-base stops the coordinator before it writes any record.
+
 ## [0.38.0] - 2026-11-18
 
 The daily search from the 17-18 Nov experiment's real fits: boards and remote feeds first, rules before any model.

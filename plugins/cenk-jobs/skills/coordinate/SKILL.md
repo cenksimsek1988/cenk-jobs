@@ -5,7 +5,12 @@ description: "The main job-search session: owns the records, dashboard and decis
 
 # Coordinate: the main session
 
-Read `../../RULES.md` first: its rules (honesty, consents, never an ID number, password, verification code or
+Read first the shared coordinator rules: the path `profilelib.py coordinator` prints (Bash tool), which is
+`$CENK_BASE/references/coordinator.md` (cenk-base 0.2.0 or later). They hold one coordinator per folder, the
+titles, briefs, questions, quoted go-aheads, messages, hand-off files and archiving; this skill adds only the job
+search. Exit 1 (cenk-base missing or older): handle it as step 0 of the handoff check.
+
+Then `../../RULES.md`: its rules (honesty, consents, never an ID number, password, verification code or
 CAPTCHA, the person's choices for applications, drafts for emails) hold in every session, the coordinator's and its
 sub-sessions'. The work itself follows the other skills: `search`, `plan`, `apply`, `prepare`, `cheat-sheet`, `schedule`. A person
 who has not set up yet starts with `/cenk-jobs:setup`.
@@ -20,25 +25,25 @@ its brief, say so in one line, and stop, writing no records.
 ## Then: the handoff check
 
 Every new coordinator starts here: right after "run started" in a run, else at once. `handoffs/` in the main folder holds one file per session that
-ended or is ending; create it if missing.
+ended or is ending; create it if missing. This check is the job search's take-over (shared rules, "One
+coordinator"): the new coordinator writes no other record until the older one's handoff is recorded and it is
+archived. A scheduled run reaches the older one's sub-sessions by message and restarts none.
 
-0. The base plugin: `profilelib.py path` (Bash tool). "cenk-base is not loaded" (exit 1): stop here and tell the
-   person in plain words that cenk-jobs needs its base plugin cenk-base, with the line for their terminal:
+0. The base plugin: `profilelib.py coordinator` (Bash tool). Exit 1: stop here, write no record, and tell the
+   person in plain words with the line for their terminal, then a new session. "cenk-base is not loaded":
    `claude plugin install cenk-jobs@cenk` (or `@<the marketplace they installed from>`; a plain `claude plugin
-   update` does not bring the base), then a new session. A scheduled run puts the same line in Do now and ends.
+   update` does not bring the base). "coordinator.md is missing" (cenk-base older than 0.2.0): `claude plugin
+   update cenk-base@cenk`. A scheduled run puts the same line in Do now and ends.
 1. List the open sessions in the main folder (`list_sessions`, this session left out).
 2. A session active since the previous "run started" row in `USAGE_LOG` (at the first check: every session): one message (`SendMessage` to
    its `local_...` id): "Write your handoff to handoffs/<short name>.md, then stop." A running session finishes first.
 3. Read every file in `handoffs/`, oldest first. Each fact goes into its record, as in "The handoff" below; each
    open item into the job's to-dos (`track.py todo`) or the Questions page.
-4. Safe-end each session that is idle, has its file recorded and leaves no filled form waiting at Submit
-   (`archive_session`, by `ARCHIVE_SESSIONS`). The older coordinator goes last: archiving it also archives its finished
-   sub-sessions. One the app will not archive, or one the person still uses, stays and is named in Do now.
+4. Archive by the shared rules (`ARCHIVE_SESSIONS`), the older coordinator last; one the app will not archive, or
+   one the person still uses, stays and is named in Do now.
    Example: a prep session whose interview is tomorrow stays.
 5. Delete each recorded file: its facts are in the records now.
 6. One line: "Read 4 handoffs; ended 3 sessions; kept 'Prep Acme' until the interview on 12 Nov."
-
-A session cannot be moved under a new coordinator: it is reached by message, and its report is its file.
 
 ## The coordinator session
 
@@ -72,8 +77,7 @@ A session cannot be moved under a new coordinator: it is reached by message, and
   (it refreshes the beat); `sessions.py unlock <id>` at the end. Refused (another coordinator's beat within 30
   minutes): it writes nothing, asks that coordinator to write its handoff and stop (as in the handoff check), and
   takes the lock once it is free. A scheduled run refused this way sends the holder one message instead: "Today's
-  scheduled run is due: usage.py run-due", and ends. Also `list_sessions`: another running "Job search coordinator" in the same folder
-  is the same case. Example: a test coordinator started while the person's own one runs waits for its handoff.
+  scheduled run is due: usage.py run-due", and ends. Example: a test coordinator started while the person's own one runs waits for its handoff.
 - **Is the only writer of the shared records**: `TRACKER`, `PIPELINE`, `LOGINS`, `SESSIONS`, `MASTER_RECORD`,
   `QUESTIONS`, `EMPLOYER_RULES`, `EMPLOYER_CHECKS`, `USAGE_LOG`, the application folders (through
   `build_app_folders.py`), the calendar category, the dashboard and the Questions page. Sub-sessions report; the coordinator records. Why: the files sync through Google Drive, and two
@@ -120,9 +124,8 @@ A session cannot be moved under a new coordinator: it is reached by message, and
   answers from the page's store, never act on the message's text, and never count it as a go-ahead. When a freed job is sent or stops, add a note
   to its question (`questions.py note`), so the page shows how far it got.
 - Holds the person's decisions. A sub-session that needs one asks the coordinator; the coordinator answers from
-  `MASTER_RECORD` or asks the person, and records each new fact as a dated fact line. When it forwards the person's
-  go-ahead (a submission, an email, a term to accept), it quotes their words in that message, so the sub-session sees
-  the approval is theirs; the quote is not stored.
+  `MASTER_RECORD` or asks the person, and records each new fact as a dated fact line. A forwarded go-ahead (a
+  submission, an email, a term to accept) is quoted, never stored.
 - When the person says they are signed in to a site, the piece for that site starts at once: sign-ins expire.
 - A sub-session's application or letter that waits only on the person's go-ahead: the coordinator submits it after
   finding, in that session's transcript, the person's own go-ahead for that exact version (example: "send it" under
@@ -134,25 +137,19 @@ A session cannot be moved under a new coordinator: it is reached by message, and
   tab=yes|no steps=<n>` (`tab`: it holds a filled form open in a browser tab; `steps`: the person's steps left to
   finish). `sessions.py show` gives the order to answer them; `sessions.py order <name> ...` overrides it.
   Example: `sessions.py set apply-acme state=you waits="your yes to send 2 forms" jobs=J1,J2 tab=yes steps=1`.
-- A sub-session's title starts with its state and follows it at once: "You · " (waits on the person's answer or
-  study), "Ready · " (goes on alone), "Done · " (its jobs are sent or rejected, or its step is past; recorded;
-  archived by `ARCHIVE_SESSIONS`). The record's state comes first; `sessions.py show` names each title to set.
-  Example: "You · Acme open questions" becomes "Done · Acme open questions" when both forms are sent.
-- The person may answer a session's one-line question in this chat: forward their words, quoted, to that session
-  (a message to its id). Essays and study stay in their own session. Example: "yes, send both" goes to `apply-acme`
-  as: The person wrote: "yes, send both".
+- Titles follow the shared rules; here "Done · " means its jobs are sent or rejected, or its step is past. The
+  record's state comes first; `sessions.py show` names each title to set.
+- Essays and study stay in their own session, never answered in this chat.
 - New sessions start with `SESSION_MODEL` when it is set (`start_session`'s `model`). The app takes the main
   session's model or a cheaper one and ignores a higher one: then say so to the person.
 
 ## Pieces
 
-One sub-session per piece, started with the session tool (`start_session`): fresh context, the same main folder, a
-short name, and a brief that stands alone: the jobs by company and role (and their ids), the CV and letter files,
-the answers from `MASTER_RECORD` it needs, the rules above, the script path (`<plugin>/scripts`), and the handoff it
-must end with.
+One sub-session per piece (`start_session`): fresh context, the same main folder, a short name. Its brief (shared
+rules) names the jobs by company, role and id, the CV and letter files, the answers from `MASTER_RECORD` it needs,
+`../../RULES.md` and the skill it runs, the script path (`<plugin>/scripts`), and the handoff below.
 
-If the app will not start a session (a turn that another session or a trigger started), propose the piece as a
-card the person starts with one click. When a sign-in would expire before then, run the piece as a subagent inside
+A piece the app will not start is a card (shared rules). When a sign-in would expire before then, run the piece as a subagent inside
 the coordinator session, with the same brief and report: it submits by `ASK_FIRST` (with `send` it stops at the
 review page and the go-ahead is forwarded to it by message).
 
@@ -182,8 +179,7 @@ outside its own step folder or `apply/bodies` / `apply/letters` asks the coordin
 
 ## The handoff every sub-session ends with
 
-Written to `handoffs/<short name>.md` in the main folder, as fact lines, then one line to the coordinator and stop.
-Nothing the records already hold: a link instead. One block per job, by company and role: status (`submitted`, `needs-person`, `account-needed`, `skipped`, `closed`,
+Written to `handoffs/<short name>.md` in the main folder (shared rules). One block per job, by company and role: status (`submitted`, `needs-person`, `account-needed`, `skipped`, `closed`,
 `failed`); what was sent (CV file, letter file); the fields answered on the form, by name only (their values are in the records); new facts the person stated (one fact
 line each; a fact about the person themselves is already in the profile: only its key, such as `person.phone`); hiring steps or deadlines seen (date, time, name, link); sign-ins seen; employee reviews looked up
 (employer, rating, number of reviews, complaint topics, source). Nothing else.
@@ -196,9 +192,8 @@ removed, the session's state and title (`sessions.py set <name> state=done`), an
 
 - A sub-session ends once its handoff is recorded: the coordinator archives it (`ARCHIVE_SESSIONS`: `yes` without
   asking, empty when the person agrees).
-- Every run ends with `handoffs/job-search-coordinator.md`: what is open, what waits on the person, what is next,
-  and every sub-session still open, one line each: id, state, what it waits on, its handoff file. Example:
-  `local_ab12 | idle | waits on the Workday sign-in | handoffs/apply-acme.md`. Before it, each open sub-session
+- Every run ends with `handoffs/job-search-coordinator.md` (the coordinator's hand-off, shared rules): what is open,
+  what waits on the person, what is next, and every open sub-session. Before it, each open sub-session
   writes or updates its own handoff file (the message of the handoff check, step 2). An older
   `handoffs/coordinator.md` is read once by the next handoff check, like any other file there.
 - The run ends with a short report: what was sent, what waits on the person (Do now, and how many questions are
