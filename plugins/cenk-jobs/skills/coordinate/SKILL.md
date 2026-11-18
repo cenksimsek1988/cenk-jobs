@@ -83,7 +83,9 @@ A session cannot be moved under a new coordinator: it is reached by message, and
 - Never changes the plugin and never starts a session in its repository (RULES.md, "The plugin's own files"): a
   lesson is one line in `plugin-lessons.md`, a sub-session's lesson too, and the new lines go in one message to the
   session titled "Coordinator · workbench" when one is open.
-- Each run: "run started", the handoff check, the shared-list update, `check_setup.py --needs`, the health check, then the pieces of the day (`/cenk-jobs:schedule` lists the order),
+- The Gmail step runs first in every run, right after the handoff check, and is never dropped for other work.
+  Seen on 17 Nov: a day spent on applying left 15 rejections and an interview invitation unread.
+- Each run: "run started", the handoff check, Gmail (`/cenk-jobs:prepare`, "Mail and calendar"), the shared-list update, `check_setup.py --needs`, the health check, then the pieces of the day (`/cenk-jobs:schedule` lists the order),
   one sub-session per piece; "run finished" and the short report at the end.
 - Each run, before the pieces: read the Questions page's answers and record them (`questions.py record`, RULES.md
   "Questions for the person"), then `build` and write the page in the same turn, so the jobs they free go on in this

@@ -7,11 +7,26 @@ Monday. So a run looks only at what is new instead of searching every site again
 python -I searches.py add "<site>" "<query>" alert=yes gmail="<Gmail query>"     a search with an email alert
 python -I searches.py add "<site>" "<query>" alert=no                            a site without alerts, every weekday
 python -I searches.py add "<site>" "<query>" alert=no every=7                    the same, every 7 days
-python -I searches.py add "<site>" "<terms>" source=<kind> board=<name> [place="<terms>"]
+python -I searches.py add "<site>" "<terms>" source=<kind> board=<name> [place="<terms>"] [mode=remote|any]
                                                                                  a search collect_postings.py reads
                                                                                  without a model (method script);
                                                                                  kinds: greenhouse, lever, ashby,
-                                                                                 smartrecruiters, workable, linkedin
+                                                                                 smartrecruiters, workable, linkedin,
+                                                                                 and the remote feeds remotive,
+                                                                                 remoteok, jobicy, himalayas,
+                                                                                 arbeitnow (no board). mode: remote
+                                                                                 (LinkedIn's remote filter, and the
+                                                                                 text must say remote) or any
+python -I searches.py import <profile.json>                                      rows from a profile: {"linkedin":
+                                                                                 [{location, remote, queries}],
+                                                                                 "boards": [{source, board, site} or a
+                                                                                 file of them], "feeds": [names]}; a
+                                                                                 row already saved is kept
+python -I searches.py rates                                                      per row: found, screened by the
+                                                                                 funnel, real fits (high or normal)
+                                                                                 and the rate; then the rows with 20+
+                                                                                 screened and no real fit, to ask the
+                                                                                 person about
 python -I searches.py list                                                       one line per search
 python -I searches.py due [--json]                                               the searches due today; with none
                                                                                  saved, one line that says so; --json:
@@ -57,7 +72,8 @@ if "--today" in args:
         datetime.date.fromisoformat(as_of)
     except ValueError:
         sys.exit("--today takes a date, YYYY-MM-DD")
-if not args or args[0] not in ("add", "list", "due", "done", "seen", "sites", "fail"):
+ASK_AFTER = 20  # screened postings with no real fit before the person is asked about the search
+if not args or args[0] not in ("add", "list", "due", "done", "seen", "sites", "fail", "import", "rates"):
     sys.exit(__doc__)
 env = jsenv.load(env_arg, __file__)
 PATH = env.path("SEARCHES") if env.get("SEARCHES") else env.path("TRACKER") + "/../searches.json"
@@ -83,7 +99,9 @@ def pairs(items):
     return dict(item.split("=", 1) for item in items if "=" in item)
 
 
-SOURCES = ("greenhouse", "lever", "ashby", "smartrecruiters", "workable", "linkedin")  # read by collect_postings.py
+FEEDS = ("remotive", "remoteok", "jobicy", "himalayas", "arbeitnow")  # remote job feeds: no board
+SOURCES = ("greenhouse", "lever", "ashby", "smartrecruiters", "workable", "linkedin") + FEEDS  # collect_postings.py
+MODES = ("remote", "any")
 TRACKING = re.compile(r"(?i)^(utm_\w+|trk\w*|tracking\w*|ref|refid|referrer|src|source|gh_src|mc_\w+|fbclid|gclid|lever-\w+)$")
 
 
@@ -157,17 +175,91 @@ if cmd == "add":
     source = extra.get("source", "")
     if source and source not in SOURCES:
         sys.exit(f"source is one of {', '.join(SOURCES)}: got {source!r}")
-    if source and source != "linkedin" and not extra.get("board"):
+    if source and source != "linkedin" and source not in FEEDS and not extra.get("board"):
         sys.exit(f'a {source} search needs board=<the board name in its address>')
+    if extra.get("mode") and extra["mode"] not in MODES:
+        sys.exit(f"mode is one of {', '.join(MODES)}: got {extra['mode']!r}")
     if source and not args[2].strip() and not env.get("ROLE_TERMS"):
         sys.exit("a script search needs terms (a title must hold one), or ROLE_TERMS in job-search.env")
     next_id = max([r["id"] for r in rows], default=0) + 1
     rows.append({"id": next_id, "site": args[1], "query": args[2], "alert": alert, "gmail": extra.get("gmail", ""),
                  "every_days": int(extra.get("every") or 1), "added": today.isoformat(),
                  "last_checked": "", "last_found": None, "method": "script" if source else "agent",
-                 **{k: extra[k] for k in ("note", "source", "board", "place", "employer") if extra.get(k)}})
+                 **{k: extra[k] for k in ("note", "source", "board", "place", "employer", "mode") if extra.get(k)}})
     save(data)
     print(next_id, args[1], args[2])
+elif cmd == "import":
+    # A profile in the search experiment's shape: {"linkedin": [{location, remote, queries}], "boards": [{source,
+    # board, site|employer} or the path of a JSON list of them], "feeds": [names]}. A row already saved is kept.
+    if len(args) != 2:
+        sys.exit("import <profile.json>")
+    with open(args[1], encoding="utf-8") as f:
+        profile = json.load(f)
+    have = {(r.get("source"), (r.get("board") or "").lower(), (r.get("query") or "").lower(),
+             (r.get("place") or "").lower()) for r in rows}
+    added = []
+
+    def row_of(site, query, **more):
+        key = (more.get("source"), (more.get("board") or "").lower(), query.lower(), (more.get("place") or "").lower())
+        if key in have:
+            return
+        have.add(key)
+        rows.append({"id": max([r["id"] for r in rows], default=0) + 1, "site": site, "query": query, "alert": False,
+                     "gmail": "", "every_days": 1, "added": today.isoformat(), "last_checked": "", "last_found": None,
+                     "method": "script", **{k: v for k, v in more.items() if v}})
+        added.append(f"{rows[-1]['id']} {site} | {query or '(ROLE_TERMS)'}")
+
+    for block in profile.get("linkedin", []):
+        for q in block.get("queries", []):
+            row_of(f"LinkedIn {block.get('location', '')}".strip(), q, source="linkedin",
+                   place=block.get("location", ""), mode="remote" if block.get("remote") else "any")
+    boards = []
+    for b in profile.get("boards", []):
+        if isinstance(b, str):
+            path = b if os.path.isabs(b) else os.path.join(os.path.dirname(os.path.abspath(args[1])), b)
+            if not os.path.isfile(path):
+                print(f"boards file not found, skipped: {b}")
+                continue
+            with open(path, encoding="utf-8") as f:
+                got = json.load(f)
+            boards += got.get("searches", []) if isinstance(got, dict) else got
+        else:
+            boards.append(b)
+    for b in boards:
+        if b.get("source") in SOURCES and b.get("source") not in FEEDS and b.get("source") != "linkedin" and b.get("board"):
+            name = b.get("employer") or b.get("site") or b["board"]
+            row_of(name, b.get("query") or "", source=b["source"], board=b["board"], employer=name)
+    for feed in profile.get("feeds", []):
+        if feed in FEEDS:
+            row_of(feed, "", source=feed, mode="remote")
+    save(data)
+    print("\n".join(added + [f"{len(added)} searches added"]))
+elif cmd == "rates":
+    # Real fits only (the funnel's high or normal grade), never a cheaper judge's: a row's rate is real fits per
+    # posting the funnel screened. ASK_AFTER screened with no fit is a question for the person, never dropped alone.
+    with open(env.path("TRACKER"), encoding="utf-8") as f:
+        jobs = flat_jobs(json.load(f))
+    per = {}
+    for j in jobs:
+        sid = str(j.get("search") or "")
+        if not sid:
+            continue
+        p = j.get("prep") or {}
+        c = per.setdefault(sid, {"found": 0, "screened": 0, "fits": 0})
+        c["found"] += 1
+        if p:
+            c["screened"] += 1
+            if p.get("grade") in ("high", "normal") or str(p.get("reason") or "").startswith("not a high fit"):
+                c["fits"] += 1
+    ask = []
+    for r in rows:
+        c = per.get(str(r["id"]), {"found": 0, "screened": 0, "fits": 0})
+        rate = f"{100 * c['fits'] // c['screened']}%" if c["screened"] else "-"
+        print(r["id"], r["site"], "|", r.get("query") or "(ROLE_TERMS)", "| found", c["found"], "| screened",
+              c["screened"], "| real fits", c["fits"], "|", rate)
+        if c["screened"] >= ASK_AFTER and not c["fits"]:
+            ask.append(f"{r['id']} {r['site']} | {r.get('query') or '(ROLE_TERMS)'}: {c['screened']} screened, 0 real fits")
+    print("ask the person whether to drop (questions.py add general):", "; ".join(ask) or "none")
 elif cmd == "list":
     for r in rows:
         print(r["id"], r["site"], "|", r["query"], "| alert" if r["alert"] else f"| every {r['every_days']} days",

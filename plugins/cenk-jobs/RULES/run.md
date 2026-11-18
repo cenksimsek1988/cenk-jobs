@@ -4,7 +4,7 @@ A part of `RULES.md`. Read when you run the health check, create or refresh the 
 
 ## Every run: health check and status
 
-After step 1: the handoff check and the shared-list update (`coordinate`), then `check_setup.py --needs` as one list to the person (RULES.md, "Every run"), with what step 3 finds.
+After step 1: the handoff check, Gmail (first, never dropped) and the shared-list update (`coordinate`), then `check_setup.py --needs` as one list to the person (RULES.md, "Every run"), with what step 3 finds.
 
 1. Say when the run starts: "Job-search run started at 21:05 (by hand); I'll tell you when it's done." Log it with
    `usage.py log run started "<by hand|scheduled>"`. At the end: "Run finished at 21:40." plus the short report,
@@ -111,15 +111,15 @@ employers**, **Hiring steps** and **All applications**, under the total count an
 | `profilelib.py` | the person's profile through cenk-base's `lib/profile.py` (from `CENK_BASE`): home, path, get, set (compare-and-set), erase, create, pin; exit 3 when it holds another value; a key under `settings` only with `--yes`, after the person's yes |
 | `move_to_profile.py` | once: moves the person's facts from the master record and the old private record into the profile (dry run, `--apply`, `--confirm <key>`, then `--remove-old` after the person's OK) |
 | `cheat_sheet.py` | a step's keywords.md as one page for the call (`cheat-sheet-wide.html`), opened in Chrome on a monitor other than the call's |
-| `collect_postings.py` | new postings from every saved search a script can read (job board APIs, LinkedIn's guest search), without a model; `--add` puts them in the tracker with `found_by` |
+| `collect_postings.py` | new postings from every saved search a script can read (job board APIs, remote job feeds, LinkedIn's guest search), without a model: boards and feeds first, the person's title rules (`SEARCH_RULES`) before any text, a remote check of LinkedIn remote hits; `--add` puts them in the tracker with `found_by` and `search` |
 | `employer_lookup.py` | the free public-data lookup (Wikidata) of an employer never checked: exclude, go on or undecided; cached |
 | `choices.py` | the person's cost choices in `job-search.env`: show, set, the workflow's args, suggestions per plan, the fit grade |
 | `statusline.py` | opt-in status line script: saves the plan's usage share; `read` gives the run report's line |
-| `reposts.py` | the postings that repeat a role already applied to or declined (employer and title); collect leaves them out |
+| `reposts.py` | the postings that repeat a role already applied to or declined, or skipped for fit in 30 days (employer and title); collect leaves them out |
 | `workflow_args.py` | the funnel's args from the scripts, about 8 KB, with the rules in a file the agents read |
 | `variants.py` | the run's variant (model and effort per step), its models for the workflow, and each run's good-fit count |
 | `token_report.py` | tokens per run and per agent kind from this computer's transcripts; numbers only, sends nothing |
-| `searches.py` | saved searches: add, list, due (on a weekday for a site without an alert), done, fail (a board's error; two 404s: gone), sites (the tracker's sites with no saved search; `--add`: a script search for each), seen (is a posting new) |
+| `searches.py` | saved searches: add, list, due (on a weekday for a site without an alert), done, fail (a board's error; two 404s: gone), sites (the tracker's sites with no saved search; `--add`: a script search for each), seen (is a posting new), rates (real fits per search), import (rows from a profile) |
 | `questions.py` | questions for the person: add, list, build (the Questions page's files), record (answers into the records) |
 | `employer.py` | employer checks: check (`--full`), record, environment, decide, alias (`--not`), split (`--apply`), repair-clear, import-tracker, merge |
 | `usage.py` | usage log (steps and runs) and the weekly usage report (due, run-due, report, mark-drafted) |

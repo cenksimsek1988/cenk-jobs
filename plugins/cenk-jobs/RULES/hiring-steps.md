@@ -44,6 +44,9 @@ title prefix `CALENDAR_PREFIX` ("Job search · ").
 A job-search message whose action is done gets the Gmail label `GMAIL_DONE_LABEL` (default `cenk-jobs/Done`).
 - Done: the step is booked and in the calendar, a deadline is in the calendar, a rejection, closed post or
   confirmation is recorded, or the person's reply is sent (the thread has their sent reply after it).
+- A message readable only after a sign-in (a portal's "you have a new message"): open it in the person's
+  signed-in Chrome in the same run and act on it; when that cannot happen, an Urgent to-do with its link
+  (RULES/urgent.md). Example: an employer portal's interview invitation.
 - Not done: a reply draft not sent yet, a CAPTCHA, a sign-in or an answer only the person can give. The message
   stays unlabelled and its to-do stays in Do now.
 - Label the message (`label_message`), never the thread: a new reply in the same thread arrives unlabelled.

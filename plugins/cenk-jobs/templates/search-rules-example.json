@@ -1,0 +1,12 @@
+{
+ "_about": "Title rules for collect_postings.py (SEARCH_RULES), applied before any text is read. Each value is a regular expression, case-insensitive; a key left out does not count. forms_out: another language's title form; low: a level too low; level and senior: the level words (one is needed); senior_need and senior_no: a title whose only level word is a senior one needs senior_need and none of senior_no; no: words to drop; soft_no: dropped unless the title also holds a need word; need: an engineering word. Made-up example for a backend lead.",
+ "forms_out": "\\b(h/f|m/w/d|w/m/d)\\b",
+ "low": "\\b(junior|intern|trainee|graduate)\\b",
+ "level": "\\b(lead|staff|principal|architect|head|manager)\\b",
+ "senior": "\\b(senior|sr)\\b",
+ "senior_need": "backend|software engineer|java",
+ "senior_no": "frontend|full[- ]?stack|dot ?net",
+ "no": "\\b(sales|marketing|recruit|legal|finance)\\b",
+ "soft_no": "\\b(customer|operations|growth)\\b",
+ "need": "engineer|developer|software|backend|architect|platform"
+}

@@ -6,6 +6,40 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.38.0] - 2026-11-18
+
+The daily search from the 17-18 Nov experiment's real fits: boards and remote feeds first, rules before any model.
+
+### Added
+
+- Remote job feeds as script sources: `source=remotive|remoteok|jobicy|himalayas|arbeitnow` (no board); a feed's
+  posting passes only with a region of the scope in its own location field (none named: it does not pass).
+- `searches.py add ... mode=remote|any`: LinkedIn's remote filter for `remote`; `searches.py rates` (real fits per
+  row, from the funnel's high and normal grades; a row with 20 screened and none is asked about, never dropped);
+  `searches.py import <profile.json>` (LinkedIn blocks, boards, feeds; saved rows kept).
+- Title rules before any text is read: `SEARCH_RULES` (default `apply/search-rules.json`;
+  `templates/search-rules-example.json`), with forms_out, low, level, senior, senior_need, senior_no, no, soft_no,
+  need. The same lists filter boards and feeds.
+- A LinkedIn remote search's posting goes to the funnel only when its own text speaks of remote work (`TEXT_FETCHES`
+  texts a run, default 40); one unread waits for the next run.
+- Fit cache: a posting whose employer and title match one the funnel skipped for fit in the last 30 days is left out;
+  the same job from two sources in one run is screened once (the board's link kept).
+- The search scope from the master record's `preferences.locations.search_scope`: its `remote_regions` stands for
+  `REMOTE_REGIONS` and its `any_mode_places` for `PLACES`, each when present.
+
+### Changed
+
+- collect_postings.py reads boards and feeds first, then LinkedIn by city, then LinkedIn remote searches, and fills
+  `MAX_NEW_PER_RUN` in that order. The tracker keeps each posting's search row (`search`).
+- LinkedIn: 4.5 s between calls (was 4), a job text 6 s; a refusal (429) pauses 60 s and slows to 8 s; a second
+  stops LinkedIn for the run (was the first).
+- coordinate, schedule, RULES/run.md: Gmail runs first in every run, right after the handoff check, and is never
+  dropped for other work.
+- RULES/hiring-steps.md: a message readable only after a sign-in is opened in the signed-in Chrome in the same run,
+  else an Urgent to-do.
+- references/sites/linkedin.md: Easy Apply's CV upload works through the hidden file input with `file_upload`.
+- search: a variant of the searches wins by real fits after the full screening, never by a cheap first pass.
+
 ## [0.37.0] - 2026-11-17
 
 Every question reaches the Questions page; a keyword sheet for the call, on the other monitor.

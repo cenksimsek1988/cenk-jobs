@@ -15,8 +15,27 @@ tracker, and nothing is prepared or sent.
 2. First `collect_postings.py --out <outDir>/search.json --add` (the window starts at the last finished run;
    the search file holds at most `MAX_NEW_PER_RUN` postings, the rest wait for the next run; a repost of a role
    already applied to or declined is left out and recorded `skipped`, `reposts.py`): every due search a script can read (method
-   `script`: a job board's public API, LinkedIn's guest search) without a model; it adds the new postings to the
-   tracker with `found_by`. Then `searches.py due` for the rest (method `agent`): a run reads only these, never every
+   `script`: a job board's public API, a remote job feed, LinkedIn's guest search) without a model; it adds the new
+   postings to the tracker with `found_by` and the row's `search` id. What it does, in order:
+   - Sources in this order, and the funnel filled in it: company boards and remote feeds (remotive, remoteok,
+     jobicy, himalayas, arbeitnow), then LinkedIn by city (`mode=any`), then LinkedIn remote searches
+     (`mode=remote`). On 18 Nov boards and feeds gave 15 real fits of 48, LinkedIn remote 9 of about 140.
+   - The person's title rules (`SEARCH_RULES`, see `templates/search-rules-example.json`) before any text is read:
+     another language's title form, a low level, no level word, a word they drop, no engineering word. The same
+     lists filter boards and feeds, whose postings are often sales or operations roles.
+   - A feed's posting passes only with a region of the scope in its own location field; one that names none does
+     not. Example: "Remote, Europe" passes with the region Europe; "Remote, USA only" does not.
+   - A LinkedIn remote search's posting goes to the funnel only when its own text speaks of remote work (one text
+     read, no model; `TEXT_FETCHES` a run). Seen: 73 of 82 were hybrid in one city.
+   - The same job from two sources is screened once; one the funnel skipped for fit in the last 30 days is not
+     screened again (`reposts.py`).
+   - LinkedIn: 4.5 s between calls, a text 6 s; one refusal pauses 60 s and slows to 8 s; a second stops it.
+   - The scope: `preferences.locations.search_scope` in the master record; its `remote_regions` stands for
+     `REMOTE_REGIONS` and its `any_mode_places` for `PLACES`, each when present. Those two fields are written only
+     with the person's yes. Example: `"remote_regions": ["Germany", "EU", "Worldwide"], "any_mode_places":
+     ["Springfield"]`.
+
+   Then `searches.py due` for the rest (method `agent`): a run reads only these, never every
    site again. With none saved it says so: create them first ("Saved searches"). For each, the cheapest source that
    covers it, in this order.
    Keep only postings that match the roles and the location rule; drop what the tracker has (`searches.py seen --file
@@ -73,6 +92,15 @@ Every search has a row in `SEARCHES` (`searches.py`), so the next run starts fro
   `searches.py add "Acme careers" "engineering" alert=no`.
 - A row with an alert is read at every run. A site without one is searched at every weekday run, from its last
   check on, and never on a weekend: a check that falls there is due on Monday. `every=7` makes it weekly.
+
+## Tuning the searches
+
+- `searches.py rates`: per row, the postings the funnel screened and its real fits (high or normal; a normal fit cut by `APPLY_FITS=high` counts). A row with 20
+  screened and no real fit goes to the Questions page ("Drop the search ...?"); nothing is dropped alone.
+- A variant of the searches wins by real fits after the full screening, never by a cheap first pass alone. Seen
+  on 18 Nov: a cheap judge's 108 "medium" fits were 16 real ones.
+- A tested set of searches is loaded with `searches.py import <profile.json>` (LinkedIn blocks with location,
+  remote and queries; boards; feeds); rows already saved are kept. A query with no real fit stays out.
 
 ## Alerts
 

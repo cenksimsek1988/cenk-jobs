@@ -2207,5 +2207,120 @@ searches seen --file "$T/links.txt" >"$T/seen2.out" 2>&1
 check "searches seen --file: a job id in the query keeps two jobs apart; a tracking parameter does not" sh -c     'grep -q "^new .*gh_jid=222" "$1" && grep -q "^known .*gh_jid=111&utm_source=mail" "$1"' _ "$T/seen2.out"
 check "a hand-set details path outside details/ is refused, and no file is written there" sh -c     '! "$1" -I "$2/track.py" set J1 submitted "x" details=../outside.json --env "$3" >/dev/null 2>&1 && [ ! -e "$4/outside.json" ]'     _ "$PY" "$S" "$ENVF" "$H"
 
+# --- 0.38.0: sources in order, remote feeds, title rules, the remote text check, LinkedIn's one retry, duplicates,
+# the fit cache, real fit rates, import, the scope from the record ------------------------------------------------------
+mkhome "$T/s38" flat
+use "$T/s38"
+echo "MAX_NEW_PER_RUN=10" >>"$ENVF"
+cat >"$T/mk38.py" <<'PYEOF'
+import datetime
+import json
+import os
+import sys
+
+home, src = sys.argv[1], sys.argv[2]
+today = datetime.date.today().isoformat()
+os.makedirs(src, exist_ok=True)
+w = lambda name, data: open(os.path.join(src, name), "w", encoding="utf-8").write(  # noqa: E731
+    data if isinstance(data, str) else json.dumps(data))
+gh = lambda n, title, place: {"title": title, "location": {"name": place},  # noqa: E731
+                              "absolute_url": f"https://boards.example.com/acme/jobs/{n}", "first_published": "2026-11-16T08:00:00Z"}
+w("greenhouse-acme.json", {"jobs": [gh(1, "Staff Engineer", "Remote"), gh(2, "Junior Engineer", "Remote"),
+                                    gh(3, "Sales Engineer Lead", "Remote")]})
+w("remoteok-feed.json", [{"legal": "made up"},
+    {"position": "Principal Engineer", "company": "Beta Ltd", "location": "Europe", "date": "2026-11-16T09:00:00Z",
+     "url": "https://feeds.example.com/beta/1"},
+    {"position": "Staff Engineer", "company": "Gamma Inc", "location": "USA only", "date": "2026-11-16T09:00:00Z",
+     "url": "https://feeds.example.com/gamma/1"},
+    {"position": "Staff Engineer", "company": "Acme", "location": "Worldwide", "date": "2026-11-16T09:00:00Z",
+     "url": "https://feeds.example.com/acme/1"},
+    {"position": "Staff Engineer", "company": "Delta GmbH", "location": "Worldwide", "date": "2026-11-16T09:00:00Z",
+     "url": "https://feeds.example.com/delta/1"}])
+card = lambda n, title, company: (  # noqa: E731
+    f'<li><div class="base-card relative"><a class="base-card__full-link absolute" href="https://www.linkedin.com/jobs/view/{n}/?trk=x">x</a>'
+    f'<h3 class="base-search-card__title">{title}</h3><h4 class="base-search-card__subtitle"><a>{company}</a></h4>'
+    f'<span class="job-search-card__location">Milan, Lombardy, Italy</span><time datetime="2026-11-16">1 day ago</time></div></li>')
+w("linkedin-search.html", card(5550000001, "Staff Engineer Java", "Zeta Works") + card(5550000002, "Principal Architect", "Eta Labs"))
+w("linkedin-search.status", "429 200")
+w("linkedin-job-5550000001.html", "<div>A fully remote role in Italy.</div>")
+w("linkedin-job-5550000002.html", "<div>Hybrid: three days a week in our Milan office.</div>")
+json.dump({"low": "junior", "level": "staff|principal|lead|architect", "no": "sales", "need": "engineer|architect"},
+          open(os.path.join(home, "apply", "search-rules.json"), "w", encoding="utf-8"))
+career = json.load(open(os.path.join(home, "career-records", "career.json"), encoding="utf-8"))
+career["preferences"]["locations"] = {"base": "made up", "search_scope": {
+    "text": "made up", "remote_regions": ["Europe", "Worldwide", "Italy"], "any_mode_places": ["Istanbul"]}}
+json.dump(career, open(os.path.join(home, "career-records", "career.json"), "w", encoding="utf-8"))
+tracker = json.load(open(os.path.join(home, "apply", "targets.json"), encoding="utf-8"))
+tracker["jobs"].append({"id": "S1", "company": "Delta GmbH", "title": "Staff Engineer", "url": "https://example.com/s1",
+                        "status": "skipped", "history": [{"date": today, "status": "skipped", "note": "fit: a hard gap"}]})
+json.dump(tracker, open(os.path.join(home, "apply", "targets.json"), "w", encoding="utf-8"))
+PYEOF
+"$PY" -I "$T/mk38.py" "$H" "$T/s38-src"
+echo "ROLE_TERMS=engineer, architect" >>"$ENVF"
+searches add "Acme" "" source=greenhouse board=acme employer=Acme >/dev/null 2>&1
+searches add remoteok "engineer, architect" source=remoteok mode=remote >/dev/null 2>&1
+searches add "LinkedIn Italy" "staff engineer java, principal architect" source=linkedin place=Italy mode=remote >/dev/null 2>&1
+"$PY" -I "$S/collect_postings.py" --since 2026-11-01 --from "$T/s38-src" --out "$T/s38-search.json" --add --env "$ENVF" >"$T/s38.out" 2>&1
+check "0.38 collect: title rules leave titles out before any text; a feed posting outside the scope's regions never comes" sh -c '
+    grep -q "^search 1 Acme: title rules left out 1 (a word you drop), 1 (level too low)$" "$1" && ! grep -q "Gamma" "$1"' _ "$T/s38.out"
+check "0.38 collect: one job on a board and a feed is screened once (the board kept); a fit skip of 30 days stands" sh -c '
+    grep -q "| Acme | Staff Engineer | the same job as P.* (found twice this run)$" "$1" &&
+    grep -q "| Delta GmbH | Staff Engineer | the same job as S1, skipped for fit$" "$1"' _ "$T/s38.out"
+check "0.38 collect: LinkedIn refused once goes on after the pause; a remote search hit whose text says no remote is left out" sh -c '
+    ! grep -q "LinkedIn stops" "$1" && grep -q "| Eta Labs | Principal Architect | location: its text says nothing of remote work" "$1"' _ "$T/s38.out"
+check "0.38 collect: the funnel takes boards and feeds first, LinkedIn remote last, each found with its search row" sh -c '
+    "$1" -I "$2/dq.py" "$3" "[c[\"name\"] for c in R[\"companies\"]] == [\"Acme\", \"Beta Ltd\", \"Zeta Works\"]" &&
+    "$1" -I "$2/dq.py" "$4/apply/targets.json" "[j.get(\"search\") for j in R[\"jobs\"] if j[\"company\"] == \"Beta Ltd\" and j[\"id\"].startswith(\"P\")] == [\"2\"]"' \
+    _ "$PY" "$T" "$T/s38-search.json" "$H"
+cat >"$T/mk38b.py" <<'PYEOF'
+import json
+import sys
+
+path = sys.argv[1]
+t = json.load(open(path, encoding="utf-8"))
+for n in range(20):
+    t["jobs"].append({"id": f"R{n}", "company": "Theta AG", "title": "Lead", "url": f"https://example.com/r{n}",
+                      "status": "skipped", "search": "3", "prep": {"action": "skip", "reason": "location"}})
+t["jobs"].append({"id": "R99", "company": "Iota", "title": "Lead", "url": "https://example.com/r99", "status": "pending",
+                  "search": "2", "prep": {"action": "apply", "grade": "normal"}})
+json.dump(t, open(path, "w", encoding="utf-8"))
+PYEOF
+"$PY" -I "$T/mk38b.py" "$H/apply/targets.json"
+searches rates >"$T/s38-rates.out" 2>&1
+check "0.38 searches rates: real fits per row; 20 screened and none asks the person, never drops" sh -c '
+    grep -q "^2 remoteok | engineer, architect | found 4 | screened 1 | real fits 1 | 100%$" "$1" &&
+    grep -q "^ask the person whether to drop.*3 LinkedIn Italy | staff engineer java, principal architect: 20 screened, 0 real fits$" "$1"' _ "$T/s38-rates.out"
+cat >"$T/s38-profile.json" <<'EOF'
+{"linkedin": [{"location": "Istanbul", "remote": false, "queries": ["java architect", "staff engineer java"]}],
+ "boards": [{"source": "ashby", "board": "examplia", "site": "Examplia"}], "feeds": ["remotive", "nofeed"]}
+EOF
+searches import "$T/s38-profile.json" >"$T/s38-imp1.out" 2>&1
+searches import "$T/s38-profile.json" >"$T/s38-imp2.out" 2>&1
+check "0.38 searches import: rows with source, place and mode; a known feed only; again: none added" sh -c '
+    grep -q "^4 searches added$" "$1" && grep -q "^0 searches added$" "$2" &&
+    "$3" -I "$4/dq.py" "$5" "[(r[\"source\"], r.get(\"mode\")) for r in R[\"searches\"][3:]] == [(\"linkedin\", \"any\"), (\"linkedin\", \"any\"), (\"ashby\", None), (\"remotive\", \"remote\")]"' \
+    _ "$T/s38-imp1.out" "$T/s38-imp2.out" "$PY" "$T" "$H/apply/searches.json"
+check "0.38 searches add: an unknown mode is refused; a feed needs no board" sh -c '
+    ! "$1" -I "$2/searches.py" add X "" source=linkedin mode=hybrid --env "$3" >/dev/null 2>&1 &&
+    "$1" -I "$2/searches.py" add Y "engineer" source=jobicy --env "$3" >/dev/null 2>&1' _ "$PY" "$S" "$ENVF"
+check "0.38 feeds: each feed gives title, company, a remote place and a date" "$PY" -I -c '
+import sys; sys.path.insert(0, sys.argv[1]); import collect_postings as c
+assert c.feed_postings("himalayas", {"jobs": [{"title": "Staff Engineer", "companyName": "Acme", "locationRestrictions": [], "pubDate": 1763280000, "guid": "u"}]}) == [("Staff Engineer", "Acme", "Remote, Worldwide", c.day(1763280000), "u")]
+assert c.feed_postings("arbeitnow", {"data": [{"title": "T", "company_name": "B", "location": "Berlin", "created_at": 1763280000, "url": "u", "remote": False}]}) == []
+assert c.feed_postings("jobicy", {"jobs": [{"jobTitle": "T", "companyName": "B", "jobGeo": "Europe", "pubDate": "2026-11-16 10:00:00", "url": "u"}]})[0][2] == "Remote, Europe"
+none = c.feed_postings("remoteok", [{"position": "T", "company": "B", "location": "", "url": "u"}])[0][2]
+assert none == "Remote, no region given" and not c.place_ok(none, [], ["europe", "worldwide"])
+assert c.job_text("https://example.com/jobs/acme-lead", None, c.LinkedInQueue(False)) is None' "$S"
+check "0.38 scope: each field of search_scope stands alone; one missing keeps the env value" "$PY" -I -c '
+import json, os, sys; sys.path.insert(0, sys.argv[1]); import collect_postings as c
+class E(dict):
+    home = sys.argv[2]
+    def path(self, k): return os.path.join(self.home, self[k])
+p = os.path.join(sys.argv[2], "rec.json")
+json.dump({"preferences": {"locations": {"search_scope": {"remote_regions": ["EU"]}}}}, open(p, "w"))
+assert c.scope_of(E(MASTER_RECORD="rec.json")) == (["eu"], None)
+json.dump([1, 2], open(p, "w"))
+assert c.scope_of(E(MASTER_RECORD="rec.json")) == (None, None)' "$S" "$T"
+
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

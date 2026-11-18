@@ -9,8 +9,10 @@ order, punctuation and gender tags such as "(m/f/d)" do not count; seniority wor
 Example: "Senior Software Engineer (m/f/d)" sent at "Acme (Parent)" makes "Software Engineer - Senior" at "Acme" a
 repost; "Staff Software Engineer" there is not one.
 A job counts as applied to when its tracker status is submitted or declined, or it has an applied date.
-collect_postings.py --out leaves reposts out of the funnel. Add --env <job-search.env> anywhere to pick the env file.
+collect_postings.py --out leaves reposts out of the funnel, and a posting whose employer and title match a job the
+funnel skipped for fit in the last 30 days (the fit cache). Add --env <job-search.env> anywhere to pick the env file.
 """
+import datetime
 import json
 import os
 import re
@@ -22,6 +24,7 @@ import employerlib as el  # noqa: E402
 import jsenv  # noqa: E402
 from trackerlib import companies  # noqa: E402
 
+FIT_CACHE_DAYS = 30  # a fit skip this recent stands for the same employer and title found again
 TAGS = re.compile(r"(?i)\(?\b[mfwdx]\s*/\s*[mfwdx](\s*/\s*[mfwdx])?\b\)?|\ball genders\b")
 FILLER = {"and", "the", "of", "for", "in", "at", "a", "an", "to", "with"}
 
@@ -47,13 +50,30 @@ class Index:
     def __init__(self, env, tracker):
         self.env = env
         self.employers = el.checks_file(env).get("employers", {}) if env.get("EMPLOYER_CHECKS") else {}
-        self.applied = {}
+        self.applied, self.fit_skipped = {}, {}
+        since = (datetime.date.today() - datetime.timedelta(days=FIT_CACHE_DAYS)).isoformat()
         for company, job in companies(tracker):
+            last = (job.get("history") or [{}])[-1]
+            note = last.get("note") or last.get("outcome") or ""  # the older tracker shape keeps it in "outcome"
+            if job.get("status") == "skipped" and str(note).startswith("fit:") \
+                    and str(last.get("date", ""))[:10] >= since:
+                name = job.get("company") or company.get("name", "")
+                for k in employer_keys(env, name, self.employers):
+                    self.fit_skipped.setdefault((k, title_key(job.get("title", ""))), job["id"])
             if job.get("status") in ("submitted", "declined") or job.get("applied"):
                 name = job.get("company") or company.get("name", "")
                 tk = title_key(job.get("title") or (job.get("prep") or {}).get("title", ""))
                 for k in employer_keys(env, name, self.employers):
                     self.applied.setdefault((k, tk), job["id"])
+
+    def fit_skip_of(self, company, title):
+        """The id of a job with this employer and title the funnel skipped for fit in the last FIT_CACHE_DAYS days,
+        or "": the same posting on another board or a new link is not screened again."""
+        tk = title_key(title)
+        for k in employer_keys(self.env, company, self.employers):
+            if (k, tk) in self.fit_skipped:
+                return self.fit_skipped[(k, tk)]
+        return ""
 
     def repost_of(self, company, title):
         """The id of the job this posting repeats, or ""."""
