@@ -18,8 +18,19 @@ tracker, and nothing is prepared or sent.
    `script`: a job board's public API, a remote job feed, LinkedIn's guest search) without a model; it adds the new
    postings to the tracker with `found_by` and the row's `search` id. What it does, in order:
    - Sources in this order, and the funnel filled in it: company boards and remote feeds (remotive, remoteok,
-     jobicy, himalayas, arbeitnow), then LinkedIn by city (`mode=any`), then LinkedIn remote searches
-     (`mode=remote`). On 18 Nov boards and feeds gave 15 real fits of 48, LinkedIn remote 9 of about 140.
+     jobicy, himalayas, arbeitnow, remoterocketship, himalayas-search, workable-search), then LinkedIn by city
+     (`mode=any`), then LinkedIn remote searches (`mode=remote`). On 19 Nov Remote Rocketship gave 12 of 14 fits.
+   - Remote Rocketship, one row per country: `searches.py add "Remote Rocketship Italy" "<titles>"
+     source=remoterocketship board=italy` (a title becomes its page, `tech=Java` adds a stack filter). Each page
+     holds its 20 newest postings, so it is read daily. Himalayas (`himalayas-search board=Italy`) finds postings
+     only: the funnel applies on the employer's own careers page. Boards and `workable-search` are read weekly
+     (`every=7`, their default; older rows: `searches.py every greenhouse 7`).
+   - Each feed 3 s between calls; 2 refusals (429) in a row stop it for the run, its rows stay due.
+   - Before the funnel, each posting's own page (Ashby and Greenhouse locations, the page text): every place
+     outside the person's places, "must be based in" another country, or US hours: left out, no tokens spent.
+     Seen 19 Nov: 32 of 40 "Europe" postings were single-country elsewhere.
+   - A posting already in the tracker under another link (the same employer and title) is left out. A "team lead"
+     title needs an engineering word ("Team Lead, Customer Success" is out).
    - The person's title rules (`SEARCH_RULES`, see `templates/search-rules-example.json`) before any text is read:
      another language's title form, a low level, no level word, a word they drop, no engineering word. The same
      lists filter boards and feeds, whose postings are often sales or operations roles.
@@ -46,8 +57,6 @@ tracker, and nothing is prepared or sent.
      `brief`, `check` to drop rows already seen). Indeed mostly returns older listings: a supplement, not the source
      of new ones.
    - A job board's public JSON (the addresses in `workflows/screen-and-prepare.js`), or `fetch_jd.py`.
-   - LinkedIn guest search only for a search no alert covers: 4 s between calls, in the background, each result
-     written as it comes (example: 269 calls took 32 minutes).
    - A site without an alert: newest first, and stop at the first posting older than the row's last check or already
      in the tracker. Example: last check 6 Nov; the list reaches a posting of 5 Nov: stop there.
    - A browser last, only for a search nothing else covers. Read each page with `find`, `read_page` or `get_page_text`; never a screenshot
@@ -82,6 +91,9 @@ tracker, and nothing is prepared or sent.
    recheck-running` (RULES/employers.md, "Running applications").
 5. Record every finding as found (RULES.md, "Employer rules"). Postings that closed: `track.py set <id> closed`.
 6. `build_app_folders.py` and the dashboard refresh.
+7. Weekly (the first run of the week): `feedback.py silent --add`, `feedback.py clues` (the fit check reads it
+   next run), and `feedback.py analyse`. Its proposals go to the Questions page; FIT_SETTINGS changes only on the
+   person's yes. Scripts only, no model.
 
 ## Saved searches
 
@@ -101,6 +113,9 @@ Every search has a row in `SEARCHES` (`searches.py`), so the next run starts fro
   on 18 Nov: a cheap judge's 108 "medium" fits were 16 real ones.
 - A tested set of searches is loaded with `searches.py import <profile.json>` (LinkedIn blocks with location,
   remote and queries; boards; feeds); rows already saved are kept. A query with no real fit stays out.
+- No new LinkedIn search rows and no board discovery by guessed names: new LinkedIn postings come from alert
+  emails, a new board from a posting found elsewhere. LinkedIn rows already saved run last and stop at refusals. Seen 18-19 Nov: every LinkedIn call refused, 15k guessed names gave 3 plausible
+  postings.
 
 ## Alerts
 

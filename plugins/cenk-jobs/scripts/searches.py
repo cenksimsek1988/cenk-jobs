@@ -14,7 +14,12 @@ python -I searches.py add "<site>" "<terms>" source=<kind> board=<name> [place="
                                                                                  smartrecruiters, workable, linkedin,
                                                                                  and the remote feeds remotive,
                                                                                  remoteok, jobicy, himalayas,
-                                                                                 arbeitnow (no board). mode: remote
+                                                                                 arbeitnow, workable-search (no
+                                                                                 board), remoterocketship and
+                                                                                 himalayas-search (board=<country>,
+                                                                                 tech=<stack> for the first). Boards
+                                                                                 and workable-search: every 7 days by
+                                                                                 default. mode: remote
                                                                                  (LinkedIn's remote filter, and the
                                                                                  text must say remote) or any
 python -I searches.py import <profile.json>                                      rows from a profile: {"linkedin":
@@ -39,6 +44,9 @@ python -I searches.py sites [--add]                                             
 python -I searches.py fail <id> <code>                                           a script search's board answered with
                                                                                  an error; two 404s in a row make it
                                                                                  "gone": no longer due, listed with it
+python -I searches.py every <id|source> <days>                                   how often a row (or every row of a
+                                                                                 source) is read; example: every
+                                                                                 greenhouse 7
 python -I searches.py done <id> found=<n>                                        record that a search was read
 python -I searches.py seen <url> [<url> ...]                                     says "new" or "known" per link
 python -I searches.py seen --file <links file>                                   the same, one link per line in a file
@@ -73,7 +81,7 @@ if "--today" in args:
     except ValueError:
         sys.exit("--today takes a date, YYYY-MM-DD")
 ASK_AFTER = 20  # screened postings with no real fit before the person is asked about the search
-if not args or args[0] not in ("add", "list", "due", "done", "seen", "sites", "fail", "import", "rates"):
+if not args or args[0] not in ("add", "list", "due", "done", "seen", "sites", "fail", "import", "rates", "every"):
     sys.exit(__doc__)
 env = jsenv.load(env_arg, __file__)
 PATH = env.path("SEARCHES") if env.get("SEARCHES") else env.path("TRACKER") + "/../searches.json"
@@ -99,8 +107,11 @@ def pairs(items):
     return dict(item.split("=", 1) for item in items if "=" in item)
 
 
-FEEDS = ("remotive", "remoteok", "jobicy", "himalayas", "arbeitnow")  # remote job feeds: no board
-SOURCES = ("greenhouse", "lever", "ashby", "smartrecruiters", "workable", "linkedin") + FEEDS  # collect_postings.py
+FEEDS = ("remotive", "remoteok", "jobicy", "himalayas", "arbeitnow", "workable-search")  # remote feeds: no board
+COUNTRY_FEEDS = ("remoterocketship", "himalayas-search")  # board=<country>
+SOURCES = ("greenhouse", "lever", "ashby", "smartrecruiters", "workable", "linkedin") + FEEDS + COUNTRY_FEEDS
+# Read weekly by default (19 Nov: 0 new fits from 1,091 board postings; Workable search 0 fits): a new row's every.
+WEEKLY = ("greenhouse", "lever", "ashby", "smartrecruiters", "workable", "workable-search")
 MODES = ("remote", "any")
 TRACKING = re.compile(r"(?i)^(utm_\w+|trk\w*|tracking\w*|ref|refid|referrer|src|source|gh_src|mc_\w+|fbclid|gclid|lever-\w+)$")
 
@@ -183,9 +194,10 @@ if cmd == "add":
         sys.exit("a script search needs terms (a title must hold one), or ROLE_TERMS in job-search.env")
     next_id = max([r["id"] for r in rows], default=0) + 1
     rows.append({"id": next_id, "site": args[1], "query": args[2], "alert": alert, "gmail": extra.get("gmail", ""),
-                 "every_days": int(extra.get("every") or 1), "added": today.isoformat(),
+                 "every_days": int(extra.get("every") or (7 if source in WEEKLY else 1)), "added": today.isoformat(),
                  "last_checked": "", "last_found": None, "method": "script" if source else "agent",
-                 **{k: extra[k] for k in ("note", "source", "board", "place", "employer", "mode") if extra.get(k)}})
+                 **{k: extra[k] for k in ("note", "source", "board", "place", "employer", "mode", "tech")
+                    if extra.get(k)}})
     save(data)
     print(next_id, args[1], args[2])
 elif cmd == "import":
@@ -205,8 +217,8 @@ elif cmd == "import":
             return
         have.add(key)
         rows.append({"id": max([r["id"] for r in rows], default=0) + 1, "site": site, "query": query, "alert": False,
-                     "gmail": "", "every_days": 1, "added": today.isoformat(), "last_checked": "", "last_found": None,
-                     "method": "script", **{k: v for k, v in more.items() if v}})
+                     "gmail": "", "every_days": 7 if more.get("source") in WEEKLY else 1, "added": today.isoformat(),
+                     "last_checked": "", "last_found": None, "method": "script", **{k: v for k, v in more.items() if v}})
         added.append(f"{rows[-1]['id']} {site} | {query or '(ROLE_TERMS)'}")
 
     for block in profile.get("linkedin", []):
@@ -279,6 +291,17 @@ elif cmd == "due":
     for r in filter(is_due, rows):
         how = f"gmail: {r['gmail']}" if r["alert"] else f"script: {r['source']}" if r.get("method") == "script" else "no alert"
         print(r["id"], r["site"], "|", r["query"], "|", how, "| last", r["last_checked"] or "never")
+elif cmd == "every":
+    # every <id|source> <days>: how often a row is read; by source, every row of it (example: every greenhouse 7).
+    if len(args) != 3 or not args[2].isdigit() or int(args[2]) < 1:
+        sys.exit("every takes <search id or source> <days>")
+    hit = [r for r in rows if str(r["id"]) == args[1] or r.get("source") == args[1]]
+    if not hit:
+        sys.exit(f"no search with id or source {args[1]!r}; see searches.py list")
+    for r in hit:
+        r["every_days"] = int(args[2])
+    save(data)
+    print(f"{len(hit)} searches read every {args[2]} days")
 elif cmd == "done":
     row = next((r for r in rows if str(r["id"]) == args[1]), None) if len(args) > 1 else None
     if not row:
@@ -322,7 +345,8 @@ elif cmd == "sites" and "--add" in args:
         next_id = max([r["id"] for r in rows], default=0) + 1
         rows.append({"id": next_id, "site": j.get("company", "") or hit[1], "employer": j.get("company", ""),
                      "query": env.get("ROLE_TERMS", ""),
-                     "alert": False, "gmail": "", "every_days": 1, "added": today.isoformat(), "last_checked": "",
+                     "alert": False, "gmail": "", "every_days": 7 if hit[0] in WEEKLY else 1,
+                     "added": today.isoformat(), "last_checked": "",
                      "last_found": None, "method": "script", "source": hit[0], "board": hit[1],
                      **({"place": env["PLACES"]} if env.get("PLACES") else {})})
         added.append(f"{next_id} {rows[-1]['site']} | {hit[0]} {hit[1]}")

@@ -1,6 +1,8 @@
 """Fetch the full text of job postings and save each as job-description.md in its application's folder.
 
-Usage: python -I fetch_jd.py [--env <job-search.env>] <job id> [<job id> ...] [--force] [--start "<text>"] [--end "<text>"]
+Usage: python -I fetch_jd.py [--env <job-search.env>] <job id> [<job id> ...] [--force] [--posting] [--start "<text>"] [--end "<text>"]
+--posting: a job not applied to yet (an unread posting): saved as <job id>.md in POSTINGS_DIR (default
+apply/postings), where the next run's fit check reads it (collect_postings.py passes it as the job's text_file).
 For each job: the posting link comes from the tracker (its "url", then its apply link); the text comes from the job
 board's public API where there is one (Greenhouse, Lever, Ashby, SmartRecruiters, Workable, LinkedIn's public job
 page), else from the page itself. It is saved as job-description.md in the folder whose overview.md names that job id
@@ -31,7 +33,8 @@ for flag in ("--env", "--start", "--end"):
         options[flag] = args[i + 1]
         del args[i:i + 2]
 force = "--force" in args
-ids = [a for a in args if a != "--force"]
+posting = "--posting" in args
+ids = [a for a in args if a not in ("--force", "--posting")]
 if not ids:
     sys.exit(__doc__)
 env = jsenv.load(options.get("--env"), __file__)
@@ -163,7 +166,8 @@ def folders():
 with open(env.path("TRACKER"), encoding="utf-8") as fh:
     tracker = json.load(fh)
 jobs = {j["id"]: (c.get("name", ""), j) for c, j in companies(tracker)}
-where = folders()
+where = {} if posting else folders()
+POSTINGS = env.path("POSTINGS_DIR") if env.get("POSTINGS_DIR") else os.path.join(env.home, "apply", "postings")
 d = datetime.date.today()
 fetched = f"{d.day} {d:%b %Y}"
 for job_id in ids:
@@ -171,13 +175,14 @@ for job_id in ids:
         print(job_id, "NOT IN TRACKER")
         continue
     company, job = jobs[job_id]
-    folder = where.get(job_id)
+    folder = POSTINGS if posting else where.get(job_id)
     if not folder:
         print(job_id, "NO FOLDER (run build_app_folders.py first)")
         continue
-    target = os.path.join(folder, "job-description.md")
+    os.makedirs(folder, exist_ok=True)
+    target = os.path.join(folder, f"{job_id}.md" if posting else "job-description.md")
     if os.path.exists(target) and not force:
-        print(job_id, "kept the existing job-description.md (--force replaces it)")
+        print(job_id, f"kept the existing {os.path.basename(target)} (--force replaces it)")
         continue
     job = expand_row(env.path("TRACKER"), job)  # a split row: its prep is in the detail file
     prep = job.get("prep") or {}

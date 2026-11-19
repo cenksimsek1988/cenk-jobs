@@ -25,6 +25,15 @@ A remote posting passes only when its place also holds one of the search's place
 REMOTE_REGIONS (job-search.env), or reads just "Remote". Example: "Remote, EU" passes with REMOTE_REGIONS=EU;
 "Remote, US" does not. Example: searches.py add "Acme jobs" "engineer, architect" source=greenhouse
 board=acme place="Rome, Italy".
+Feeds, 3 s apart per source; 2 refusals (429) in a row stop a source for the run, its searches stay due. New
+sources: remoterocketship (board=<country slug>, a term is a title slug, optional tech=<stack>; the 20 newest per
+page, so daily), himalayas-search (board=<country>; discovery only: apply_url is left empty with an apply_note, the
+fit check finds the employer's own page; the himalayas feed too), workable-search (remote postings; kept only with a
+place or region of the person's). Before the funnel, each posting's own page is read (LOCATION_CHECKS a run, default
+60; Ashby and Greenhouse from their APIs): one whose every place is outside the person's places, that must be based
+in another country, or works US hours is left out. A posting whose employer and title are already in the tracker
+under another link is left out. A "team lead" title needs an engineering word. A job the last fit check could not
+read ("unread" in the tracker) gets its text saved (fetch_jd.py --posting) and passed as text_file.
 LinkedIn: up to 3 pages per search, 4 seconds apart, over the window since its start; an error or a refusal (429)
 stops LinkedIn for this run and its remaining searches stay due. A board that answers 404 twice is marked gone
 (searches.py fail). found_by is script:<source>:<board>; the run report counts script and agent finds apart.
@@ -67,8 +76,28 @@ FEED_API = {
     "jobicy": "https://jobicy.com/api/v2/remote-jobs?count=100&geo={geo}&industry=dev",
     "himalayas": "https://himalayas.app/jobs/api?limit=20&offset={n}",
     "arbeitnow": "https://www.arbeitnow.com/api/job-board-api?page={n}",
+    # One page per term. Remote Rocketship: board = a country slug ("italy"), a term becomes a title slug; its page
+    # holds the 20 newest postings (?page= is ignored), so read it daily. Himalayas search: board = a country
+    # ("Italy"); discovery only: its posting pages are blocked, so the apply link is found on the employer's site.
+    # Workable search: remote postings only, no board.
+    "remoterocketship": "https://www.remoterocketship.com/country/{board}/jobs/{slug}",
+    "himalayas-search": "https://himalayas.app/jobs/api/search?q={term}&country={board}&sort=recent",
+    "workable-search": "https://jobs.workable.com/api/v1/jobs?query={term}&workplace=remote",
 }
 FEEDS = tuple(FEED_API)
+DISCOVERY_ONLY = ("himalayas", "himalayas-search")  # the apply link is the employer's own careers page
+# Every source but LinkedIn: 3 s between calls of one source; 2 refusals (429) in a row stop it for the run, its
+# searches stay due (19 Nov: Himalayas and Workable refused every call after ~100 at 1.2 s).
+SOURCE_GAP, SOURCE_REFUSALS = 3.0, 2
+# A posting open to more than one country, or to a region: the Workable search keeps it (with remote work).
+WIDE = re.compile(r"(?i)\b(EU|EMEA|Europe|European Union|worldwide|anywhere)\b")
+# Hiring only in another country (18 Nov gate): the person's places decide whether it is "another" one.
+ONLY_IN = re.compile(r"\b(?i:must|need to|needs to|required to|should|have to)\s+(?i:be\s+)?(?i:based|located|"
+                     r"reside|residing|resident|live|living)\s+(?i:in)\s+(?:the\s+)?([A-Z][A-Za-z.]+(?: [A-Z][A-Za-z.]+)*)")
+REMOTE_IN = re.compile(r"\b(?i:remote)\s*[-–(,]\s*([A-Z][A-Za-z]+(?: [A-Z][a-z]+)?)")
+TIME_ZONES = re.compile(r"(?i)\b(?:US|U\.S\.|North American?|EST|PST|CST|Pacific|Eastern|Central)\s+(?:time\s*zones?|"
+                        r"hours|business hours)\b")
+LOCATION_CHECKS = 60  # postings whose own page is read for the location check, per run (LOCATION_CHECKS)
 # LinkedIn: 4.5 s between calls, a job text 6 s after the last call; one refusal (429) pauses 60 s and slows to 8 s;
 # a second one stops LinkedIn for the run. Seen on 17 Nov: 4.5 s ran into 429 after ~46 texts, 8 s ran through.
 LINKEDIN_GAP, TEXT_GAP, SLOW_GAP, PAUSE = 4.5, 6.0, 8.0, 60
@@ -140,9 +169,9 @@ def parse(source, board, text):
                         pick(r'class="job-search-card__location">(.*?)</span>'),
                         (re.search(r'datetime="([\d-]+)"', card) or [None, ""])[1], html.unescape(url).split("?")[0]))
         return out
-    data = json.loads(text)
+    data = next_data(text) if source == "remoterocketship" else json.loads(text)
     if source in FEEDS:
-        return feed_postings(source, data)
+        return feed_postings(source, data, board)
     name = board
     if source == "greenhouse":
         return [(j.get("title", ""), name, (j.get("location") or {}).get("name", ""),
@@ -165,10 +194,41 @@ def parse(source, board, text):
     return []
 
 
-def feed_postings(source, data):
+def next_data(text):
+    """A Remote Rocketship page's postings: {"jobs": props.pageProps.initialJobOpenings} of its __NEXT_DATA__."""
+    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', text, re.S)
+    if not m:
+        raise ValueError("no __NEXT_DATA__ on the page")
+    props = (json.loads(m.group(1)).get("props") or {}).get("pageProps") or {}
+    return {"jobs": props.get("initialJobOpenings") or []}
+
+
+def feed_postings(source, data, board=""):
     """[(title, company, place, date, url)] from a remote feed's answer; the place reads "Remote, <its region>". A
     posting that names no region never reads as a bare "Remote" (which passes anywhere): often it is US-only."""
     remote = lambda where: "Remote, " + (where.strip() or "no region given")  # noqa: E731
+    if source == "remoterocketship":
+        country = board.replace("-", " ").title()
+        return [(j.get("roleTitle", ""), ((j.get("company") or {}) if isinstance(j.get("company"), dict) else {}).get("name", ""),
+                 remote(country) if j.get("locationType", "remote") == "remote" else f"{j.get('locationType')}, {country}",
+                 day(j.get("created_at")), j.get("url", ""))
+                for j in data.get("jobs", []) if not (j.get("dateDeleted") or j.get("isEntryLevel") or j.get("isJunior"))]
+    if source == "himalayas-search":
+        return [(j.get("title", ""), j.get("companyName", ""),
+                 remote(", ".join(j.get("locationRestrictions") or []) or "Worldwide"), day(j.get("pubDate")),
+                 j.get("applicationLink") or j.get("guid") or "") for j in data.get("jobs", [])]
+    if source == "workable-search":
+        out = []
+        for j in data.get("jobs", []):
+            if j.get("workplace") != "remote":
+                continue
+            places = [x for x in (j.get("locations") or []) if x and x != "TELECOMMUTE"]
+            where = ", ".join(places[:4]) or (j.get("location") or {}).get("countryName") or ""
+            wide = dict.fromkeys(m.group(1) for m in WIDE.finditer(" ".join(str(j.get(k) or "")
+                                                                            for k in ("title", "description"))))
+            out.append((j.get("title", ""), (j.get("company") or {}).get("title", ""),
+                        remote(", ".join([where] * bool(where) + list(wide))), day(j.get("created")), j.get("url", "")))
+        return out
     if source == "remotive":
         return [(j.get("title", ""), j.get("company_name", ""), remote(j.get("candidate_required_location", "")),
                  day(j.get("publication_date")), j.get("url", "")) for j in data.get("jobs", [])]
@@ -199,6 +259,13 @@ def feed_urls(row, words):
         return [FEED_API[source].format(n=n) for n in range(0, 100, 20)]
     if source == "arbeitnow":
         return [FEED_API[source].format(n=n) for n in (1, 2, 3)]
+    board = urllib.parse.quote(row.get("board", ""))
+    if source == "remoterocketship":
+        tech = "?techStack=" + urllib.parse.quote(row["tech"]) if row.get("tech") else ""
+        return [FEED_API[source].format(board=board.lower(), slug=re.sub(r"[^a-z0-9]+", "-", w.lower()).strip("-"))
+                + tech for w in words]
+    if source in ("himalayas-search", "workable-search"):
+        return [FEED_API[source].format(board=board, term=urllib.parse.quote(w)) for w in words]
     return [FEED_API[source]]
 
 
@@ -223,6 +290,18 @@ def fetch(url):
         return get(url)
     except urllib.error.HTTPError as problem:
         raise Refused(problem.code) from problem
+
+
+LAST_CALL = {}  # source -> the time of its last call (feeds only: a board is one call per run)
+
+
+def paced_fetch(source, url):
+    """fetch() at most once every SOURCE_GAP seconds per feed."""
+    rest = SOURCE_GAP - (time.monotonic() - LAST_CALL.get(source, -SOURCE_GAP))
+    if rest > 0:
+        time.sleep(rest)
+    LAST_CALL[source] = time.monotonic()
+    return fetch(url)
 
 
 def answers(row, from_dir, queue, start, words=()):
@@ -250,7 +329,7 @@ def answers(row, from_dir, queue, start, words=()):
         out = []
         for url in feed_urls(row, list(words)):
             try:
-                out.append(fetch(url))
+                out.append(paced_fetch(source, url))
             except (Refused, OSError, ValueError) as problem:
                 if not out:
                     raise
@@ -270,6 +349,55 @@ def answers(row, from_dir, queue, start, words=()):
         if "base-card" not in text:
             break
     return out
+
+
+def own_page(url, from_dir, pid):
+    """(places, text) from a posting's own page: Ashby's location and secondary locations and Greenhouse's location
+    from their APIs, else the page's text alone. With --from: the board's saved answer (ashby-<board>.json),
+    greenhouse-job-<id>.json, or page-<posting id>.html. Raises Refused, OSError or ValueError when unread."""
+    def read(name, live_url):
+        if from_dir:
+            with open(os.path.join(from_dir, name), encoding="utf-8") as fh:
+                return fh.read()
+        return paced_fetch("page:" + urllib.parse.urlparse(live_url).netloc, live_url)
+    m = re.search(r"jobs\.ashbyhq\.com/([^/?#]+)/([0-9a-f-]{36})", url)
+    if m:
+        board = json.loads(read(f"ashby-{m.group(1)}.json", API["ashby"].format(board=m.group(1))))
+        job = next((j for j in board.get("jobs", []) if j.get("id") == m.group(2)), None)
+        if not job:
+            raise ValueError("not on the Ashby board (closed?)")
+        places = [job.get("location")] + [x.get("location") for x in job.get("secondaryLocations") or []]
+        remote = job.get("isRemote") or str(job.get("workplaceType", "")).lower() == "remote"
+        places = [p if not remote or "remote" in p.lower() else "Remote, " + p for p in places if p]
+        return places, job.get("descriptionPlain") or ""
+    m = re.search(r"greenhouse\.io/([^/?#]+)/jobs/(\d+)", url)
+    if m:
+        d = json.loads(read(f"greenhouse-job-{m.group(2)}.json",
+                            f"https://boards-api.greenhouse.io/v1/boards/{m.group(1)}/jobs/{m.group(2)}"))
+        return [(d.get("location") or {}).get("name", "")], re.sub(r"<[^>]+>", " ", html.unescape(d.get("content") or ""))
+    page = read(f"page-{pid}.html", url)
+    page = re.sub(r"(?s)<script.*?</script>|<style.*?</style>", " ", page)
+    return [], re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", page)))
+
+
+def location_out(p, from_dir, regions):
+    """Why the posting's own page puts it outside the person's places, or "": every place it names is outside them
+    (Ashby, Greenhouse, "Remote - Poland" in its text), it must be based in another country, or it works US hours.
+    A page that cannot be read leaves the posting in: the fit check reads it."""
+    try:
+        places, text = own_page(p["url"], from_dir, p["id"])
+    except (Refused, OSError, ValueError):
+        return ""
+    named = [x for x in places if x] + ["Remote, " + m.group(1) for m in REMOTE_IN.finditer(text)]
+    if named and not any(place_ok(x, PLACES, regions) for x in named):
+        return "location on its own page: " + "; ".join(dict.fromkeys(named))
+    only = [m.group(1).rstrip(".") for m in ONLY_IN.finditer(text)]
+    if only and not any(place_ok("Remote, " + x, PLACES, regions) for x in only):
+        return "hires only in " + only[0]
+    zones = TIME_ZONES.search(text)
+    if zones and not place_ok("Remote, US", PLACES, regions):
+        return "works " + zones.group(0)
+    return ""
 
 
 def job_text(url, from_dir, queue):
@@ -292,6 +420,10 @@ def job_text(url, from_dir, queue):
 
 
 RULE_KEYS = ("forms_out", "low", "level", "senior", "senior_need", "senior_no", "no", "soft_no", "need")
+# "Team lead" counts only next to an engineering word (18 Nov: customer-success and operations team leads came in).
+TEAM_LEAD = re.compile(r"(?i)\bteam[\s-]*lead(?:er)?\b")
+ENGINEERING = re.compile(r"(?i)\b(engineer\w*|develop\w*|software|backend|back-end|frontend|front-end|full[- ]?stack|"
+                         r"platform|devops|data|tech\w*|security|java|kotlin|cloud|infrastructure|qa|sre|it)\b")
 
 
 def title_rules(env):
@@ -318,6 +450,8 @@ def title_out(title, rules):
         return "title in another language"
     if has("low"):
         return "level too low"
+    if TEAM_LEAD.search(title) and not (has("need") or ENGINEERING.search(title)):
+        return "a team lead without an engineering word"
     if ("level" in rules or "senior" in rules) and not (has("level") or has("senior")):
         return "no level word"
     if has("no"):
@@ -421,6 +555,18 @@ def run(script, *more):
     return res.stdout
 
 
+def tracked_keys():
+    """(employer key, title key) -> job id for every job in the tracker, whatever its status."""
+    with open(ENV.path("TRACKER"), encoding="utf-8") as fh:
+        jobs = flat_jobs(json.load(fh))
+    out = {}
+    for j in jobs:
+        tk = reposts.title_key(j.get("title", ""))
+        for k in reposts.employer_keys(ENV, j.get("company", ""), {}):
+            out.setdefault((k, tk), j.get("id", ""))
+    return out
+
+
 def window_start(since, rows_of_log):
     """The window's start: --since, else the start of the last finished run, else 7 days back."""
     if since:
@@ -462,7 +608,7 @@ def main():
     since_args = ["--since", opts["--since"]] if opts.get("--since") else []
     rows = [r for r in json.loads(run("searches.py", "due", "--json", *since_args) or "[]") if r.get("method") == "script"]
     rows.sort(key=rank)  # boards and feeds first: a LinkedIn refusal never costs them
-    found, read, linkedin_stopped = [], [], ""
+    found, read, linkedin_stopped, refusals = [], [], "", {}
     queue = LinkedInQueue(live=not opts.get("--from"))
     for row in rows:
         if not (terms(row.get("query")) or role_terms):
@@ -470,6 +616,10 @@ def main():
             continue
         if row["source"] == "linkedin" and linkedin_stopped:
             read.append(f"search {row['id']} {row['site']}: LinkedIn stopped this run ({linkedin_stopped}); it stays due")
+            continue
+        if refusals.get(row["source"], 0) >= SOURCE_REFUSALS:
+            read.append(f"search {row['id']} {row['site']}: {row['source']} stopped this run ({SOURCE_REFUSALS} "
+                        "refusals in a row); it stays due")
             continue
         last = row.get("last_checked") or ""
         # A search that stayed due over runs (refused, down) starts at its own last read, so nothing is skipped.
@@ -486,6 +636,8 @@ def main():
                 continue
             if problem.code == 404:
                 print(run("searches.py", "fail", str(row["id"]), "404").strip())
+            if problem.code == 429:
+                refusals[row["source"]] = refusals.get(row["source"], 0) + 1
             read.append(f"search {row['id']} {row['site']}: not read ({problem}); it stays due")
             continue
         except (OSError, ValueError) as problem:
@@ -493,6 +645,7 @@ def main():
                 linkedin_stopped = str(problem)
             read.append(f"search {row['id']} {row['site']}: not read ({problem}); it stays due")
             continue
+        refusals[row["source"]] = 0  # an answer ends a run of refusals
         postings = [p for text in texts for p in parse(row["source"], row.get("board", ""), text)]
         since = start.date().isoformat()
         kept, dropped = [], {}
@@ -556,7 +709,7 @@ def main():
         with open(ENV.path("TRACKER"), encoding="utf-8") as fh:
             backlog = [dict(id=j["id"], title=j.get("title", ""), company=j.get("company", ""), url=j.get("url", ""),
                             location=j.get("location", ""), date=j.get("date", ""), found_by=j.get("found_by", ""),
-                            search=j.get("search", ""))
+                            search=j.get("search", ""), unread=j.get("unread", ""))
                        for j in flat_jobs(json.load(fh))
                        if j.get("status") == "found" and str(j.get("found_by", "")).startswith("script:")
                        and not j.get("prep") and j["id"] not in {p["id"] for p in new}]
@@ -572,6 +725,15 @@ def main():
         left.update({k: "repost of " + v for k, v in repeated.items() if v and k not in left})
         skipped = {p["id"]: index.fit_skip_of(p["company"], p["title"]) for p in new + backlog if p["id"] not in left}
         left.update({k: f"the same job as {v}, skipped for fit" for k, v in skipped.items() if v})
+        # The same employer and title already in the tracker under another link (another source): never new again.
+        tracked = tracked_keys()
+        for p in new:
+            if p["id"] not in left:
+                tk = reposts.title_key(p["title"])
+                twin = next((tracked[(k, tk)] for k in reposts.employer_keys(ENV, p["company"], {})
+                             if (k, tk) in tracked), "")
+                if twin and twin != p["id"]:
+                    left[p["id"]] = f"the same job as {twin} (already in the tracker)"
         # A posting carried from an earlier run passes the person's places too (seen: 19 of 263 outside them).
         left.update({p["id"]: "outside your places: " + p["location"] for p in backlog
                      if p["id"] not in left and p["location"] and not place_ok(p["location"], PLACES, regions)})
@@ -589,6 +751,10 @@ def main():
         if not texts_raw.isdigit():
             sys.exit(f"TEXT_FETCHES is a number: got {texts_raw!r}")
         budget = int(texts_raw)
+        checks_raw = (ENV.get("LOCATION_CHECKS") or str(LOCATION_CHECKS)).strip()
+        if not checks_raw.isdigit():
+            sys.exit(f"LOCATION_CHECKS is a number: got {checks_raw!r}")
+        checks = int(checks_raw)
         chosen, unread = [], 0
         for p in order:
             if cap is not None and len(chosen) >= cap:
@@ -614,6 +780,13 @@ def main():
                     left[p["id"]] = "location: its text says nothing of remote work (LinkedIn remote search)"
                     print(f"left out: {p['id']} | {p['company']} | {p['title']} | {left[p['id']]}")
                     continue
+            elif checks > 0 and not p["found_by"].startswith("script:linkedin"):
+                checks -= 1  # the posting's own page, before any token is spent on it (19 Nov: 32 of 40 out)
+                why = location_out(p, opts.get("--from"), regions)
+                if why:
+                    left[p["id"]] = why
+                    print(f"left out: {p['id']} | {p['company']} | {p['title']} | {why}")
+                    continue
             chosen.append(p)
         if unread:
             print(f"{unread} LinkedIn remote postings wait for the next run: their text was not read (TEXT_FETCHES, "
@@ -628,11 +801,22 @@ def main():
                                                        f"; {new_out} new left out (not in the tracker without --add)")
         companies = {}
         pays = pay_table(ENV)[1]
+        # A posting the last fit check could not read: its text is saved now (fetch_jd.py --posting) for this one.
+        postings = ENV.path("POSTINGS_DIR") if ENV.get("POSTINGS_DIR") else os.path.join(ENV.home, "apply", "postings")
+        unread_ids = [p["id"] for p in chosen if p.get("unread")]
+        if unread_ids and not opts.get("--from"):
+            print(run("fetch_jd.py", *unread_ids, "--posting").strip())
         for p in chosen:
             p["pay"] = pay_for(pays, p["location"])
+            text_file = os.path.join(postings, p["id"] + ".md")
+            discovery = (p["found_by"].split(":") + [""])[1] in DISCOVERY_ONLY
             companies.setdefault(p["company"], []).append({k: p[k] for k in ("id", "title", "url", "location", "date", "found_by")}
                                                           | ({"pay": p["pay"]} if p["pay"] else {})
-                                                          | {"apply_url": p["url"]})
+                                                          | ({"text_file": text_file.replace(os.sep, "/")}
+                                                             if p.get("unread") and os.path.isfile(text_file) else {})
+                                                          | ({"apply_url": "", "apply_note": "apply on the employer's "
+                                                              "own careers page (this site's posting pages are blocked)"}
+                                                             if discovery else {"apply_url": p["url"]}))
         with open(opts["--out"], "w", encoding="utf-8", newline="\n") as fh:
             json.dump({"companies": [{"name": n, "jobs": j} for n, j in companies.items()]}, fh, ensure_ascii=False, indent=1)
         print(f"{len(chosen)} postings for this run's funnel (MAX_NEW_PER_RUN={raw}); {later}")

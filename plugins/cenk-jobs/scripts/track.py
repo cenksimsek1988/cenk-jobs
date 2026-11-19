@@ -386,7 +386,13 @@ def sync(journals):
     # The best grades first, then the newest: the order the applications go in.
     queue.sort(key=lambda q: str(q[1].get("date") or next((h.get("date") for h in q[1].get("history") or []
                                                             if h.get("date")), "")), reverse=True)
-    queue.sort(key=lambda q: {"high": 0, "normal": 1}.get(q[1]["prep"].get("grade"), 2))
+    queue.sort(key=lambda q: {"high": 0, "normal": 1, "long-shot": 2}.get(q[1]["prep"].get("grade"), 3))
+    # Long-shots: at most LONG_SHOTS_PER_DAY a day, counting today's submitted ones; the rest wait for a later day.
+    room = long_shot_room(data)
+    held = [q for q in queue if q[1]["prep"].get("grade") == "long-shot"][room:]
+    queue = [q for q in queue if q not in held]
+    if held:
+        print(f"long-shots waiting for a later day (LONG_SHOTS_PER_DAY): {len(held)}")
     for name, j in queue:
         p = j["prep"]
         print(j["id"], "|", name, "|", j["title"][:55], "|", p.get("action"), "|", p.get("grade") or "-", "|", p.get("open"), "|",
@@ -397,14 +403,31 @@ def sync(journals):
     print("verdicts:", counts, "| queue:", len(queue))
 
 
+def long_shot_room(data):
+    """How many more long-shots may go today: LONG_SHOTS_PER_DAY minus the long-shots submitted today."""
+    cap = int(choices.value(env, "LONG_SHOTS_PER_DAY")[0] or 0)
+    sent = sum(1 for _, j in entries(data) if j.get("status") == "submitted" and j.get("applied") == today
+               and (j.get("grade") or (j.get("prep") or {}).get("grade")) == "long-shot")
+    return max(cap - sent, 0)
+
+
 def attach_prep(company, prep):
-    """A prepared-jobs result's jobs into the company's jobs, by id, each graded from its gaps (choices.grade): a fit
-    below the person's APPLY_FITS is a skip with the reason, as in the workflow."""
-    level = choices.value(env, "APPLY_FITS")[0]
+    """A prepared-jobs result's jobs into the company's jobs, by id, each graded from its score (choices.grade): a fit
+    below the person's APPLY_FITS is a skip with the reason, as in the workflow. An unread posting gets no prep: it
+    stays "found", marked "unread", so the next run's fit check reads it again with its saved text."""
+    level, settings = choices.value(env, "APPLY_FITS")[0], choices.fit_settings(env)
+    long_shots = int(choices.value(env, "LONG_SHOTS_PER_DAY")[0] or 0)
     for pj in (prep or {}).get("jobs", []):
         for job in company["jobs"]:
             if job["id"] == pj.get("id"):
-                job["prep"] = choices.graded(pj, level)
+                prep_job = choices.graded(pj, level, settings, long_shots)
+                if prep_job.get("grade") == "unread" and job.get("status") == "found":
+                    job["unread"] = today
+                    continue
+                job.pop("unread", None)
+                job["prep"] = prep_job
+                if prep_job.get("grade"):
+                    job["grade"] = prep_job["grade"]  # on the row, so a split tracker still counts long-shots
                 # Only a job no one has moved on yet ("found") takes the fit's decision as its status.
                 if job.get("status") == "found":
                     skip = job["prep"].get("action") == "skip"

@@ -20,11 +20,12 @@ Read `../../RULES.md` first.
   schedule (the scheduled-tasks list) and correct the keys. A task that runs every day stays so until the person
   changes it. Example: the task has cron `0 19 * * *` and the key says `weekdays`: write `SEARCH_DAYS=daily`.
 - Say the result in one line: "Scheduled run: weekdays at 19:00, in a fresh main session."
-- A trigger's turn may not start other sessions: the run does its pieces as subagents, or proposes each as a card.
-- A scheduled run that stands aside because a coordinator is active (its lock is held) sends that coordinator one
-  message, "Today's scheduled run is due: usage.py run-due", and ends; the active coordinator starts a fresh session
-  for it (`/cenk-jobs:coordinate`), never runs it in its own context. Example: the coordinator was active 4 minutes
-  before 19:00, so it starts the 19:00 run's session.
+- A trigger's turn may not start other sessions: the run, a fresh session, does its pieces as subagents (the one
+  exception to "the coordinator runs no search itself"), or proposes a piece as a card.
+- A scheduled run that finds a coordinator active (its lock is held) takes over: it asks that coordinator for its
+  handoff ("write your handoff, unlock, reply 'handoff written', then stop"), and on the reply takes the lock and
+  runs as the day's coordinator. Example: the coordinator was active 4 minutes before 19:00; it hands off and the
+  19:00 session runs. Seen 16-18 Nov: the run stood aside and never ran.
 
 ## What each run does
 

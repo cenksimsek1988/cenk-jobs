@@ -1994,13 +1994,13 @@ cat >"$T/graded.json" <<'EOF'
           {"id": "G5", "action": "skip", "reason": "closed", "gaps": []}]}
 EOF
 "$PY" -I "$S/choices.py" grade "$T/graded.json" --env "$ENVF" >"$T/gr.out" 2>&1
-check "choices grade: no gap high, one soft gap normal, two soft gaps a weak fit, a hard gap a skip" sh -c '
-    grep -q "^G1 | apply | high |" "$1" && grep -q "^G2 | apply | normal |" "$1" &&
-    grep -q "^G3 | skip | - | weak fit: lead; Go" "$1" && grep -q "^G4 | skip | - | a hard gap: on site in Oslo" "$1" &&
-    grep -q "^G5 | skip | - |" "$1"' _ "$T/gr.out"
+check "choices grade (no requirements): no gap high, one soft gap normal, two a weak fit (a skip), a hard gap a skip" sh -c '
+    grep -q "^G1 | apply | high | - |" "$1" && grep -q "^G2 | apply | normal | - |" "$1" &&
+    grep -q "^G3 | skip | weak | - | weak fit: lead; Go" "$1" && grep -q "^G4 | skip | - | - | a hard gap: on site in Oslo" "$1" &&
+    grep -q "^G5 | skip | - | - |" "$1"' _ "$T/gr.out"
 "$PY" -I "$S/choices.py" set APPLY_FITS=high --env "$ENVF" >/dev/null 2>&1
 check "choices grade: with APPLY_FITS=high a normal fit is a skip" sh -c '
-    "$1" -I "$2/choices.py" grade "$3" --env "$4" | grep -q "^G2 | skip | - | not a high fit (APPLY_FITS=high): 5% under"' _ "$PY" "$S" "$T/graded.json" "$ENVF"
+    "$1" -I "$2/choices.py" grade "$3" --env "$4" | grep -q "^G2 | skip | normal | - | not a high fit (APPLY_FITS=high): 5% under"' _ "$PY" "$S" "$T/graded.json" "$ENVF"
 # statusline.py: the plan's share saved by the status line, read back for the run report.
 echo '{"rate_limits": {"five_hour": {"used_percentage": 23.4}, "seven_day": {"used_percentage": 41}}}' |
     "$PY" -I "$S/statusline.py" --out "$H/apply/plan-usage.json" >"$T/sl.out" 2>&1
@@ -2388,5 +2388,171 @@ check "choices: plans pro, max5, max20; SESSION_MODEL sonnet by default" sh -c '
     "$1" -I "$2/choices.py" suggest max20 --env "$3" | grep -q "^SESSION_MODEL=sonnet$" &&
     ! "$1" -I "$2/choices.py" suggest max7 --env "$3" >/dev/null 2>&1' _ "$PY" "$S" "$ENVF"
 
+# --- 0.41.0: fit score, long-shots, unread, new sources, location check, reply feedback --------------------------------
+"$PY" -I "$S/choices.py" set APPLY_FITS=normal LONG_SHOTS_PER_DAY=0 --env "$ENVF" >/dev/null 2>&1
+cat >"$T/score41.json" <<'EOF'
+{"jobs": [
+ {"id": "R1", "action": "apply", "gaps": [], "read": "full", "requirements": [{"text": "Java", "place": "title", "level": "hands_on"}]},
+ {"id": "R2", "action": "apply", "gaps": [], "read": "full", "requirements": [{"text": "Java", "place": "title", "level": "hands_on"},
+   {"text": "10 years of Java", "place": "must_years", "years_asked": 10, "years_held": 3, "level": "hands_on"}]},
+ {"id": "R3", "action": "apply", "gaps": [], "read": "full", "requirements": [{"text": "Java", "place": "title", "level": "hands_on"},
+   {"text": "Go", "place": "nice", "level": "absent"}]},
+ {"id": "R4", "action": "apply", "gaps": [], "read": "full", "requirements": [{"text": "Staff scope", "place": "title", "level": "adjacent"},
+   {"text": "Kafka", "place": "must", "level": "hands_on"}, {"text": "Rust", "place": "nice", "level": "absent"},
+   {"text": "Go", "place": "nice", "level": "absent"}]},
+ {"id": "R5", "action": "apply", "gaps": [], "read": "full", "requirements": [{"text": "Payments", "place": "title", "level": "absent", "closest": "none"},
+   {"text": "Java", "place": "must", "level": "hands_on"}]},
+ {"id": "R6", "action": "apply", "gaps": [], "read": "summary", "requirements": [{"text": "Java", "place": "title", "level": "hands_on"}]},
+ {"id": "R7", "action": "apply", "gaps": [{"kind": "hard", "what": "clearance"}], "read": "full",
+   "requirements": [{"text": "Java", "place": "title", "level": "hands_on"}]},
+ {"id": "R8", "action": "apply", "gaps": [], "read": "none", "requirements": []}]}
+EOF
+"$PY" -I "$S/choices.py" grade "$T/score41.json" --env "$ENVF" >"$T/score41.out" 2>&1
+check "fit score: weights by place, years capped, bands 80/65/50 at their edges; weak, unread and long-shot (cap 0) are skips" sh -c '
+    grep -q "^R1 | apply | high | 100 |" "$1" && grep -q "^R2 | apply | normal | 70 |" "$1" &&
+    grep -q "^R3 | apply | high | 80 |" "$1" &&
+    grep -q "^R4 | skip | long-shot | 50 | long-shot: score 50 (LONG_SHOTS_PER_DAY=0)" "$1" &&
+    grep -q "^R5 | skip | weak | 33 | weak fit: score 33" "$1" && grep -q "^R6 | skip | unread | 100 | unread:" "$1" &&
+    grep -q "^R7 | skip | - | 100 | a hard gap: clearance" "$1" && grep -q "^R8 | skip | unread | - | unread:" "$1"' _ "$T/score41.out"
+if command -v node >/dev/null 2>&1; then
+    cat >"$T/score41.js" <<'EOF'
+const fs = require('fs')
+const src = fs.readFileSync(process.argv[2], 'utf8')
+const part = src.slice(src.indexOf('const SOFT = '), src.indexOf('const CHANNEL_NOTES'))
+const gradedOnly = new Function('A', part + '; return gradedOnly')({ applyFits: 'normal', longShots: 0 })
+for (const j of JSON.parse(fs.readFileSync(process.argv[3], 'utf8')).jobs) {
+  const g = gradedOnly(j)
+  console.log([j.id, g.action, g.grade || '-', g.score === undefined ? '-' : g.score, g.reason || ''].join(' | '))
+}
+EOF
+    node "$T/score41.js" "$S/../workflows/screen-and-prepare.js" "$T/score41.json" >"$T/score41-js.out" 2>&1
+    check "fit score: the workflow (JS) grades every job as choices.py does" diff --strip-trailing-cr "$T/score41.out" "$T/score41-js.out"
+else
+    echo "SKIP fit score in JS: no node"
+fi
+"$PY" -I "$S/choices.py" set LONG_SHOTS_PER_DAY=2 --env "$ENVF" >/dev/null 2>&1
+check "fit score: with LONG_SHOTS_PER_DAY above 0 a long-shot goes on" sh -c '
+    "$1" -I "$2/choices.py" grade "$3" --env "$4" | grep -q "^R4 | apply | long-shot | 50 |"' _ "$PY" "$S" "$T/score41.json" "$ENVF"
+track add L4 "Lambda Co" "Lead Java Engineer 4" "https://example.com/lambda/4" found_by=script:greenhouse:lambda >/dev/null 2>&1
+"$PY" -I - "$H/apply/targets.json" <<'PYEOF2'
+import json, sys
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+for j in data["jobs"]:
+    if j["id"] == "L4":
+        j["unread"] = "2026-11-18"
+json.dump(data, open(sys.argv[1], "w", encoding="utf-8"))
+PYEOF2
+mkdir -p "$H/apply/postings"
+echo "# Job description: Lambda Co - Lead Java Engineer 4" >"$H/apply/postings/L4.md"
+track add X41 "Omicron" "Principal Engineer" "https://old.example.com/x41" >/dev/null 2>&1
+cat >"$T/mk41.py" <<'PYEOF'
+import datetime, hashlib, json, os, sys
+src = sys.argv[1]
+os.makedirs(src, exist_ok=True)
+now = datetime.datetime.now(datetime.timezone.utc)
+iso, epoch = now.strftime("%Y-%m-%dT%H:%M:%SZ"), int(now.timestamp())
+def w(name, data):
+    with open(os.path.join(src, name), "w", encoding="utf-8") as fh:
+        fh.write(data if isinstance(data, str) else json.dumps(data))
+pid = lambda url: "P" + hashlib.sha1(url.encode("utf-8")).hexdigest()[:8]  # noqa: E731
+uuid = "11111111-2222-3333-4444-555555555555"
+rr = lambda i, title, company, url, **more: dict(id=i, roleTitle=title, company={"name": company}, url=url,  # noqa: E731
+                                                 locationType="remote", created_at=iso, **more)
+jobs = [rr(1, "Staff Java Engineer", "Acme", f"https://jobs.ashbyhq.com/acmeco/{uuid}"),
+        rr(2, "Principal Engineer", "Kappa", "https://boards.greenhouse.io/kappa/jobs/777"),
+        rr(3, "Lead Java Engineer", "Lambda Two", "https://jobs.example.com/l3"),
+        rr(4, "Junior Java Engineer", "Junio", "https://jobs.example.com/j4", isEntryLevel=True),
+        rr(5, "Principal Engineer", "Omicron", "https://new.example.com/o")]
+w("remoterocketship-italy.json", '<html><script id="__NEXT_DATA__" type="application/json">'
+  + json.dumps({"props": {"pageProps": {"initialJobOpenings": jobs}}}) + "</script></html>")
+w("ashby-acmeco.json", {"jobs": [{"id": uuid, "location": "Germany", "isRemote": True,
+                                  "secondaryLocations": [{"location": "Italy"}], "descriptionPlain": "Build things."}]})
+w("greenhouse-job-777.json", {"location": {"name": "Poland"}, "content": "Office in Warsaw."})
+w(f"page-{pid('https://jobs.example.com/l3')}.html", "<p>Candidates must be based in the United States.</p>")
+w("workable-search-feed.json", {"jobs": [
+    {"title": "Team Lead, Customer Success", "workplace": "remote", "locations": ["Italy"], "company": {"title": "Xi"},
+     "created": iso, "url": "https://apply.workable.com/xi/j/A1"},
+    {"title": "Team Lead Software Engineer", "workplace": "remote", "locations": ["Germany"], "company": {"title": "Mu"},
+     "description": "Work from anywhere in Europe.", "created": iso, "url": "https://apply.workable.com/mu/j/B2"},
+    {"title": "Team Lead Platform Engineer", "workplace": "hybrid", "locations": ["Italy"], "company": {"title": "Pi"},
+     "created": iso, "url": "https://apply.workable.com/pi/j/C3"},
+    {"title": "Team Lead Java Engineer", "workplace": "remote", "locations": ["Spain"], "company": {"title": "Rho"},
+     "created": iso, "url": "https://apply.workable.com/rho/j/D4"}]})
+w("himalayas-search-Italy.json", {"jobs": [{"title": "Staff Java Engineer", "companyName": "Nu",
+    "locationRestrictions": ["Italy", "Spain"], "pubDate": epoch, "applicationLink": "https://himalayas.app/companies/nu/jobs/x"}]})
+w("jobicy-feed.status", "429 429 200")
+w("jobicy-feed.json", {"jobs": []})
+PYEOF
+"$PY" -I "$T/mk41.py" "$T/s41-src"
+searches add "Remote Rocketship Italy" "java engineer, principal engineer" source=remoterocketship board=italy >/dev/null 2>&1
+searches add "Workable search" "team lead" source=workable-search >/dev/null 2>&1
+searches add "Himalayas Italy" "java engineer" source=himalayas-search board=Italy >/dev/null 2>&1
+for n in 1 2 3; do searches add "Jobicy $n" "java engineer" source=jobicy >/dev/null 2>&1; done
+"$PY" -I "$S/collect_postings.py" --from "$T/s41-src" --out "$T/s41-search.json" --add --env "$ENVF" >"$T/s41.out" 2>&1
+check "Remote Rocketship: postings from __NEXT_DATA__, entry-level left out; the posting's own page decides its location" sh -c '
+    grep -q "^Acme | Staff Java Engineer | Remote, Italy |" "$1" && ! grep -q "Junio" "$1" &&
+    grep -q "| Kappa | Principal Engineer | location on its own page: Poland$" "$1" &&
+    grep -q "| Lambda Two | Lead Java Engineer | hires only in United States$" "$1" &&
+    "$2" -I "$3/dq.py" "$4" "any(j[\"title\"] == \"Staff Java Engineer\" for c in R[\"companies\"] if c[\"name\"] == \"Acme\" for j in c[\"jobs\"])"' \
+    _ "$T/s41.out" "$PY" "$T" "$T/s41-search.json"
+check "collect: a posting whose employer and title are in the tracker under another link is left out" \
+    grep -q "| Omicron | Principal Engineer | the same job as X41 (already in the tracker)$" "$T/s41.out"
+check "Workable search: remote only, with a place or region of the person; a team lead needs an engineering word" sh -c '
+    grep -q "a team lead without an engineering word" "$1" && grep -q "^Mu | Team Lead Software Engineer |" "$1" &&
+    ! grep -q "^Rho |" "$1" && ! grep -q "^Pi |" "$1"' _ "$T/s41.out"
+check "Himalayas search: discovery only, the apply link left for the employer's own page" \
+    "$PY" -I "$T/dq.py" "$T/s41-search.json" "[(j[\"apply_url\"], bool(j.get(\"apply_note\"))) for c in R[\"companies\"] if c[\"name\"] == \"Nu\" for j in c[\"jobs\"]] == [(\"\", True)]"
+check "feeds: 2 refusals in a row stop a source for the run; its rows stay due" \
+    grep -q "jobicy stopped this run (2 refusals in a row); it stays due" "$T/s41.out"
+check "an unread job goes to the next fit check with its saved text" \
+    "$PY" -I "$T/dq.py" "$T/s41-search.json" "[j.get(\"text_file\", \"\").endswith(\"postings/L4.md\") for c in R[\"companies\"] for j in c[\"jobs\"] if j[\"id\"] == \"L4\"] == [True]"
+check "searches: boards and Workable search weekly by default; every sets a source's rows" sh -c '
+    "$1" -I "$2/dq.py" "$3" "[r[\"every_days\"] for r in (R[\"searches\"] if isinstance(R, dict) else R) if r.get(\"source\") == \"workable-search\"] == [7]" &&
+    "$4" -I "$5/searches.py" every jobicy 3 --env "$6" | grep -q "^[0-9]* searches read every 3 days$"' \
+    _ "$PY" "$T" "$H/apply/searches.json" "$PY" "$S" "$ENVF"
+H38=$H
+mkhome "$T/h41" old
+use "$T/h41"
+"$PY" -I - "$H/apply/targets.json" <<'PYEOF2'
+import json, sys
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+data["companies"].append({"name": "Lambda Co", "verdict": "allow", "jobs": [
+    {"id": f"L{n}", "title": f"Lead Java Engineer {n}", "url": f"https://example.com/lambda/{n}", "status": "found",
+     "outcome": ""} for n in range(1, 6)]})
+json.dump(data, open(sys.argv[1], "w", encoding="utf-8"))
+PYEOF2
+"$PY" -I "$S/choices.py" set LONG_SHOTS_PER_DAY=2 --env "$ENVF" >/dev/null 2>&1
+LS='"requirements": [{"text": "Scope", "place": "title", "level": "adjacent"}, {"text": "Kafka", "place": "must", "level": "hands_on"}, {"text": "Rust", "place": "nice", "level": "absent"}, {"text": "Go", "place": "nice", "level": "absent"}]'
+cat >"$T/journal41.jsonl" <<EOF
+{"type": "started", "agentId": "l1", "label": "prep-jobs:Lambda Co"}
+{"type": "result", "agentId": "l1", "result": {"jobs": [{"id": "L1", "action": "apply", "gaps": [], "read": "full", "title": "Lead Java Engineer 1", $LS}, {"id": "L2", "action": "apply", "gaps": [], "read": "full", "title": "Lead Java Engineer 2", $LS}, {"id": "L3", "action": "apply", "gaps": [], "read": "full", "title": "Lead Java Engineer 3", $LS}, {"id": "L4", "action": "skip", "grade": "unread", "reason": "unread", "gaps": [], "read": "summary", "title": "Lead Java Engineer 4", $LS}, {"id": "L5", "action": "apply", "gaps": [], "read": "full", "title": "Lead Java Engineer 5", "requirements": [{"text": "Payments", "place": "title", "level": "absent"}]}]}}
+EOF
+track sync "$T/journal41.jsonl" >"$T/sync41.out" 2>&1
+check "long-shots: at most LONG_SHOTS_PER_DAY in the queue, the rest wait; a weak fit is skipped; an unread job stays found" sh -c '
+    [ "$(grep -c "^L[123] | Lambda Co" "$1")" -eq 2 ] && grep -q "^long-shots waiting for a later day (LONG_SHOTS_PER_DAY): 1$" "$1" &&
+    ! grep -q "^L[45] | Lambda Co" "$1" &&
+    "$2" -I "$3/dq.py" "$4" "next(j for c in R[\"companies\"] for j in c[\"jobs\"] if j[\"id\"] == \"L4\")[\"status\"] == \"found\"" &&
+    "$2" -I "$3/dq.py" "$4" "next(j for c in R[\"companies\"] for j in c[\"jobs\"] if j[\"id\"] == \"L4\").get(\"unread\")" &&
+    "$2" -I "$3/dq.py" "$4" "next(j for c in R[\"companies\"] for j in c[\"jobs\"] if j[\"id\"] == \"L5\")[\"status\"] == \"skipped\""' \
+    _ "$T/sync41.out" "$PY" "$T" "$H/apply/targets.json"
+track set L1 submitted "sent in the test" >/dev/null 2>&1
+"$PY" -I "$S/feedback.py" add J1 rejection not_fit="payments domain" --env "$ENVF" >"$T/fb1.out" 2>&1
+"$PY" -I "$S/feedback.py" silent --days 0 --add --env "$ENVF" >"$T/fb2.out" 2>&1
+"$PY" -I "$S/feedback.py" clues --env "$ENVF" >"$T/fb3.out" 2>&1
+check "feedback: a reply line per job, silence after the days given, clues by role type and variant" sh -c '
+    grep -q "^feedback J1: rejection (senior-ic" "$1" && grep -q "^L1 | Lambda Co | Lead Java Engineer 1 |" "$2" &&
+    grep -q "^- senior-ic: 0 / 1 / 0$" "$3" && grep -q "^- team-tech-lead: 0 / 0 / 1$" "$3" &&
+    grep -q "payments domain$" "$3"' _ "$T/fb1.out" "$T/fb2.out" "$H/apply/fit-clues.md"
+cat >>"$H/apply/reply-feedback.jsonl" <<'EOF'
+{"date": "2026-11-10", "job": "F1", "outcome": "rejection", "score": 66, "grade": "normal"}
+{"date": "2026-11-10", "job": "F2", "outcome": "rejection", "score": 67, "grade": "normal"}
+{"date": "2026-11-10", "job": "F3", "outcome": "silence", "score": 68, "grade": "normal"}
+{"date": "2026-11-10", "job": "F4", "outcome": "rejection", "score": 65, "grade": "normal"}
+{"date": "2026-11-10", "job": "F5", "outcome": "rejection", "score": 69, "grade": "normal"}
+EOF
+check "feedback analyse: replies by score band; a normal band with 5 replies and no invitation proposes a higher normal" sh -c '
+    "$1" -I "$2/feedback.py" analyse --env "$3" | grep -q "^proposal: raise normal from 65 to 70: 5 replies at 65-69, no invitation$"' \
+    _ "$PY" "$S" "$ENVF"
+use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

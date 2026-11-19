@@ -6,6 +6,51 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.41.0] - 2026-11-19
+
+The fit check as a weighted score, new search sources and a location check before the funnel, employer replies as
+fit clues, and a scheduled run that takes over (19 Nov search, 163-reply analysis, 18-19 Nov lessons).
+
+### Added
+
+- Fit score: the fitter returns each requirement in the posting's words with its place (title 4, must-have with
+  years 3, must-have 2, nice-to-have 1) and its match (years held / asked, capped at 1; else hands-on 1, adjacent
+  0.5, absent 0); code computes the score, the same in the workflow and `choices.py grade`. Example: 72 -> normal.
+- Grades: 80+ high, 65-79 normal, 50-64 long-shot, under 50 weak (a skip, listed). A posting not read in full is
+  `unread`: it stays found, and the next run's fit check reads its text saved by `fetch_jd.py --posting`.
+- `LONG_SHOTS_PER_DAY` (default 0): long-shots sent a day after high and normal; `track.py` holds the rest.
+- `FIT_SETTINGS` (`apply/fit-settings.json`, `templates/fit-settings-example.json`): weights, grade bands and
+  channel notes per place, which go into the reason line and never change the grade. `choices.py fit` shows them.
+- The fitter rates scope, never skips for it: one team's EM is the person's own level; senior or group EM,
+  managers of managers, staff or principal, head or director are adjacent (0.5). A domain requirement names the
+  record's closest fact or "none". Requirements, score and grade stay with every job, skips too.
+- Sources: `remoterocketship` (board=<country>, a term is a title slug, `tech=`; read daily), `himalayas-search`
+  (board=<country>; discovery only: `apply_url` empty with an `apply_note`, the fitter finds the employer's page;
+  the `himalayas` feed too), `workable-search` (remote, with a place or region of the person's).
+- A location check before the funnel (`LOCATION_CHECKS`, default 60 a run): Ashby and Greenhouse locations, the
+  page text ("Remote - Poland", "must be based in", US hours); outside the person's places: left out, no tokens.
+- `feedback.py`: a line per employer reply (`FEEDBACK_LOG`), silence after 14 days, clues for the fit check
+  (`FIT_CLUES`, passed as `fitClues`), and an analysis by score band with proposed grade bands; scripts only.
+- `searches.py every <id|source> <days>`.
+
+### Changed
+
+- Two soft gaps (a job from before 0.41.0) is grade `weak`, a skip with that grade; a normal fit cut by
+  `APPLY_FITS=high` keeps grade `normal`. The grade output has a score column.
+- Feeds wait 3 s between calls; 2 refusals (429) in a row stop a source for the run, its rows stay due.
+- Boards and `workable-search` rows are read every 7 days by default; older rows keep theirs
+  (`searches.py every greenhouse 7`).
+- A posting already in the tracker under another link (the same employer and title) is left out. A "team lead"
+  title needs an engineering word.
+- No LinkedIn sweeps and no board discovery by guessed names (search skill).
+- The coordinator never runs a search, workflow or analysis itself: a piece the app will not start is a card or a
+  question. Exceptions: a scheduled run's own session does its pieces as subagents; one form whose sign-in would
+  expire runs as a subagent.
+- A scheduled run that finds a coordinator active takes over: it asks for its handoff and runs as the day's
+  coordinator (16-18 Nov the run stood aside and never ran).
+- Each employer reply read from Gmail gets its feedback line (prepare); the search runs `feedback.py silent --add`,
+  `clues` and `analyse` weekly.
+
 ## [0.40.0] - 2026-11-19
 
 The cost per Claude plan, from the token study of 5-18 Nov (554M W in 14 days; one coordinator session 51%, cache

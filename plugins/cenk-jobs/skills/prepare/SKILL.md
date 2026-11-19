@@ -22,6 +22,8 @@ also `questions.py add job "Which slot for Acme?" job=J7 options="tue:Tuesday 10
    two into the step's `link` and `mail` in `PIPELINE`. A step due within 24 hours: one notification at once
    (RULES.md, "Urgent steps"). Rejections, closed posts and declines into `PIPELINE` as
    their outcome.
+   Each employer reply also gets its feedback line: `feedback.py add <id> invitation|rejection
+   not_fit="<what did not fit, from the reply and the posting>"`. Example: `not_fit="payments domain; Kotlin"`.
 4. Each message whose action is done gets the label `GMAIL_DONE_LABEL` (RULES.md, "Mail"). A reply waiting as a
    draft gets it on the run that finds the person's sent reply.
 

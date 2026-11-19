@@ -151,6 +151,9 @@ def main():
         "models": json.loads(run(env, "variants.py", "models") or "{}"),
         "draftAnswers": draft_answers(env), **choices.workflow_args(env), "companies": passed,
     }
+    clues = env.path("FIT_CLUES") if env.get("FIT_CLUES") else os.path.join(env.home, "apply", "fit-clues.md")
+    if os.path.isfile(clues):
+        result["fitClues"] = slash(clues)  # feedback.py clues: earlier replies, read by the fit check
     path = os.path.join(out_dir, "args.json")
     with open(path, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(result, fh, ensure_ascii=False, separators=(",", ":"))

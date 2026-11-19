@@ -62,11 +62,10 @@ archived. A scheduled run reaches the older one's sub-sessions by message and re
 - Fact answers (residence, citizenship, work permit, notice period) come only from the records: a prepared answer
   is changed only by the records or the person, never from memory. Example: the record says resident in Spain and
   Italy, so "resident in Spain: Yes" stays.
-- At each turn on a search day: `usage.py run-due`. "due" (example: the scheduled session stood aside while this one
-  was active): this coordinator starts a fresh session for today's run at once ("Run /cenk-jobs:coordinate for
-  today's run."), never runs it itself: a run inside a long coordinator cost 1.4M tokens on 16 Nov. A turn the app
-  will not let start a session (one a message or a trigger started) proposes it as a card and names it in Do now. A
-  message from the scheduled session saying the run is due is checked the same way.
+- At each turn on a search day: `usage.py run-due`. "due" (example: the scheduled run did not start): this
+  coordinator starts a fresh session for today's run at once ("Run /cenk-jobs:coordinate for today's run."), never
+  runs it itself: a run inside a long coordinator cost 1.4M tokens on 16 Nov. A turn the app will not let start a
+  session (one a message or a trigger started) proposes it as a card and names it in Do now.
 - A finished search's questions go to the person at once, in one ordered list (the order of "Answer first"), even
   while another task is open; they never wait for that task to end.
 - Runs in the main folder and is titled **Job search coordinator**: only the person's own main session, started in
@@ -76,8 +75,10 @@ archived. A scheduled run reaches the older one's sub-sessions by message and re
 - Before it writes any record: `sessions.py lock <its own local_... id>`; again before each later step that writes
   (it refreshes the beat); `sessions.py unlock <id>` at the end. Refused (another coordinator's beat within 30
   minutes): it writes nothing, asks that coordinator to write its handoff and stop (as in the handoff check), and
-  takes the lock once it is free. A scheduled run refused this way sends the holder one message instead: "Today's
-  scheduled run is due: usage.py run-due", and ends. Example: a test coordinator started while the person's own one runs waits for its handoff.
+  takes the lock once it is free. A scheduled run refused this way takes over: it sends the holder one message ("Today's
+  scheduled run takes over: write your handoff, unlock, reply 'handoff written' to <its id>, then stop."), ends
+  its turn, and on the reply takes the lock and runs as the day's coordinator. Seen: 16-18 Nov the run stood aside
+  and never ran. The holder that gets this message does just that, never a card. Example: a test coordinator started while the person's own one runs waits for its handoff.
 - **Is the only writer of the shared records**: `TRACKER`, `PIPELINE`, `LOGINS`, `SESSIONS`, `MASTER_RECORD`,
   `QUESTIONS`, `EMPLOYER_RULES`, `EMPLOYER_CHECKS`, `USAGE_LOG`, the application folders (through
   `build_app_folders.py`), the calendar category, the dashboard and the Questions page. Sub-sessions report; the coordinator records. Why: the files sync through Google Drive, and two
@@ -156,8 +157,11 @@ One sub-session per piece (`start_session`): fresh context, the same main folder
 rules) names the jobs by company, role and id, the CV and letter files, the answers from `MASTER_RECORD` it needs,
 `../../RULES.md` and the skill it runs, the script path (`<plugin>/scripts`), and the handoff below.
 
-A piece the app will not start is a card (shared rules). When a sign-in would expire before then, run the piece as a subagent inside
-the coordinator session, with the same brief and report: it submits by `ASK_FIRST` (with `send` it stops at the
+A piece the app will not start is a card or a question to the person (shared rules): the coordinator never
+runs a search, a workflow or an analysis in its own context. Seen 18 Nov: search, a 39-agent workflow and an
+analysis ran inside the coordinator. Two exceptions. A scheduled run's own fresh session does its pieces as
+subagents (a trigger's turn may not start sessions; `/cenk-jobs:schedule`). One form whose sign-in would expire
+before the card is taken runs as a subagent inside the coordinator session, with the same brief and report: it submits by `ASK_FIRST` (with `send` it stops at the
 review page and the go-ahead is forwarded to it by message).
 
 | Piece | What the sub-session does | Example name |

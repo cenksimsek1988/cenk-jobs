@@ -132,9 +132,11 @@ your Pro week: not known yet."
 3. Applying: fill and send where the records answer everything (about 210k to 280k W an application), or only a
    list of fitting jobs with links, sent by the person (the fit check alone, about 60k W an employer).
    `APPLY=auto|list`, default auto.
-4. Which fits: good fits (no gap, or one soft gap: a must-have missing, pay up to 10% under, seniority one step
-   off), or only high fits (no gap). Each application less saves about 280k W. `APPLY_FITS=normal|high`, default
-   normal. A weaker fit is never applied to.
+4. Which fits: the fit score weighs each requirement by its place in the posting (title skill 4, must-have with
+   years 3, must-have 2, nice-to-have 1) against the record: 80+ high, 65-79 normal, 50-64 long-shot, under 50
+   weak. Send high and normal, or only high. Each application less saves about 280k W. `APPLY_FITS=normal|high`,
+   default normal. Long-shots a day on top: `LONG_SHOTS_PER_DAY`, default 0 (none; about 180k-1.1M W each). A weak
+   fit is listed, never sent. Weights and bands: `FIT_SETTINGS` (`templates/fit-settings-example.json`).
 5. Cover letters: where the form has or may have a field, always, or never; about 68k W a letter with its review.
    `LETTERS=asked|always|never`, default asked.
 6. What waits for the person (only with `APPLY=auto`), one answer per step: sending an application (`send`); a

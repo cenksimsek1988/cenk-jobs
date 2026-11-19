@@ -58,7 +58,7 @@ never take a screenshot.
 - If the permission check refuses a submit click, stop and ask; never work around it.
 - After each submission: `track.py set <id> submitted "<what was sent>" cv=<path> letter=<path>`; a form without a
   letter field: `letter=none`, so its folder lists no prepared letter. Then `fetch_jd.py
-  <id>` while the posting is live, `build_app_folders.py`, and the dashboard refresh.
+  <id>` for every job sent, while the posting is live (the next reply analysis reads it), `build_app_folders.py`, and the dashboard refresh.
 
 ## Report
 
