@@ -2639,6 +2639,22 @@ check "export 0.42: a run with no end for hours reads no end recorded; --check s
     "$1" -I "$2/dq.py" "$3/index.json" "\"no end recorded\" in K[\"meta:run\"][\"label\"] and K[\"meta:calendar_color\"][\"label\"] == \"3\"" &&
     head -n 1 "$4" | grep -q "^check: the page is behind the records: index.json"' _ "$PY" "$T" "$T/d42" "$T/d42c.out"
 check "export 0.42: a to-do with a due date is a task on a deadline" dq "$T/d42/actions.json" 'K["K13:1"]["kind"] == "task"'
+# 0.42.1: the export time alone is no change: an upload recorded with another export time, then --check and a new
+# export find nothing behind.
+"$PY" -I - "$T/d42/index.json" <<'PYEOF'
+import json
+import sys
+rows = json.load(open(sys.argv[1], encoding="utf-8"))
+for r in rows:
+    if r.get("key") == "meta:generated":
+        r["label"] = "2000-01-01 00:00"
+json.dump(rows, open(sys.argv[1], "w", encoding="utf-8", newline="\n"), ensure_ascii=False, indent=1)
+PYEOF
+"$PY" -I "$S/export_dashboard.py" --uploaded "$T/d42" all --env "$ENVF" >/dev/null 2>&1 || echo "setup failed: --uploaded" >&2
+"$PY" -I "$S/export_dashboard.py" --check --env "$ENVF" >"$T/d42c2.out" 2>&1 || echo "setup failed: --check" >&2
+"$PY" -I "$S/export_dashboard.py" "$T/d42b" --env "$ENVF" >"$T/d42b.out" 2>&1 || echo "setup failed: export" >&2
+check "export 0.42.1: after --uploaded all, another export time is not behind and nothing is to upload" sh -c '
+    ! grep -q "page is behind" "$1" && grep -q "^upload: none$" "$2" && grep -q "^unchanged: index.json" "$2"' _ "$T/d42c2.out" "$T/d42b.out"
 cat >"$T/run42.py" <<'PYEOF'
 import json
 import sys

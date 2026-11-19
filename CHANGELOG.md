@@ -6,6 +6,14 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.42.1] - 2026-11-19
+
+### Fixed
+
+- `export_dashboard.py --check` no longer says the page is behind on every run: the export time (`meta:generated`)
+  is left out of the recorded digest, so `upload:` names index.json only when its other rows change. An upload
+  recorded by 0.42.0 or earlier lists index.json once more, until the next `--uploaded`.
+
 ## [0.42.0] - 2026-11-19
 
 The dashboard review: the empty tabs fixed, states worked out for today, one row per site, the check lines the

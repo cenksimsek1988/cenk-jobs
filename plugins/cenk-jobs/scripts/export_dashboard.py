@@ -26,7 +26,8 @@ Acme, which ended (rejected 2026-11-16) -> after the person's yes, delete the ev
 --page <file> (with either form): the dashboard store's files/index.html as saved (ArtifactData list with out_dir);
 a first check line when it is not the plugin's templates/dashboard/index.html.
 After the files it prints "upload:" (the files that differ from the ones on the page) and "unchanged:" (no new
-upload needed), against the record --uploaded keeps beside the tracker (dashboard-uploads.json).
+upload needed), against the record --uploaded keeps beside the tracker (dashboard-uploads.json). The export time
+alone (meta:generated) is no change: index.json is listed for upload only when its other rows differ.
 Writes, in <out dir>:
   index.json         the root: one row per headline count (stages, actions by kind, logins needing action) and the
                      export time. The page's tiles read only this, so it opens fast.
@@ -1018,9 +1019,18 @@ def uploads_path(env):
     return os.path.join(os.path.dirname(env.path("TRACKER")), "dashboard-uploads.json")
 
 
-def digest(path):
-    with open(path, "rb") as fh:
-        return hashlib.sha256(fh.read()).hexdigest()
+def digest(name, rows):
+    """The sha256 of a file's rows as the page has them, without the export time (meta:generated): the same records
+    give the same digest at any minute. Example: two exports a minute apart with no new record have one digest for
+    index.json."""
+    if name == "index.json":
+        rows = [r for r in rows if not (isinstance(r, dict) and r.get("key") == "meta:generated")]
+    return hashlib.sha256(json.dumps(rows, ensure_ascii=False, indent=1).encode("utf-8")).hexdigest()
+
+
+def digest_file(path):
+    with open(path, encoding="utf-8") as fh:
+        return digest(os.path.basename(path), json.load(fh))
 
 
 def main():
@@ -1075,7 +1085,10 @@ def main():
             except (OSError, ValueError, AttributeError, TypeError) as e:
                 sys.exit(f"{uploads_path(env)} is not readable ({e}): delete it, then run --uploaded <out dir> all "
                          "after uploading every file")
-        have.update({name: digest(os.path.join(rest[0], name)) for name in names})
+        try:
+            have.update({name: digest_file(os.path.join(rest[0], name)) for name in names})
+        except (OSError, ValueError) as e:
+            sys.exit(f"an exported file is not readable ({e}): export again, then --uploaded. Nothing recorded.")
         have = {name: have[name] for name in FILES if name in have}
         with open(uploads_path(env), "w", encoding="utf-8", newline="\n") as fh:
             json.dump({"at": now.replace(microsecond=0).isoformat(), "files": have}, fh, indent=1)
@@ -1091,9 +1104,7 @@ def main():
         # The records against what is on the page, without writing: each file as the export would write it.
         with open(uploads_path(env), encoding="utf-8") as fh:
             on_page = json.load(fh).get("files", {})
-        behind = [name for name, rows in files
-                  if hashlib.sha256(json.dumps(rows, ensure_ascii=False, indent=1).encode("utf-8")).hexdigest()
-                  != on_page.get(name)]
+        behind = [name for name, rows in files if digest(name, rows) != on_page.get(name)]
         if behind:
             checks.insert(0, f"the page is behind the records: {' '.join(behind)} -> export, upload them, then "
                              "--uploaded")
@@ -1109,7 +1120,7 @@ def main():
         if os.path.isfile(uploads_path(env)):
             with open(uploads_path(env), encoding="utf-8") as fh:
                 on_page = json.load(fh).get("files", {})
-        changed = [name for name in FILES if digest(os.path.join(out_dir, name)) != on_page.get(name)]
+        changed = [name for name in FILES if digest_file(os.path.join(out_dir, name)) != on_page.get(name)]
         print("upload:", " ".join(changed) or "none")
         print("unchanged:", " ".join(name for name in FILES if name not in changed) or "none")
     for line in checks:
