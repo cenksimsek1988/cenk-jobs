@@ -40,6 +40,19 @@ Before a call, `/cenk-jobs:cheat-sheet` shows `keywords.md` as one page beside t
 When the study starts, read `prep.md` again against the posting and the records as they are now, and correct it
 first: a prep written days before goes stale. Example: a prep of 9 Nov names a CV version replaced on 12 Nov.
 
+## Study notes
+
+`INTERVIEW_LESSONS_DIR` (default `career-records/interview-lessons`) holds `technical.md` (technical questions and
+concepts), `screening.md` (recruiter and HR questions: motivation, pay, notice, gaps) and `roadmap.md` (what to
+study next, in order). Lines are facts with date and step. Example: `- 2026-11-19 Acme technical: Kafka consumer
+groups, answered weakly -> study rebalancing`.
+- A study session and an after-a-step session read the three files first; a weak point seen before is taught
+  first. A missing file is empty.
+- Their handoff ends with `Weak answers:`, one line per weak answer, with its file. Example: `- technical.md:
+  2026-11-19 Acme technical: Kafka consumer groups, answered weakly -> study rebalancing`.
+- The coordinator writes the lines in. The notes are for study only (RULES.md, "Honesty and what Claude never
+  does").
+
 ## Studying with the person
 
 0. **The time first**: check the step's date and time against now, and name the next step and when, so two steps
@@ -55,4 +68,5 @@ first: a prep written days before goes stale. Example: a prep of 9 Nov names a C
 
 ## After a step
 
-The person's account of it goes into the step's `feedback.md`, as fact lines. Log it: `usage.py log prep ok`.
+Read the study notes first ("Study notes"). The person's account of it goes into the step's `feedback.md`, as fact
+lines; each question they answered weakly is a `Weak answers:` line of the handoff. Log it: `usage.py log prep ok`.

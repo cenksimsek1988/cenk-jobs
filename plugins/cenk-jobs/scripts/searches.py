@@ -44,9 +44,14 @@ python -I searches.py sites [--add]                                             
 python -I searches.py fail <id> <code>                                           a script search's board answered with
                                                                                  an error; two 404s in a row make it
                                                                                  "gone": no longer due, listed with it
-python -I searches.py every <id|source> <days>                                   how often a row (or every row of a
+python -I searches.py every <id|source> <days|off>                               how often a row (or every row of a
                                                                                  source) is read; example: every
-                                                                                 greenhouse 7
+                                                                                 greenhouse 7; off: never due again
+                                                                                 (a number turns it back on)
+python -I searches.py discover --file <links file>                               board discovery: one link per line
+                                                                                 (web search results); prints each
+                                                                                 board a script reads that has no
+                                                                                 row yet: "new <kind> <board> <link>"
 python -I searches.py done <id> found=<n>                                        record that a search was read
 python -I searches.py seen <url> [<url> ...]                                     says "new" or "known" per link
 python -I searches.py seen --file <links file>                                   the same, one link per line in a file
@@ -81,7 +86,8 @@ if "--today" in args:
     except ValueError:
         sys.exit("--today takes a date, YYYY-MM-DD")
 ASK_AFTER = 20  # screened postings with no real fit before the person is asked about the search
-if not args or args[0] not in ("add", "list", "due", "done", "seen", "sites", "fail", "import", "rates", "every"):
+if not args or args[0] not in ("add", "list", "due", "done", "seen", "sites", "fail", "import", "rates", "every",
+                               "discover"):
     sys.exit(__doc__)
 env = jsenv.load(env_arg, __file__)
 PATH = env.path("SEARCHES") if env.get("SEARCHES") else env.path("TRACKER") + "/../searches.json"
@@ -150,8 +156,8 @@ def board_of(url):
 
 
 def is_due(row):
-    if row.get("gone"):
-        return False  # its board is not found: the coordinator fixes or removes the row
+    if row.get("gone") or row.get("off"):
+        return False  # its board is not found (the coordinator fixes or removes the row), or it was turned off
     last = row.get("last_checked")
     if not last:
         return True
@@ -276,13 +282,14 @@ elif cmd == "list":
     for r in rows:
         print(r["id"], r["site"], "|", r["query"], "| alert" if r["alert"] else f"| every {r['every_days']} days",
               "|", r.get("method", "agent"), "| last", r["last_checked"] or "never",
-              *(["| gone since", r["gone"]] if r.get("gone") else []), *(["|", r["note"]] if r.get("note") else []))
+              *(["| gone since", r["gone"]] if r.get("gone") else []), *(["| off since", r["off"]] if r.get("off") else []),
+              *(["|", r["note"]] if r.get("note") else []))
 elif cmd == "due" and "--json" in args:
     # --since <date[Thh:mm]>: a script search read since then counts as due too, so a window given by hand reaches it.
     if "--since" in args and args.index("--since") + 1 >= len(args):
         sys.exit("due --json --since <YYYY-MM-DD[THH:MM]>")
     since = args[args.index("--since") + 1] if "--since" in args else ""
-    again = lambda r: (since and r.get("method") == "script" and not r.get("gone")  # noqa: E731
+    again = lambda r: (since and r.get("method") == "script" and not r.get("gone") and not r.get("off")  # noqa: E731
                        and (r.get("last_checked") or "") >= since)
     print(json.dumps([r for r in rows if is_due(r) or again(r)], ensure_ascii=False))
 elif cmd == "due":
@@ -292,16 +299,44 @@ elif cmd == "due":
         how = f"gmail: {r['gmail']}" if r["alert"] else f"script: {r['source']}" if r.get("method") == "script" else "no alert"
         print(r["id"], r["site"], "|", r["query"], "|", how, "| last", r["last_checked"] or "never")
 elif cmd == "every":
-    # every <id|source> <days>: how often a row is read; by source, every row of it (example: every greenhouse 7).
-    if len(args) != 3 or not args[2].isdigit() or int(args[2]) < 1:
-        sys.exit("every takes <search id or source> <days>")
+    # every <id|source> <days|off>: how often a row is read; by source, every row of it (example: every greenhouse 7).
+    # off: never due again, kept for its history; a number turns it back on.
+    if len(args) != 3 or not (args[2] == "off" or args[2].isdigit() and int(args[2]) >= 1):
+        sys.exit("every takes <search id or source> <days|off>")
     hit = [r for r in rows if str(r["id"]) == args[1] or r.get("source") == args[1]]
     if not hit:
         sys.exit(f"no search with id or source {args[1]!r}; see searches.py list")
     for r in hit:
-        r["every_days"] = int(args[2])
+        if args[2] == "off":
+            r["off"] = today.isoformat()
+        else:
+            r["every_days"] = int(args[2])
+            r.pop("off", None)
     save(data)
-    print(f"{len(hit)} searches read every {args[2]} days")
+    print(f"{len(hit)} searches off" if args[2] == "off" else f"{len(hit)} searches read every {args[2]} days")
+elif cmd == "discover":
+    # Board discovery: links from web searches, one per line in a file (never typed into a command). A board the
+    # script reads that has no row (gone or off rows included) is printed once; any other link is left out.
+    if len(args) != 3 or args[1] != "--file":
+        sys.exit("discover --file <links file>")
+    try:
+        with open(args[2], encoding="utf-8") as f:
+            links = [line.strip() for line in f if line.strip()]
+    except OSError as e:
+        sys.exit(f"discover: cannot read {args[2]}: {e}")
+    have = {(r.get("source"), (r.get("board") or "").lower()) for r in rows}
+    new = saved = other = 0
+    for url in links:
+        hit = board_of(url)
+        if not hit:
+            other += 1
+        elif (hit[0], hit[1].lower()) in have:
+            saved += 1
+        else:
+            have.add((hit[0], hit[1].lower()))
+            new += 1
+            print("new", hit[0], hit[1], url)
+    print(f"new boards: {new}; links to saved boards: {saved}; links not on a board: {other}")
 elif cmd == "done":
     row = next((r for r in rows if str(r["id"]) == args[1]), None) if len(args) > 1 else None
     if not row:

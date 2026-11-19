@@ -12,6 +12,7 @@ Creates in the main folder:
   job-applications/{pending,approved,rejected,not-applied}/   one folder per application
   apply/targets.json, apply/pipeline.json, apply/letters/, apply/bodies/   tracker, hiring stages, cover letters
   career-records/employer-rules.json, apply/employer-checks.json   employer rules (defaults) and the person's checks
+  career-records/interview-lessons/{technical,screening,roadmap}.md   interview study notes, empty (study only)
 The scripts stay in the plugin; the main folder holds only the person's own files.
 """
 import json
@@ -25,7 +26,8 @@ home = os.path.abspath(sys.argv[1])
 name = " ".join(sys.argv[2:])
 made = []
 
-for d in ("documents-inbox", "career-records", os.path.join("career-records", "previous-documents"),
+LESSONS = os.path.join("career-records", "interview-lessons")  # INTERVIEW_LESSONS_DIR's default
+for d in ("documents-inbox", "career-records", os.path.join("career-records", "previous-documents"), LESSONS,
           os.path.join("CVs", "versions"), "certificates", "diplomas", "portfolio",
           os.path.join("apply", "letters"), os.path.join("apply", "bodies"),
           *(os.path.join("job-applications", s) for s in ("pending", "approved", "rejected", "closed", "declined", "not-applied"))):
@@ -80,6 +82,12 @@ for path, content in FILES.items():
     if not os.path.exists(path):
         with open(path, "w", encoding="utf-8") as f:
             json.dump(content, f, ensure_ascii=False, indent=2)
+        made.append(path)
+# Empty: a prep session reads them first, so a missing file would fail on the first interview.
+for name_md in ("technical.md", "screening.md", "roadmap.md"):
+    path = os.path.join(home, LESSONS, name_md)
+    if not os.path.exists(path):
+        open(path, "w", encoding="utf-8").close()
         made.append(path)
 
 env_path = os.path.join(home, "job-search.env")

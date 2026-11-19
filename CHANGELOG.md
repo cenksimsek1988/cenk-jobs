@@ -6,6 +6,29 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.43.0] - 2026-11-19
+
+Interview study notes, weekly board discovery, and a coordinator that stays free for messages.
+
+### Added
+
+- Interview study notes: `INTERVIEW_LESSONS_DIR` (default `career-records/interview-lessons`) with `technical.md`,
+  `screening.md` and `roadmap.md`. Study and after-a-step sessions read them first and end their handoff with
+  `Weak answers:` lines; the coordinator writes them in. Never read for the master record, CVs, letters, forms or
+  essays, never in an agent's brief (RULES.md). `init_career_folder.py` creates the three files empty; an older
+  folder gets them at the coordinator's first write.
+- Weekly board discovery (search, step 8): 8 web searches (Greenhouse, Ashby, Lever, Workable x the remote regions
+  and the person's places); `searches.py discover --file <links>` prints each board not saved yet; after the free
+  employer checks, each one not excluded becomes a weekly script row. Cost: about 50-100k W a week, 1-2% of a run.
+- `searches.py every <id|source> off`: a row never due again, listed as off; a number turns it back on.
+
+### Changed
+
+- The coordinator sends every long piece to a fresh session (searches, workflows, analyses, page-check and
+  publish-and-verify rounds, requests from other sessions) and only records and answers: a busy session loses a
+  message it does not answer within 20 s (19 Nov: 8 lost in about 1 h of dashboard rounds). The exception for one
+  form whose sign-in would expire is gone; a scheduled run still does its pieces as subagents.
+
 ## [0.42.1] - 2026-11-19
 
 ### Fixed

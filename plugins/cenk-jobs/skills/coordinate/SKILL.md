@@ -82,7 +82,7 @@ archived. A scheduled run reaches the older one's sub-sessions by message and re
   its turn, and on the reply takes the lock and runs as the day's coordinator. Seen: 16-18 Nov the run stood aside
   and never ran. The holder that gets this message does just that, never a card. Example: a test coordinator started while the person's own one runs waits for its handoff.
 - **Is the only writer of the shared records**: `TRACKER`, `PIPELINE`, `LOGINS`, `SESSIONS`, `MASTER_RECORD`,
-  `QUESTIONS`, `EMPLOYER_RULES`, `EMPLOYER_CHECKS`, `USAGE_LOG`, the application folders (through
+  `QUESTIONS`, `EMPLOYER_RULES`, `EMPLOYER_CHECKS`, `USAGE_LOG`, the study notes (`INTERVIEW_LESSONS_DIR`), the application folders (through
   `build_app_folders.py`), the calendar category, the dashboard and the Questions page. Sub-sessions report; the coordinator records. Why: the files sync through Google Drive, and two
   sessions writing one file lose each other's changes.
 - The person's profile is not a shared record: any session saves a fact about the person there at once, by
@@ -159,12 +159,14 @@ One sub-session per piece (`start_session`): fresh context, the same main folder
 rules) names the jobs by company, role and id, the CV and letter files, the answers from `MASTER_RECORD` it needs,
 `../../RULES.md` and the skill it runs, the script path (`<plugin>/scripts`), and the handoff below.
 
-A piece the app will not start is a card or a question to the person (shared rules): the coordinator never
-runs a search, a workflow or an analysis in its own context. Seen 18 Nov: search, a 39-agent workflow and an
-analysis ran inside the coordinator. Two exceptions. A scheduled run's own fresh session does its pieces as
-subagents (a trigger's turn may not start sessions; `/cenk-jobs:schedule`). One form whose sign-in would expire
-before the card is taken runs as a subagent inside the coordinator session, with the same brief and report: it submits by `ASK_FIRST` (with `send` it stops at the
-review page and the go-ahead is forwarded to it by message).
+Every long piece goes to a fresh session: searches, workflows, analyses, page-check rounds, publish-and-verify
+rounds, and requests from other sessions. The coordinator records results and answers messages: a busy session
+that does not answer within 20 s loses a message. Seen 19 Nov: three dashboard rounds in the coordinator, about
+1 h, and 8 messages from another job session lost. A piece the app will not start (a turn a message started) is
+a card or a question to the person (shared rules), never run in the coordinator's own context, a form whose
+sign-in may expire included. Seen 18 Nov: search, a 39-agent workflow and an analysis ran inside the coordinator.
+One exception: a scheduled run's own fresh session does its pieces as subagents (a trigger's turn may not start
+sessions; `/cenk-jobs:schedule`).
 
 | Piece | What the sub-session does | Example name |
 |---|---|---|
@@ -183,7 +185,7 @@ posting that closed are kept in that job's prepared answers, each with its quest
 Example: six essays approved over two days; the posting closed on the first day: the check before the second round names it.
 
 In progress: a piece in a sub-session has its jobs in the sessions record (`sessions.py set <name> jobs=<ids>`), not
-in to-dos. Work inside the coordinator (a subagent) gets a `working` to-do on each job, removed when its report is
+in to-dos. Work in a scheduled run's subagent gets a `working` to-do on each job, removed when its report is
 recorded. Example: `track.py todo J1 add working "Claude: filling the Workday form; wait"`. A to-do that belongs to
 a session names it by id (`session=<id>`), never by its title.
 
@@ -195,11 +197,14 @@ outside its own step folder or `apply/bodies` / `apply/letters` asks the coordin
 Written to `handoffs/<short name>.md` in the main folder (shared rules). One block per job, by company and role: status (`submitted`, `needs-person`, `account-needed`, `skipped`, `closed`,
 `failed`); what was sent (CV file, letter file); the fields answered on the form, by name only (their values are in the records); new facts the person stated (one fact
 line each; a fact about the person themselves is already in the profile: only its key, such as `person.phone`); hiring steps or deadlines seen (date, time, name, link); sign-ins seen; employee reviews looked up
-(employer, rating, number of reviews, complaint topics, source). Nothing else.
+(employer, rating, number of reviews, complaint topics, source); a study or after-a-step session's `Weak answers:`
+lines (/cenk-jobs:prepare, "Study notes"). Nothing else.
 
 The coordinator records it: `track.py set`, `PIPELINE`, `MASTER_RECORD`, `logins.py set` and `sync`, `employer.py
 record`, `environment` or `decide`, `usage.py log`, `build_app_folders.py`, calendar events, the `working` to-do
-removed, the session's state and title (`sessions.py set <name> state=done`), and the dashboard refresh.
+removed, the session's state and title (`sessions.py set <name> state=done`), and the dashboard refresh. Each
+`Weak answers:` line goes into its file in `INTERVIEW_LESSONS_DIR` (the folder and the three files created when
+missing), and `roadmap.md` is kept in order: what to study next first.
 
 ## Ending
 

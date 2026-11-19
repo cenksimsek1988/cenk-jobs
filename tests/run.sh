@@ -2512,6 +2512,36 @@ check "searches: boards and Workable search weekly by default; every sets a sour
     "$1" -I "$2/dq.py" "$3" "[r[\"every_days\"] for r in (R[\"searches\"] if isinstance(R, dict) else R) if r.get(\"source\") == \"workable-search\"] == [7]" &&
     "$4" -I "$5/searches.py" every jobicy 3 --env "$6" | grep -q "^[0-9]* searches read every 3 days$"' \
     _ "$PY" "$T" "$H/apply/searches.json" "$PY" "$S" "$ENVF"
+# 0.43.0: board discovery from web search links; a row turned off
+searches add "Acme" "java engineer" source=greenhouse board=acme >"$T/d43-add.out" 2>&1
+cat >"$T/d43-links.txt" <<'EOF'
+https://boards.greenhouse.io/acme/jobs/123
+https://job-boards.greenhouse.io/betaco/jobs/456
+https://jobs.ashbyhq.com/gamma.io/abc
+https://jobs.lever.co/delta/0f1e2d
+https://apply.workable.com/epsilon/j/ABC123/
+https://job-boards.greenhouse.io/BetaCo/jobs/789
+https://example.com/careers/1
+EOF
+searches discover --file "$T/d43-links.txt" >"$T/d43.out" 2>&1
+check "discover: the five link forms, a saved board and a repeat dropped, an unknown host ignored" sh -c '
+    grep -q "^new greenhouse betaco https://job-boards.greenhouse.io/betaco/jobs/456$" "$1" &&
+    grep -q "^new ashby gamma.io " "$1" && grep -q "^new lever delta " "$1" && grep -q "^new workable epsilon " "$1" &&
+    [ "$(grep -c "^new [a-z]* [^ ]* https://" "$1")" -eq 4 ] && ! grep -q "acme\|example.com" "$1" &&
+    grep -q "^new boards: 4; links to saved boards: 2; links not on a board: 1$" "$1"' _ "$T/d43.out"
+D43=$(cut -d" " -f1 "$T/d43-add.out")
+searches every "$D43" off >"$T/d43-off.out" 2>&1
+searches due >"$T/d43-due.out" 2>&1
+searches list >"$T/d43-list.out" 2>&1
+check "every off: the row is never due and listed as off; a number turns it back on" sh -c '
+    grep -q "^1 searches off$" "$1" && ! grep -q "^$4 Acme " "$2" && grep -q "^$4 Acme .*| off since " "$3" &&
+    "$5" -I "$6/searches.py" every "$4" 7 --env "$7" >/dev/null && "$5" -I "$6/searches.py" due --env "$7" | grep -q "^$4 Acme "' \
+    _ "$T/d43-off.out" "$T/d43-due.out" "$T/d43-list.out" "$D43" "$PY" "$S" "$ENVF"
+"$PY" -I "$S/init_career_folder.py" "$T/d43-home" "Jane Doe" >"$T/d43-init.out" 2>&1
+check "init: the three study-note files, empty, and INTERVIEW_LESSONS_DIR in job-search.env" sh -c '
+    for f in technical screening roadmap; do [ -f "$1/career-records/interview-lessons/$f.md" ] &&
+        [ ! -s "$1/career-records/interview-lessons/$f.md" ] || exit 1; done &&
+    grep -q "^INTERVIEW_LESSONS_DIR=career-records/interview-lessons$" "$1/job-search.env"' _ "$T/d43-home"
 H38=$H
 mkhome "$T/h41" old
 use "$T/h41"

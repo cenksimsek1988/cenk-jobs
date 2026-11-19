@@ -85,9 +85,10 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
 - The Dashboard runtime gives the page a row's list field (`apps`, `also`) as JSON text: page code reads a list with
   `window.jaIds`. The live page's faults are in its store's `data/users/me/check` and `runs` (ArtifactData, read
   only), written only while something fails.
-- A dev version is checked on the live pages by the Job search coordinator: it publishes the worktree's templates,
-  exports with the worktree's scripts and checks every tab, chip and count against its records. This session sends
-  it no values. Example: 0.42.0, 19 Nov 2026, three rounds.
+- A dev version is checked on the live pages by a sub-session the Job search coordinator starts, never by the
+  coordinator itself: it publishes the worktree's templates, exports with the worktree's scripts and checks every
+  tab, chip and count against its records. This session sends it no values. Example: 0.42.0, 19 Nov 2026, three
+  rounds.
 
 ## Release
 
