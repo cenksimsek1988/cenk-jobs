@@ -1,9 +1,10 @@
 """The plan's usage share for the run report, opt-in: Claude Code gives it only to a status line script.
 
-    statusline.py --out <file> [--then "<command>"]
+    statusline.py --out <file> [--log <file>] [--then "<command>"]
         the status line itself: reads Claude Code's JSON on stdin, writes rate_limits (5 hours, 7 days) to <file>
-        and prints "5h 23% · 7d 41%"; with --then, runs the person's own status line command on the same input and
-        prints its line instead
+        and prints "5h 23% · 7d 41%"; with --log, adds a row (at, seven_day, resets_at) to the calibration log
+        whenever the 7-day share changes (cost.py calibrate); with --then, runs the person's own status line
+        command on the same input and prints its line instead
     statusline.py install [--env <job-search.env>]
         copies this script into the main folder (apply/statusline.py) and prints the statusLine setting to add to
         the person's Claude Code settings; written there only after their yes
@@ -34,6 +35,27 @@ def when(value):
     return t.strftime("%H:%M") if t.date() == datetime.date.today() else t.strftime("%a %H:%M")
 
 
+def log_week(path, week):
+    """One row in the calibration log when the 7-day share or its reset changed since the last row."""
+    row = {"seven_day": week.get("used_percentage"), "resets_at": week.get("resets_at")}
+    if row["seven_day"] is None:
+        return
+    last = {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            lines = fh.read().splitlines()
+        last = json.loads(lines[-1]) if lines else {}
+    except (OSError, ValueError):
+        pass
+    if last.get("seven_day") == row["seven_day"] and last.get("resets_at") == row["resets_at"]:
+        return
+    try:
+        with open(path, "a", encoding="utf-8", newline="\n") as fh:
+            fh.write(json.dumps({"at": datetime.datetime.now().isoformat(timespec="seconds"), **row}) + "\n")
+    except OSError as e:
+        print(f"statusline: cannot write {path}: {e.strerror}", file=sys.stderr)
+
+
 def status(opts):
     raw = sys.stdin.read()
     try:
@@ -49,6 +71,8 @@ def status(opts):
             os.replace(tmp, opts["--out"])
         except OSError as e:  # the line still shows; the reason goes to stderr, never a traceback per refresh
             print(f"statusline: cannot write {opts['--out']}: {e.strerror}", file=sys.stderr)
+    if found.get("seven_day") and opts.get("--log"):
+        log_week(opts["--log"], found["seven_day"])
     if opts.get("--then"):
         out = subprocess.run(opts["--then"], input=raw, capture_output=True, text=True, shell=True)
         sys.stdout.write(out.stdout)
@@ -60,7 +84,7 @@ def main():
     sys.stdout.reconfigure(errors="replace")  # the middle dot on a cp1252 console
     args = sys.argv[1:]
     opts = {}
-    for flag in ("--out", "--then", "--env"):
+    for flag in ("--out", "--log", "--then", "--env"):
         if flag in args:
             i = args.index(flag)
             if i + 1 >= len(args):
@@ -78,7 +102,10 @@ def main():
         os.makedirs(os.path.dirname(copy), exist_ok=True)
         shutil.copyfile(os.path.abspath(__file__), copy)
         python = (env.get("PYTHON") or "python").replace("\\", "/")
-        cmd = f'"{python}" -I "{copy.replace(os.sep, "/")}" --out "{target.replace(os.sep, "/")}"'
+        log = (env.path("PLAN_USAGE_LOG") if env.get("PLAN_USAGE_LOG")
+               else os.path.join(env.home, "apply", "plan-usage-log.jsonl"))
+        cmd = (f'"{python}" -I "{copy.replace(os.sep, "/")}" --out "{target.replace(os.sep, "/")}" '
+               f'--log "{log.replace(os.sep, "/")}"')
         print(json.dumps({"statusLine": {"type": "command", "command": cmd}}, indent=1))
         print("An existing statusLine command: keep it with --then \"<that command>\" at the end.")
     elif args[0] == "read":

@@ -2335,5 +2335,58 @@ assert c.scope_of(E(MASTER_RECORD="rec.json")) == (["eu"], None)
 json.dump([1, 2], open(p, "w"))
 assert c.scope_of(E(MASTER_RECORD="rec.json")) == (None, None)' "$S" "$T"
 
+# --- 0.40.0: plan cost table, calibration log, coordinator context --------------------------------------------------
+"$PY" -I "$S/cost.py" table pro --env "$ENVF" >"$T/cost-table.out" 2>&1
+check "cost table: each step with its source, a steady week, shares unknown before a calibration" sh -c '
+    grep -q "^  setup  .* share unknown  (estimate)" "$1" && grep -q "^  steady week " "$1" &&
+    grep -q "^target: a steady week within 30% of a Pro week (unknown until calibrated)" "$1"' _ "$T/cost-table.out"
+rm -f "$T/pl.log"
+for pct in 10 10 12; do
+    echo "{\"rate_limits\": {\"seven_day\": {\"used_percentage\": $pct, \"resets_at\": 1900000000}}}" |
+        "$PY" -I "$S/statusline.py" --out "$T/pl.json" --log "$T/pl.log" >/dev/null 2>&1
+done
+check "statusline --log: one row per change of the 7-day share" sh -c '
+    [ "$(grep -c seven_day "$1")" -eq 2 ] && tail -1 "$1" | grep -q "\"seven_day\": 12"' _ "$T/pl.log"
+mkdir -p "$T/c40"
+cat >"$T/mk40.py" <<'PYEOF'
+import datetime, json, os, re, sys
+home, cc, log = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(log, "w", encoding="utf-8") as f:
+    f.write(json.dumps({"at": "2026-01-01T00:00:00", "seven_day": 10, "resets_at": "r1"}) + "\n")
+    f.write(json.dumps({"at": "2026-01-03T00:00:00", "seven_day": 20, "resets_at": "r1"}) + "\n")
+proj = os.path.join(cc, "projects", re.sub(r"[^A-Za-z0-9]", "-", os.path.abspath(home)))
+os.makedirs(proj, exist_ok=True)
+other = os.path.join(cc, "projects", "elsewhere")
+os.makedirs(other, exist_ok=True)
+def msg(i, at, tokens):
+    return json.dumps({"type": "assistant", "timestamp": at, "message": {"id": i, "model": "claude-opus-5-5", "usage": {
+        "input_tokens": tokens, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "output_tokens": 0}}})
+with open(os.path.join(other, "o.jsonl"), "w", encoding="utf-8") as f:
+    f.write(msg("o1", "2026-01-02T00:00:00Z", 1000000) + "\n")
+now = datetime.datetime.now(datetime.timezone.utc)
+def coordinator(name, started, ctx):
+    with open(os.path.join(proj, name + ".jsonl"), "w", encoding="utf-8") as f:
+        f.write(json.dumps({"type": "user", "timestamp": started.strftime("%Y-%m-%dT%H:%M:%SZ")}) + "\n")
+        f.write(json.dumps({"type": "custom-title", "customTitle": "Job search coordinator"}) + "\n")
+        f.write(msg(name, now.strftime("%Y-%m-%dT%H:%M:%SZ"), ctx) + "\n")
+coordinator(sys.argv[4], now - datetime.timedelta(days=int(sys.argv[5])), int(sys.argv[6]))
+PYEOF
+"$PY" -I "$T/mk40.py" "$H" "$T/c40" "$H/apply/plan-usage-log.jsonl" k1 0 50000
+CLAUDE_CONFIG_DIR="$T/c40" "$PY" -I "$S/cost.py" calibrate max5 --env "$ENVF" >"$T/cal.out" 2>&1
+check "cost calibrate: W of every project between two log rows, per point of the rise; Pro week from the plan" sh -c '
+    grep -q "^W per 1% of the week: 100k (1.0M W over 10 points" "$1" && grep -q "^Pro week: 2.0M W (from max5, a low figure)" "$1"' \
+    _ "$T/cal.out"
+CLAUDE_CONFIG_DIR="$T/c40" "$PY" -I "$S/cost.py" context --env "$ENVF" >"$T/ctx1.out" 2>&1
+"$PY" -I "$T/mk40.py" "$H" "$T/c40" "$H/apply/plan-usage-log.jsonl" k1 0 250000
+CLAUDE_CONFIG_DIR="$T/c40" "$PY" -I "$S/cost.py" context --env "$ENVF" >"$T/ctx2.out" 2>&1
+"$PY" -I "$T/mk40.py" "$H" "$T/c40" "$H/apply/plan-usage-log.jsonl" k1 2 50000
+CLAUDE_CONFIG_DIR="$T/c40" "$PY" -I "$S/cost.py" context --env "$ENVF" >"$T/ctx3.out" 2>&1
+check "cost context: keep today under 200k; hand off past 200k or when started before today" sh -c '
+    grep -q "^coordinator context 50k, started .*: keep$" "$1" && grep -q "^coordinator context 250k, .*: hand off$" "$2" &&
+    grep -q "^coordinator context 50k, .*: hand off$" "$3"' _ "$T/ctx1.out" "$T/ctx2.out" "$T/ctx3.out"
+check "choices: plans pro, max5, max20; SESSION_MODEL sonnet by default" sh -c '
+    "$1" -I "$2/choices.py" suggest max20 --env "$3" | grep -q "^SESSION_MODEL=sonnet$" &&
+    ! "$1" -I "$2/choices.py" suggest max7 --env "$3" >/dev/null 2>&1' _ "$PY" "$S" "$ENVF"
+
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

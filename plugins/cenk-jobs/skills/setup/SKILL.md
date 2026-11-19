@@ -116,8 +116,13 @@ in `changes`.
 Ask each on its own, with its cost line, after the defaults. W is a cost-weighted Opus token, measured on real runs.
 Write the answers with `choices.py set KEY=value ...`; `choices.py show` lists them. Free in every case: the search
 by script, the list lookup, the public-data lookup, employers the person adds by hand.
-First ask the plan (Pro, Max or larger): `choices.py suggest <plan>` gives the starting answers, never the final ones.
-Example: Pro suggests `APPLY=list`, `LETTERS=never` and one run a week.
+First ask the plan (Pro, Max 5x, Max 20x or other): `choices.py suggest pro|max5|max20|other` gives the starting
+answers, never the final ones. Example: Pro suggests `APPLY=list`, `LETTERS=never` and one run a week.
+Then show the cost before anything starts: `cost.py table <plan>`, the setup week apart (setup 5-10M W, an
+estimate) and a steady week against 30% of a Pro week. Each figure says whether it is measured or an estimate;
+while the table prints "unknown" for a share, give the W figures and say the shares come after a calibration week.
+Example: "Setup: 5-10M W (estimate). A steady week: 5 searches, 10 applications, 1 interview prep. Its share of
+your Pro week: not known yet."
 
 1. Letters and free text: Opus, which writes better (about 68k W a letter), or the cheaper model with its review
    (about 40k W). `WRITER_MODEL=opus|sonnet`, default opus.
@@ -145,6 +150,11 @@ Example: Pro suggests `APPLY=list`, `LETTERS=never` and one run a week.
 10. The plan's share in the run report, opt-in: Claude Code gives it only to a status line script. On a yes,
     `statusline.py install` copies the script into the main folder and prints the `statusLine` setting; add it to
     the person's Claude Code settings after their yes to that change. An existing status line stays, with `--then`.
+    It also logs each change of the 7-day share (`PLAN_USAGE_LOG`); after a week, `cost.py calibrate <plan>` gives
+    W per 1% of the week, the figure the shares come from.
+11. Sub-sessions: Sonnet (0.6 of the Opus cost per turn; measured: apply, search and prep sessions cost about 130M
+    W in 12 days on Opus) or the main session's model. Essays and study always take the main one.
+    `SESSION_MODEL=sonnet|opus|haiku|` (empty: the main one), default sonnet.
 
 ## 5. Documents
 

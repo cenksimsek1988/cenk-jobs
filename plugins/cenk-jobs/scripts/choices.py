@@ -3,7 +3,7 @@
     choices.py show                 every choice with its value, and "(default)" where the file sets none
     choices.py workflow             the choices the screen-and-prepare workflow takes, as JSON args
     choices.py set KEY=value ...    checks each value and writes it into job-search.env (setup and the person's word)
-    choices.py suggest pro|max|other
+    choices.py suggest pro|max5|max20|other
                                     the defaults setup proposes for that plan; never written without the person's yes
     choices.py grade <prepared-jobs.json>
                                     each job's grade from its gaps (high, normal, or skip with the reason)
@@ -19,7 +19,9 @@ Keys (default first):
                                              APPLY_MODE=review (what a folder from before 0.35.0 did)
     CALENDAR        auto | self              Claude books slots and keeps the calendar, or only records the date
     MAX_NEW_PER_RUN 30 | <n> | unlimited     postings one run takes into the funnel
-    PLAN            pro | max | other        only to suggest defaults; never decides alone
+    SESSION_MODEL   sonnet | opus | haiku | (empty)   the model new sub-sessions start with; empty: the main
+                                             session's own (essays and study always take it)
+    PLAN            pro | max5 | max20 | other   only to suggest defaults; never decides alone (max: an older max5)
 Example: `choices.py set APPLY_FITS=high LETTERS=never` writes both lines, each replacing the key's old line.
 Add --env <job-search.env> anywhere to pick the env file.
 """
@@ -42,9 +44,10 @@ KEYS = {
     "ASK_FIRST": (None, "send,free_text"),
     "CALENDAR": (("auto", "self"), "auto"),
     "MAX_NEW_PER_RUN": (None, "30"),
-    "PLAN": (("pro", "max", "other", ""), ""),
+    "SESSION_MODEL": (("sonnet", "opus", "haiku", ""), "sonnet"),
+    "PLAN": (("pro", "max5", "max20", "max", "other", ""), ""),
 }
-SUGGEST = {"pro": {"APPLY": "list", "LETTERS": "never", "SEARCH_DAYS": "Mon"}, "max": {}, "other": {}}
+SUGGEST = {"pro": {"APPLY": "list", "LETTERS": "never", "SEARCH_DAYS": "Mon"}, "max5": {}, "max20": {}, "max": {}, "other": {}}
 SOFT = ("missing_must_have", "pay_below", "seniority")
 
 
@@ -154,7 +157,7 @@ def main():
         print(json.dumps(workflow_args(env)))
     elif cmd == "suggest":
         if not rest or rest[0] not in SUGGEST:
-            sys.exit("suggest takes pro, max or other")
+            sys.exit("suggest takes pro, max5, max20 or other")
         # SEARCH_DAYS is set through /cenk-jobs:schedule, with the task itself, never with `set`.
         merged = {k: KEYS[k][1] for k in KEYS if k != "PLAN"} | SUGGEST[rest[0]] | {"PLAN": rest[0]}
         for key, val in merged.items():

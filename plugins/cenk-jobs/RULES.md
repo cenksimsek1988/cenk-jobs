@@ -213,6 +213,15 @@ connector is down. Their sign-ins are there, and a second browser loses them.
 - The same address goes into the job's to-do (`track.py todo ... link=<address>`); the dashboard shows it as a
   link, and every sub-session brief and handoff carries it.
 
+## Cost
+
+- A subagent in any cenk-jobs session is one of the plugin's own agents (`cenk-jobs:applier`, `fitter`, `former`,
+  `writer`, `reviewer`, `screener`, `checker`, `verifier`), never `general-purpose`, `Explore` or another kind.
+  Work with no agent of its own runs as a script or a sub-session on `SESSION_MODEL`. Seen 6-18 Nov: 88
+  general-purpose agents on Opus at 567k W each, 50M W in all.
+- A long context is re-read on every turn: 68% of the measured cost was cache reads. Keep a session to its piece
+  and end it when the piece is done.
+
 ## Dashboard
 
 Creating or refreshing the dashboard: read `RULES/run.md`.

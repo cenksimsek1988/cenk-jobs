@@ -114,7 +114,8 @@ employers**, **Hiring steps** and **All applications**, under the total count an
 | `collect_postings.py` | new postings from every saved search a script can read (job board APIs, remote job feeds, LinkedIn's guest search), without a model: boards and feeds first, the person's title rules (`SEARCH_RULES`) before any text, a remote check of LinkedIn remote hits; `--add` puts them in the tracker with `found_by` and `search` |
 | `employer_lookup.py` | the free public-data lookup (Wikidata) of an employer never checked: exclude, go on or undecided; cached |
 | `choices.py` | the person's cost choices in `job-search.env`: show, set, the workflow's args, suggestions per plan, the fit grade |
-| `statusline.py` | opt-in status line script: saves the plan's usage share; `read` gives the run report's line |
+| `statusline.py` | opt-in status line script: saves the plan's usage share and, with `--log`, each change of the 7-day share; `read` gives the run report's line |
+| `cost.py` | the plan cost table (`data/plan-costs.json`): table (each step's W and share of the plan's week), calibrate (W per 1% of the week, from the status line log), context (the coordinator's context: hand off or keep) |
 | `reposts.py` | the postings that repeat a role already applied to or declined, or skipped for fit in 30 days (employer and title); collect leaves them out |
 | `workflow_args.py` | the funnel's args from the scripts, about 8 KB, with the rules in a file the agents read |
 | `variants.py` | the run's variant (model and effort per step), its models for the workflow, and each run's good-fit count |

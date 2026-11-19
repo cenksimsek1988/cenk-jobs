@@ -6,6 +6,35 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.40.0] - 2026-11-19
+
+The cost per Claude plan, from the token study of 5-18 Nov (554M W in 14 days; one coordinator session 51%, cache
+reads 68%).
+
+### Added
+
+- `data/plan-costs.json`: the static table. Plans as a multiple of Pro (Pro 1, Max 5x 5, Max 20x 20), each step's
+  W with its source (setup 5-10M, an estimate; a search run 3.6-8.4M, an application 0.18-1.1M, a hiring step's
+  prep 2-11M, measured), a steady week, the 30% target. `pro_week_w` stays null until a calibration week is in.
+- `cost.py table [<plan>]`: each step's W and its share of the plan's week ("share unknown" before a calibration);
+  `cost.py calibrate [<plan>]`: W per 1% of the week, from the status line log and every transcript on this
+  computer; `cost.py context`: the coordinator's context and start day, "hand off" or "keep".
+- `statusline.py --log <file>`: a row each time the 7-day share changes (`PLAN_USAGE_LOG`, default
+  `apply/plan-usage-log.jsonl`); `statusline.py install` adds it to the setting. A status line set up before
+  0.40.0 logs nothing until `statusline.py install` runs again.
+- `COORDINATOR_CONTEXT` (default 200000 tokens).
+
+### Changed
+
+- A fresh coordinator per day: at the start of a turn the person started, a coordinator begun before today or past
+  `COORDINATOR_CONTEXT` writes its handoff and starts a fresh one (`coordinate`).
+- Sub-sessions start on Sonnet by default (`SESSION_MODEL=sonnet`, now a cost choice); an essays round and study
+  take the main session's model. An empty `SESSION_MODEL=` (every folder set up before 0.40.0) now means Sonnet
+  too; `choices.py set SESSION_MODEL=opus` keeps the larger model.
+- `RULES.md` "Cost": subagents are only the plugin's own agents, never general-purpose or Explore.
+- `PLAN` takes pro, max5, max20 or other (max: an older max5). Setup shows `cost.py table` before it starts, the
+  setup week apart.
+
 ## [0.39.0] - 2026-11-18
 
 The coordinator reads the shared coordinator rules from cenk-base.

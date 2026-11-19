@@ -140,8 +140,15 @@ archived. A scheduled run reaches the older one's sub-sessions by message and re
 - Titles follow the shared rules; here "Done · " means its jobs are sent or rejected, or its step is past. The
   record's state comes first; `sessions.py show` names each title to set.
 - Essays and study stay in their own session, never answered in this chat.
-- New sessions start with `SESSION_MODEL` when it is set (`start_session`'s `model`). The app takes the main
-  session's model or a cheaper one and ignores a higher one: then say so to the person.
+- New sessions start with the `SESSION_MODEL` that `choices.py show` prints (`start_session`'s `model`; default
+  `sonnet`, also when empty), except an essays round and study for a step, which take the main session's model. The app takes the main session's model
+  or a cheaper one and ignores a higher one: then say so to the person.
+- A fresh coordinator per day: at the start of each turn the person's message started, never inside a run,
+  `cost.py context`. "hand off" (it started before today, or its context is over `COORDINATOR_CONTEXT`, 200k by
+  default): write `handoffs/job-search-coordinator.md`, `sessions.py unlock`, start a fresh session in the main
+  folder ("Run /cenk-jobs:coordinate. The person asked: <their request, in a few words>."), tell the person in one
+  line to go on there, with its link, and do nothing more here. Seen 6-18 Nov: one coordinator ran 12 days, its
+  context up to 966k, and cost 241M W, half of all.
 
 ## Pieces
 

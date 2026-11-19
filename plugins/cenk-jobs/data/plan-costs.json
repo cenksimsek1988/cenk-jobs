@@ -1,0 +1,15 @@
+{
+ "_about": "The static cost table cost.py reads. W: one fresh Opus input token weighted by price (token_report.py). plans: each plan's weekly limit as a multiple of Pro (public: Max 5x and Max 20x). pro_week_w: Pro's weekly limit in W, from a calibration week (cost.py calibrate); null until one is in, and every share of a week is then unknown. steps: [low, high, source] in W per step; source 'estimate' or where it was measured. steady_week: how many of each step a steady week holds. target: the share of a Pro week a steady week may take.",
+ "plans": {"pro": 1, "max5": 5, "max20": 20},
+ "pro_week_w": null,
+ "pro_week_source": "not calibrated yet",
+ "target": 0.3,
+ "steps": {
+  "setup": [5000000, 10000000, "estimate"],
+  "search_run": [3600000, 8400000, "measured 17-18 Nov 2026, 0.38 search"],
+  "application": [180000, 1100000, "measured: applier agent to a whole overnight run per sent job"],
+  "hiring_step_prep": [2000000, 11000000, "measured, 8 prep and study sessions"],
+  "coordinator_day": [2000000, 7000000, "estimate: a fresh coordinator per day (one measured day, 2.2M)"]
+ },
+ "steady_week": {"search_run": 5, "application": 10, "hiring_step_prep": 1, "coordinator_day": 5}
+}
