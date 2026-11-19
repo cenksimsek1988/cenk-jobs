@@ -61,7 +61,7 @@ _UNIT = r"(?:\s?(?:/|per\s|a\s)\s?(?:h|hr|hour|day|month|year|yr|annum)\b)?"
 PAY = re.compile(r"(?i)" + _CUR + r"\s?" + _RANGE + r"(?:\s?" + _CUR + r")?" + _UNIT
                  + r"|" + _RANGE + r"\s?(?:k€|" + _CUR + r")" + _UNIT
                  + r"|" + _RANGE + r"\s?/\s?(?:h|hr|hour|day|month|year)\b"
-                 + r"|salary[^.;]*|rate[^.;]*\d[^.;]*")
+                 + r"|\bsalary\b[^.;]*|\brate\b[^.;]*\d[^.;]*")  # whole words: "Moderate" is not pay
 PER_EMPLOYER = re.compile(r"(?i)workday|successfactors|cornerstone|taleo|icims|oracle|phenom|company site|careers site")
 # Job boards: their posting only forwards to the employer's own site, where the person signs in and applies
 # (seen: a LinkedIn link given as an employer's Workday sign-in, 6 Nov 2026).
@@ -116,6 +116,9 @@ def waits_on_person(status):
 # A job's to-do kinds. "waiting": the next move is the employer's (shown in Hiring steps, never in Do now).
 TODO_KINDS = ("urgent", "working", "task", "click", "todo", "waiting")
 ENDED_STATUS = ("excluded", "closed", "declined", "skipped", "failed")  # tracker statuses: over before it was sent
+# Every tracker status the plugin knows; another one (an older "needs-<name>") is a check line on the dashboard.
+STATUSES = ("found", "pending", "to-apply", "account-needed", "needs-person", "needs-captcha", "submitted", "skipped",
+            "excluded", "failed", "closed", "declined")
 ENDED_STAGE = ("rejected", "closed", "declined")  # PIPELINE stages: over after it was sent
 ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 # "done" as a word in a step's "how" (older records), not "not done" or "to be done".

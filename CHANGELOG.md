@@ -6,6 +6,67 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.42.0] - 2026-11-19
+
+The dashboard review: the empty tabs fixed, states worked out for today, one row per site, the check lines the
+records needed; the Questions page kept current; and the form settings (emailed codes, optional fields).
+
+### Fixed
+
+- Do now, Sessions and Hiring steps were empty: the Dashboard runtime hands a row's list (`apps`, `also`) to the
+  page as JSON text, and `.map` on it failed. The page reads both forms (`jaIds`). Seen 19 Nov.
+- The page works out each row for the viewer's day: a due date passed is late, a task due today or tomorrow urgent,
+  an upcoming step whose day passed is past; the header counts come from those rows (`do_counts`). A step with no
+  date is "Proposed, no date yet", never "Past". The summary bar is stored empty, as the runtime asks.
+- Claude's own to-dos ("Claude: ...") and a job's note are no longer the person's to-dos: Claude's to-dos, jobs
+  ready to send (long-shots held named) and unread postings are Claude's next; a job waiting on the person with no
+  to-do shows "Waits on you: <note>" with a check line.
+- Logins: a job board's rows are one row (the latest check wins, jobs summed), with a check line to merge them;
+  "Needs you" is one rule, the export's `needs` flag. Example: "LinkedIn Easy Apply" and "linkedin".
+- Whole words: "Platform architecture interview" is no form task, and the pay mask leaves "Moderate" whole.
+- A job whose folder lists no step takes its steps from PIPELINE; a step's detail has no leading ", ".
+- The Calendar tab uses `CALENDAR_COLOR` and `CALENDAR_PREFIX`, all-day events first on their day, 250 events.
+- A run with no end row for 6 hours reads "no end recorded", never "Running now".
+- The Questions page hides Done items older than 7 days itself; every dashboard refresh also builds it.
+- From the Job search coordinator's check of the live pages:
+  - a to-do with a due date counts as a task on a deadline;
+  - the header reads "label: number", so "1 sessions" is gone;
+  - the last-run line pairs an end only with its own start, and keeps the end's date;
+  - a merged site keeps its plainest name ("LinkedIn");
+  - a site no job waits on is never "Needs you";
+  - a call with only a meeting link reads "Video call" in Where;
+  - an older "done" question is shown under Done;
+  - "last answer recorded" moves only when an answer is recorded, and comes from the questions when no round
+    recorded one.
+
+### Added
+
+- Check lines: a folder in another stage than the records; the same employer and role sent twice (also a flag on
+  the later row, never hidden); a status the plugin does not know (`needs-<name>`); a session that names an employer
+  with a running job and has no jobs; a reminder that is not a date or on an ended job; Moving forward with nothing
+  for 7 days; the older `rejected.reason` shape. `--check` says when the page is behind the records.
+- Tables say "Nothing here" or why a source did not load; Hiring steps shows the due date; session rows link.
+- `EMAILED_CODES=off|on` (default off): the session reads an application's emailed code or confirmation link in
+  Gmail (the form just submitted, its own sender, 15 minutes); sign-in codes, CAPTCHAs and passwords stay the
+  person's. `OPTIONAL_FIELDS=off|fill` (default off): demographic and EEO fields from the profile.
+- `fx.py <amount> <from> <to>`: any pay field in another currency at the day's ECB rate, rounded up.
+- `track.py brief` starts with the `filling:` line (LETTERS, EMAILED_CODES, OPTIONAL_FIELDS, first name);
+  `choices.py show` names essays ask or auto.
+- Tabs that wait on the person are titled `>>> <first name>: <company> <action> <<<`; a form is read back before
+  it is handed over and refilled without a reload; a refused Submit click is retitled and said, never worked around;
+  only the opener closes a tab. An optional letter field gets the letter unless `LETTERS=never`. A number recalled
+  with no record never goes into an essay; an employer that forbids AI stops the job even with essays on auto.
+- The coordinator never starts an apply session from an automated turn: it proposes a card.
+
+### Changed
+
+- Index row `actions:waiting` counts the jobs waiting on an employer; `meta:generated` has `n` 0.
+
+### Removed
+
+- Dead export fields: `applications.letter`, `steps.upcoming`, `sessions.name` and `due`, index rows `logins:ok`,
+  `excluded:n` and `sessions:*`.
+
 ## [0.41.0] - 2026-11-19
 
 The fit check as a weighted score, new search sources and a location check before the funnel, employer replies as

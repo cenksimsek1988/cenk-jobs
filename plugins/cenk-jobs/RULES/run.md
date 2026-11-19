@@ -40,6 +40,9 @@ employers**, **Hiring steps** and **All applications**, under the total count an
   <out dir> <the files you uploaded>`: only those are recorded as on the page, and a bare `--uploaded <out dir>` is
   refused. Example: `upload: index.json actions.json`, both uploaded: `--uploaded <out dir> index.json
   actions.json`; an upload that failed is left out and stays under `upload:` at the next export.
+- The same refresh builds the Questions page: `questions.py build <dir> --page <dir>`, write its files, delete the
+  ids it lists (RULES/questions.md). A dashboard uploaded without it leaves the page a run behind. Seen 19 Nov:
+  two questions open for jobs sent the day before.
 - Each refresh also passes the page and the calendar: save the store's `files` (ArtifactData list with `out_dir`)
   and Google Calendar's `list_events` from today to 60 days ahead as JSON, then `export_dashboard.py <out dir>
   --page <dir>/files/index.html.json --calendar <events.json>`. "the dashboard page is not the plugin's template":
@@ -49,7 +52,9 @@ employers**, **Hiring steps** and **All applications**, under the total count an
   --check` prints them alone and writes nothing). Fix each in the same run, or name it in the run report. Example:
   `check: to-do on an ended job: J3 (rejected 2026-11-10), 2 to-do(s) -> track.py todo J3 done all`.
 - Logins: each person's own sites and connectors live in their `LOGINS` file; the Logins tab groups them in this
-  order: Needs you (needs sign-up, expired, needs sign-in, reconnect, blocked), Signed in, Connected, Not signed in.
+  order: Needs you (a connector, or a site jobs wait on, and not signed in; a site no job waits on is Not signed
+  in), Signed in, Connected, Not signed in. A job board's rows are one row on the page ("LinkedIn Easy Apply" and
+  "linkedin"), with a check line to merge them in `LOGINS`.
   `sync` makes a new site row "needs sign-in" and marks an excluded employer's site `excluded` (not shown there),
   whatever its last state; Claude sets `needs-sign-up` (no account yet) and `expired` (a sign-in page where a form
   was) with `logins.py set`. Example: a Workday form at Review, then its sign-in page: `expired`.

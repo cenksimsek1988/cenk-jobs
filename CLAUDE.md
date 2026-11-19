@@ -66,7 +66,9 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
 - The profile is cenk-base's (`profilelib.py` loads its `lib/profile.py` from `CENK_BASE`). `tests/run.sh` finds
   cenk-base from `CENK_BASE_SRC`, else `CENK_BASE`, else `cenk-base` beside the main checkout, and keeps `CENK_HOME`
   inside its throwaway folder. A test that unsets `CENK_HOME` passes made-up `roots` and `claude_dir`: otherwise
-  `drive_roots()` looks for the real `<letter>:\My Drive\cenk\profile.json`.
+  `drive_roots()` looks for the real `<letter>:\My Drive\cenk\profile.json`. A session whose `CENK_BASE` is an
+  installed cenk-base older than the source sets `CENK_BASE_SRC` to the cenk-base checkout: the coordinator-rules
+  test fails otherwise.
 - `workflows/screen-and-prepare.js` parses with `node --check` only as a copy wrapped in `(async () => { ... })()`:
   it has a top-level `return`.
 - A test on a copy of a job-search folder: a short path; a deep one breaks `shutil.copytree` on Windows path length.
@@ -80,6 +82,12 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
   Python heredoc in the Bash tool: the escape can reach the file as a control character (seen: `\b` as 0x08).
 - The page: `python -m http.server <port>` on a made-up export with a stub of the Dashboard runtime, read as text;
   the built-in browser shows a `file://` page as a static snapshot. Stop the server afterwards.
+- The Dashboard runtime gives the page a row's list field (`apps`, `also`) as JSON text: page code reads a list with
+  `window.jaIds`. The live page's faults are in its store's `data/users/me/check` and `runs` (ArtifactData, read
+  only), written only while something fails.
+- A dev version is checked on the live pages by the Job search coordinator: it publishes the worktree's templates,
+  exports with the worktree's scripts and checks every tab, chip and count against its records. This session sends
+  it no values. Example: 0.42.0, 19 Nov 2026, three rounds.
 
 ## Release
 

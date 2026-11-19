@@ -9,7 +9,7 @@
 #dash-root .ja-tile .ja-label { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
 #dash-root .ja-tile .ja-num { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); font-variant-numeric: tabular-nums; line-height: 1.2; }
 #dash-root .ja-tile.forward .ja-num { color: var(--color-ok); }
-#dash-root .ja-tile.todo .ja-num { color: var(--color-warn); }
+#dash-root .ja-tile.progress .ja-num { color: var(--color-warn); }
 #dash-root .ja-tile.rejected .ja-num { color: var(--color-fg-muted); }
 #dash-root .ja-tabs { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); border-bottom: 1px solid var(--color-border-line); padding-bottom: var(--cds-pad-sm); }
 #dash-root .ja-tab { font: inherit; padding: var(--cds-pad-xs) var(--cds-pad-md); border-radius: var(--cds-radius); border: 1px solid transparent; background: none; color: var(--color-fg-muted); cursor: pointer; }
@@ -36,6 +36,8 @@
 #dash-root a { color: inherit; }
 #dash-root [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
 @media (max-width: 900px) { #dash-root .ja-wide { display: none; } }
+@media (max-width: 600px) { #dash-root .ja-pill { white-space: normal; } }
+#dash-root td.ja-empty { color: var(--color-fg-muted); font-style: italic; }
 #dash-root { --ja-seg-1: #2a78d6; --ja-seg-2: #eb6834; --ja-seg-3: #1baf7a; --ja-seg-4: #eda100; --ja-seg-5: #e87ba4; --ja-seg-6: #008300; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #dash-root { --ja-seg-1: #3987e5; --ja-seg-2: #d95926; --ja-seg-3: #199e70; --ja-seg-4: #c98500; --ja-seg-5: #d55181; --ja-seg-6: #008300; } }
 :root[data-theme="dark"] #dash-root { --ja-seg-1: #3987e5; --ja-seg-2: #d95926; --ja-seg-3: #199e70; --ja-seg-4: #c98500; --ja-seg-5: #d55181; --ja-seg-6: #008300; }
@@ -52,7 +54,7 @@
 <div class="ja">
   <header class="ja-head">
     <h1>Job applications</h1>
-    <p><b data-draw="h-urgent" data-source="index" data-field="n" data-where="key=actions:urgent">—</b> urgent (do it now: it expires). <b data-draw="h-session" data-source="index" data-field="n" data-where="key=actions:session">—</b> sessions wait on your answer (Answer first, in that order). <b data-draw="h-working" data-source="index" data-field="n" data-where="key=actions:working">—</b> in progress (Claude or a session with you is on it: wait). You can do <b data-draw="h-todo" data-source="index" data-field="n" data-where="key=actions:click">—</b> sign-ins and clicks, <b data-draw="h-todo2" data-source="index" data-field="n" data-where="key=actions:todo">—</b> other things to do, and answer <b data-draw="h-info" data-source="index" data-field="n" data-where="key=actions:info">—</b> questions now, with <b data-draw="h-task" data-source="index" data-field="n" data-where="key=actions:task">—</b> tasks on a deadline and <b data-draw="h-late" data-source="index" data-field="n" data-where="key=actions:late">—</b> past due (tell Claude: done, or missed). <b data-draw="h-waiting" data-source="index" data-field="n" data-where="key=actions:waiting">—</b> wait on an employer (see Hiring steps); <b data-draw="h-queued" data-source="index" data-field="n" data-where="key=actions:queued">—</b> are Claude's next. Built from your job-search folder on <b data-draw="h-generated" data-source="index" data-field="label" data-where="key=meta:generated">—</b>.</p>
+    <p>Urgent, do it now (it expires): <b data-draw="h-urgent" data-source="do_counts" data-field="n" data-where="kind=urgent">—</b>. Sessions waiting on your answer (Answer first, in that order): <b data-draw="h-session" data-source="do_counts" data-field="n" data-where="kind=session">—</b>. In progress, wait (Claude or a session with you is on it): <b data-draw="h-working" data-source="do_counts" data-field="n" data-where="kind=working">—</b>. For you now: sign-ins and clicks <b data-draw="h-click" data-source="do_counts" data-field="n" data-where="kind=click">—</b>, other things to do <b data-draw="h-todo" data-source="do_counts" data-field="n" data-where="kind=todo">—</b>, questions <b data-draw="h-info" data-source="do_counts" data-field="n" data-where="kind=info">—</b>, tasks on a deadline <b data-draw="h-task" data-source="do_counts" data-field="n" data-where="kind=task">—</b>, past due (tell Claude: done, or missed) <b data-draw="h-late" data-source="do_counts" data-field="n" data-where="kind=late">—</b>. Applications waiting on an employer (see Hiring steps): <b data-draw="h-waiting" data-source="index" data-field="n" data-where="key=actions:waiting">—</b>. Claude's next: <b data-draw="h-queued" data-source="do_counts" data-field="n" data-where="kind=queued">—</b>. Built from your job-search folder on <b data-draw="h-generated" data-source="index" data-field="label" data-where="key=meta:generated">—</b>; what is due or late is worked out for today.</p>
     <p class="ja-run"><b data-draw="h-run" data-source="index" data-field="label" data-where="key=meta:run">—</b></p>
     <p data-draw="h-questions" data-source="index" data-field="label" data-where="key=meta:questions"></p>
   </header>
@@ -62,17 +64,15 @@
     <div class="ja-tile"><div class="ja-label">Waiting for a reply</div><div class="ja-num" data-draw="t-waiting" data-source="index" data-field="n" data-where="key=stage:Waiting for reply">—</div></div>
     <div class="ja-tile"><div class="ja-label">Not sent yet</div><div class="ja-num" data-draw="t-notsent" data-source="index" data-field="n" data-where="key=stage:Not sent">—</div></div>
     <div class="ja-tile rejected"><div class="ja-label">Rejected</div><div class="ja-num" data-draw="t-rejected" data-source="index" data-field="n" data-where="key=stage:Rejected">—</div></div>
-    <div class="ja-tile"><div class="ja-label">Closed (not a rejection)</div><div class="ja-num" data-draw="t-closed" data-source="index" data-field="n" data-where="key=stage:Closed">—</div></div>
-    <div class="ja-tile"><div class="ja-label">Declined by you</div><div class="ja-num" data-draw="t-declined" data-source="index" data-field="n" data-where="key=stage:Declined">—</div></div>
-    <div class="ja-tile todo"><div class="ja-label">In progress: wait</div><div class="ja-num" data-draw="t-working" data-source="index" data-field="n" data-where="key=actions:working">—</div></div>
-    <div class="ja-tile todo"><div class="ja-label">Tasks with a deadline</div><div class="ja-num" data-draw="t-task" data-source="index" data-field="n" data-where="key=actions:task">—</div></div>
-    <div class="ja-tile todo"><div class="ja-label">Logins that need you</div><div class="ja-num" data-draw="t-logins" data-source="index" data-field="n" data-where="key=logins:action">—</div></div>
+    <div class="ja-tile"><div class="ja-label">Closed after sending (not a rejection)</div><div class="ja-num" data-draw="t-closed" data-source="index" data-field="n" data-where="key=stage:Closed">—</div></div>
+    <div class="ja-tile"><div class="ja-label">Declined by you after sending</div><div class="ja-num" data-draw="t-declined" data-source="index" data-field="n" data-where="key=stage:Declined">—</div></div>
+    <div class="ja-tile progress"><div class="ja-label">In progress: wait</div><div class="ja-num" data-draw="t-working" data-source="do_counts" data-field="n" data-where="kind=working">—</div></div>
+    <div class="ja-tile progress"><div class="ja-label">Tasks with a deadline</div><div class="ja-num" data-draw="t-task" data-source="do_counts" data-field="n" data-where="kind=task">—</div></div>
+    <div class="ja-tile progress"><div class="ja-label">Logins that need you</div><div class="ja-num" data-draw="t-logins" data-source="index" data-field="n" data-where="key=logins:action">—</div></div>
   </section>
 
-  <section class="ja-card" data-draw="split" data-source="index" aria-label="All applications by outcome">
-    <div><span class="ja-split-total">—</span> <span class="ja-muted ja-split-sub"></span></div>
-    <div class="ja-split" role="img" aria-label="Applications by outcome"></div>
-    <ul class="ja-legend"></ul>
+  <section class="ja-card" aria-label="All applications by outcome">
+    <div data-draw="split" data-source="index"></div>
   </section>
 
   <nav class="ja-tabs" role="tablist" aria-label="Sections">
@@ -114,7 +114,7 @@
     <p class="ja-note">Every open session with Claude: the ones that wait on you, in the order to answer them and why (urgent, a fixed date, a form held open in a browser tab, the fewest steps left, then the longest wait); the ones that work alone; and the ones done. Find a session by its title in the Claude app's sidebar.</p>
     <div class="ja-scroll">
       <table data-source="sessions_view" data-row-key="id">
-        <thead><tr><th data-field="rank">#</th><th data-field="title">Session</th><th data-field="waits">Waits on</th><th data-field="jobs">Applications</th><th data-field="why">Why here</th><th data-field="since" class="ja-wide">Since</th></tr></thead>
+        <thead><tr><th data-field="rank">#</th><th data-field="title">Session</th><th data-field="waits">Waits on</th><th data-field="jobs">Applications</th><th data-field="why">Why here</th><th data-field="since" class="ja-wide">Since</th><th data-field="link">Open</th></tr></thead>
         <tbody data-draw="session-rows"></tbody>
       </table>
     </div>
@@ -170,7 +170,7 @@
     </div>
     <div class="ja-scroll">
       <table data-source="steps_view" data-row-key="key">
-        <thead><tr><th data-field="date">Date</th><th data-field="company">Company</th><th data-field="step">Step</th><th data-field="detail" class="ja-wide">Details</th><th data-field="state">State</th></tr></thead>
+        <thead><tr><th data-field="date">Date (and due)</th><th data-field="company">Company</th><th data-field="step">Step</th><th data-field="detail" class="ja-wide">Details</th><th data-field="state">State</th></tr></thead>
         <tbody data-draw="step-rows"></tbody>
       </table>
     </div>
@@ -213,73 +213,124 @@ dash.loader('calendar', {
     return (a.events || []).map((e) => ({
       id: e.id, start: (e.start && (e.start.dateTime || e.start.date)) || '', end: (e.end && (e.end.dateTime || e.end.date)) || '',
       all_day: !!(e.start && e.start.date), title: e.summary || '', color: e.colorId || '', where: e.location || '',
-      meet: (e.conferenceData && e.conferenceData.videoEntryPoint && e.conferenceData.videoEntryPoint.uri) || e.conferenceUrl || '',
+      meet: (e.conferenceData && e.conferenceData.videoEntryPoint && e.conferenceData.videoEntryPoint.uri) || e.conferenceUrl || e.hangoutLink || '',
       link: e.htmlLink || '', job: ((e.description || '').match(/\[job-search: ([^\s\]]+)/) || [])[1] || '',
     }));
   },
 });
 
+// A list of job ids in a row: the runtime hands a file's nested list to the page as JSON text ('["J1","J2"]'), an
+// older export as a list. Seen 19 Nov: `.map` on the text emptied Do now, Sessions and Hiring steps.
+window.jaIds = (v) => {
+  if (Array.isArray(v)) return v.map(String);
+  const s = v == null ? '' : String(v).trim();
+  if (!s) return [];
+  if (s.startsWith('[')) { try { const a = JSON.parse(s); return Array.isArray(a) ? a.map(String) : []; } catch (e) { return []; } }
+  return s.split(',').map((x) => x.trim()).filter(Boolean);
+};
+// The viewer's own day, so a page opened on Monday after a Friday export says what is due or late now.
+window.jaToday = () => d3.timeFormat('%Y-%m-%d')(new Date());
+// The export's rule (export_dashboard.kind_by_due): a due date that passed is late, never urgent; a to-do with a
+// due date is a task; a task due today or tomorrow is urgent.
+window.jaKindByDue = (kind, due, today) => {
+  if (due && due < today && kind !== 'working' && kind !== 'queued' && kind !== 'session') return 'late';
+  if (due && kind === 'todo') kind = 'task';  // a dated to-do is a task on a deadline
+  const tomorrow = d3.timeFormat('%Y-%m-%d')(d3.timeDay.offset(new Date(today + 'T12:00:00'), 1));
+  return kind === 'task' && due && due <= tomorrow ? 'urgent' : kind;
+};
+// Do now's kinds in their order: [group, rank in the group] (export_dashboard.KINDS).
+window.jaKinds = {urgent: [0, 0], session: [1, 0], working: [2, 0], late: [3, 0], task: [3, 1], click: [3, 2],
+                  todo: [3, 3], info: [3, 4], queued: [4, 0]};
+
 dash.calc('calendar_jobs', {
-  inputs: ['calendar', 'applications'],
+  inputs: ['calendar', 'applications', 'index'],
   title: 'Job-search events',
-  description: 'Calendar events in the job-search color (Grape) or titled "Job search" that have not ended yet, soonest first, in local time; an event tagged with a job that ended (rejected, closed, declined) is left out.',
-  fn: (calendar, applications) => {
-    const over = new Set(applications.filter((a) => ['Rejected', 'Closed', 'Declined'].includes(a.stage)).map((a) => a.id));
+  description: 'Calendar events in the job-search color or titled with the job-search prefix (both from your settings) that have not ended yet, soonest first, all-day events first on their day, in local time; an event tagged with a job that ended (rejected, closed, declined) is left out.',
+  fn: (calendar, applications, index) => {
+    const meta = (k, d) => ((index.find((r) => r.key === k) || {}).label || d);
+    const color = String(meta('meta:calendar_color', '3'));
+    const prefix = String(meta('meta:calendar_prefix', 'Job search ·'));
+    const over = new Set(applications.filter((a) => a.ended === 'yes' || ['Rejected', 'Closed', 'Declined'].includes(a.stage)).map((a) => a.id));
     // The viewer's own clock: an event stored with another offset (an invitation from London) shows local time.
     const hm = (s) => d3.timeFormat('%H:%M')(new Date(s));
     return calendar
-      .filter((e) => e.color === '3' || e.title.startsWith('Job search'))
+      .filter((e) => e.color === color || e.title.startsWith(prefix) || !!e.job)
       .filter((e) => !(e.job && over.has(e.job)))
       // An all-day event's end is the next day's date (exclusive): it ends at that local midnight.
       .filter((e) => !e.end || new Date(e.all_day ? e.end + 'T00:00:00' : e.end) > new Date())
-      .map((e) => ({id: e.id, day: e.all_day ? e.start.slice(0, 10) : d3.timeFormat('%Y-%m-%d')(new Date(e.start)),
-                    time: e.all_day ? 'all day' : hm(e.start) + '–' + (e.end ? hm(e.end) : ''),
-                    title: e.title.replace(/^Job search · /, ''), where: e.where, link: e.meet || e.link}))
-      .sort((x, y) => (x.day + x.time).localeCompare(y.day + y.time));
+      .map((e) => {
+        // A location that is only a web address is the call's link; a call with a meeting link and no place reads
+        // "Video call", so Where is never empty for a call.
+        const url = /^https?:\/\/\S+$/.test(String(e.where || '').trim());
+        const meet = e.meet || (url ? String(e.where).trim() : '');
+        return {id: e.id, day: e.all_day ? e.start.slice(0, 10) : d3.timeFormat('%Y-%m-%d')(new Date(e.start)),
+                time: e.all_day ? 'all day' : hm(e.start) + '–' + (e.end ? hm(e.end) : ''), all_day: e.all_day,
+                title: e.title.startsWith(prefix) ? e.title.slice(prefix.length).trim() : e.title,
+                where: url || !e.where ? (meet ? 'Video call' : '') : e.where, link: meet || e.link};
+      })
+      .sort((x, y) => (x.day + (x.all_day ? '00' : x.time)).localeCompare(y.day + (y.all_day ? '00' : y.time)));
   },
 });
 
 dash.calc('do_now', {
   inputs: ['actions', 'applications', 'logins'],
   title: 'What to do now',
-  description: 'Each action with the application or login it belongs to, looked up by id.',
+  description: 'Each action with the application or login it belongs to, looked up by id; its kind worked out again for today from its due date (past due: late; a task due today or tomorrow: urgent), in Do now order.',
   fn: (actions, applications, logins) => {
     const app = new Map(applications.map((a) => [a.id, a]));
     const login = new Map(logins.map((l) => [l.id, l]));
-    return actions.map((x) => {
+    const today = window.jaToday();
+    const order = (k) => window.jaKinds[k] || [3, 5];
+    return actions.map((x, i) => {
       const a = app.get(x.app);
       const l = login.get(x.login);
       // A row for several applications (Claude's next) names each, the first six in full.
-      const many = (x.apps || []).map((id) => app.get(id)).filter(Boolean).map((j) => j.company + ' – ' + j.role);
-      return {key: x.key, due: x.due, kind: x.kind, rank: x.rank || 0, where: x.where || '', text: x.text, link: x.link || (l ? l.link : ''), login: x.login || '',
+      const many = window.jaIds(x.apps).map((id) => app.get(id)).filter(Boolean).map((j) => j.company + ' – ' + j.role);
+      return {key: x.key, due: x.due || '', kind: window.jaKindByDue(x.kind, x.due || '', today), rank: Number(x.rank) || 0,
+              where: x.where || '', text: x.text, link: x.link || (l ? l.link : ''), login: x.login || '', at: i,
               for: many.length ? many.slice(0, 6).join('; ') + (many.length > 6 ? ` and ${many.length - 6} more` : '')
-                : a ? a.company + ' – ' + a.role : l ? l.name : ''};
-    });
+                : a ? a.company + ' – ' + a.role : l ? l.name : (x.for || '')};
+    // The export's order inside each group; a row whose kind changed today moves to its new group.
+    }).sort((x, y) => order(x.kind)[0] - order(y.kind)[0] || x.at - y.at);
   },
+});
+
+dash.calc('do_counts', {
+  inputs: ['do_now'],
+  title: 'Do now by kind',
+  description: 'How many rows of each kind Do now shows today.',
+  fn: (doNow) => Object.keys(window.jaKinds).map((kind) => ({kind, n: (doNow || []).filter((r) => r.kind === kind).length})),
 });
 
 dash.calc('steps_view', {
   inputs: ['steps', 'applications'],
   title: 'Hiring steps with their company',
-  description: 'Each hiring step with its company, looked up by the application id, and its state in words; upcoming and proposed first, then waits on an employer, then the steps behind, the latest first.',
+  description: 'Each hiring step with its company, looked up by the application id, and its state in words for today (an upcoming step whose day and due passed is past); upcoming and proposed first, then waits on an employer, then the steps behind, the latest first.',
   fn: (steps, applications) => {
     const app = new Map(applications.map((a) => [a.id, a]));
+    const today = window.jaToday();
     const RANK = {upcoming: 0, proposed: 0, waiting: 1};
     return steps.map((s) => {
       const a = app.get(s.app) || {};
       // A shared process (the same steps for two applications): the row names every role on it.
-      const also = (s.also || []).map((id) => (app.get(id) || {}).role).filter(Boolean);
-      const st = s.state || (s.upcoming === 'yes' ? 'upcoming' : 'past');
+      const also = window.jaIds(s.also).map((id) => (app.get(id) || {}).role).filter(Boolean);
+      const last = [s.date || '', s.due || ''].sort().pop();
+      let st = s.state || 'past';
+      if ((st === 'upcoming' || st === 'proposed') && last && last < today) st = 'past';
       const state = st === 'done' ? 'Done' + (s.done ? ' ' + s.done : '')
           + (s.awaits ? ' · awaiting ' + s.awaits + (s.since ? ' since ' + s.since : '') : '')
         : st === 'waiting' ? 'Waiting' + (s.since ? ' since ' + s.since : '')
+        : st === 'proposed' && !last ? 'Proposed, no date yet'
         : st.charAt(0).toUpperCase() + st.slice(1);
-      return {key: s.key, date: s.date || '', company: (a.company || '') + (also.length ? ': ' + [a.role].concat(also).filter(Boolean).join('; ') : ''),
+      const when = s.due && s.due !== s.date ? (s.date ? s.date + ' · due ' + s.due : 'due ' + s.due) : (s.date || '');
+      return {key: s.key, date: s.date || '', when, sortBy: st === 'upcoming' || st === 'proposed' ? (s.due || s.date || '') : (s.date || ''),
+              company: (a.company || '') + (also.length ? ': ' + [a.role].concat(also).filter(Boolean).join('; ') : ''),
               step: s.step, detail: s.detail, state,
               // A done step that still awaits the employer's answer is a wait, not a step behind.
               rank: st in RANK ? RANK[st] : st === 'done' && s.awaits ? 1 : 2};
-      // What is ahead, the nearest first; what is behind (done, past, cancelled, ended), the latest first.
-    }).sort((x, y) => x.rank - y.rank || (x.rank === 2 ? y.date.localeCompare(x.date) : (x.date === '') - (y.date === '') || x.date.localeCompare(y.date)));
+      // What is ahead, the nearest due or date first (no date last); what is behind, the latest first.
+    }).sort((x, y) => x.rank - y.rank || (x.rank === 2 ? y.date.localeCompare(x.date)
+      : (x.sortBy === '') - (y.sortBy === '') || x.sortBy.localeCompare(y.sortBy)));
   },
 });
 
@@ -289,9 +340,9 @@ dash.calc('sessions_view', {
   description: 'Each session with the applications it works on, looked up by id: the ones that wait on the person first, in the order to answer them.',
   fn: (sessions, applications) => {
     const app = new Map(applications.map((a) => [a.id, a]));
-    return sessions.map((s) => ({id: s.id, rank: s.rank, state: s.state, title: s.title, waits: s.waits || '',
-      jobs: (s.apps || []).map((id) => app.get(id)).filter(Boolean).map((a) => a.company + ' – ' + a.role).join('; '),
-      why: s.why || '', since: s.since || ''}));
+    return sessions.map((s) => ({id: s.id, rank: Number(s.rank) || 0, state: s.state, title: s.title, waits: s.waits || '',
+      jobs: window.jaIds(s.apps).map((id) => app.get(id)).filter(Boolean).map((a) => a.company + ' – ' + a.role).join('; '),
+      why: s.why || '', since: s.since || '', link: s.link || ''}));
   },
 });
 
@@ -300,27 +351,21 @@ const KIND = {urgent: 'Urgent', working: 'In progress', task: 'Task', click: 'Si
               late: 'Past due', queued: "Claude's next", session: 'Answer first'};
 // The Sessions tab in groups, in this order, each state in words.
 const SESSION_GROUPS = [{name: 'Wait on you', state: 'you'}, {name: 'Work alone', state: 'ready'}, {name: 'Done', state: 'done'}];
+// Closed and Declined are over, like Rejected: muted, never the amber "needs action".
 const PILL = {'Moving forward': 'forward', 'Waiting for reply': '', 'Not sent': 'notsent', 'Rejected': 'rejected',
-              'Closed': 'notsent', 'Declined': 'notsent',
+              'Closed': 'muted', 'Declined': 'muted',
               connected: 'ok', 'signed-in': 'ok', 'needs-sign-up': 'warn', expired: 'warn', 'needs-sign-in': 'warn',
-              'needs-reconnect': 'bad', blocked: 'bad', unknown: 'muted', 'not-signed-in': 'muted', excluded: 'rejected',
+              'needs-reconnect': 'bad', blocked: 'bad', unknown: 'muted', 'not-signed-in': 'muted',
               task: 'task', click: 'warn', todo: 'warn', info: 'warn', working: 'forward', urgent: 'bad',
               late: 'bad', queued: 'muted', session: 'task'};
 // The Logins tab in groups, in this order; each state with its label, so state is never told by color alone.
-// A site nobody waits on is "Not signed in", not "Needs you". Excluded employers are in their own tab.
-const LOGIN_GROUPS = [
-  {name: 'Needs you', states: ['needs-sign-up', 'expired', 'needs-sign-in', 'needs-reconnect', 'blocked']},
-  {name: 'Signed in', states: ['signed-in']},
-  {name: 'Connected', states: ['connected']},
-  {name: 'Not signed in', states: ['not-signed-in']}];
+// "Needs you" is the export's own flag (a connector, or a site a job waits on): one rule, in export_dashboard.py.
+const LOGIN_GROUPS = [{name: 'Needs you', group: 'needs'}, {name: 'Signed in', group: 'signed-in'},
+                      {name: 'Connected', group: 'connected'}, {name: 'Not signed in', group: 'not-signed-in'}];
 const LOGIN_LABEL = {'needs-sign-up': 'needs sign-up', expired: 'expired', 'needs-sign-in': 'needs sign-in',
                      'needs-reconnect': 'reconnect', blocked: 'blocked', 'signed-in': 'signed in', connected: 'connected',
-                     'not-signed-in': 'not signed in', excluded: 'excluded'};
-const loginState = (r) => {
-  const waits = r.kind === 'connector' || (r.jobs || 0) > 0;
-  if (r.status === 'unknown' || (r.status === 'needs-sign-in' && !waits)) return 'not-signed-in';
-  return r.status;
-};
+                     unknown: 'not checked', 'not-signed-in': 'not signed in'};
+const loginGroup = (r) => (r.needs === 'yes' ? 'needs' : ['signed-in', 'connected'].includes(r.status) ? r.status : 'not-signed-in');
 const STAGE_ORDER = {'Moving forward': 0, 'Waiting for reply': 1, 'Not sent': 2, 'Rejected': 3, 'Closed': 4, 'Declined': 5};
 
 const indexValue = (key, field) => (el) => {
@@ -328,12 +373,18 @@ const indexValue = (key, field) => (el) => {
   const row = d.status === 'ok' ? d.data.find((r) => r.key === key) : null;
   el.textContent = row ? String(row[field]) : '—';
 };
-[['h-todo2', 'actions:todo'], ['h-urgent', 'actions:urgent'], ['h-working', 'actions:working'], ['t-working', 'actions:working'],
- ['h-todo', 'actions:click'], ['h-info', 'actions:info'], ['h-task', 'actions:task'], ['t-forward', 'stage:Moving forward'],
- ['t-waiting', 'stage:Waiting for reply'], ['t-notsent', 'stage:Not sent'], ['t-rejected', 'stage:Rejected'],
- ['t-closed', 'stage:Closed'], ['t-declined', 'stage:Declined'],
- ['h-late', 'actions:late'], ['h-waiting', 'actions:waiting'], ['h-queued', 'actions:queued'], ['h-session', 'actions:session'],
- ['t-task', 'actions:task'], ['t-logins', 'logins:action']].forEach(([name, key]) => dash.draw(name, indexValue(key, 'n')));
+// Do now's counts, from its rows as the page shows them today (do_counts), not the export's.
+const kindCount = (kind) => (el) => {
+  const d = dash.data('do_counts');
+  const row = d.status === 'ok' && Array.isArray(d.data) ? d.data.find((r) => r.kind === kind) : null;
+  el.textContent = row ? String(row.n) : '—';
+};
+[['h-urgent', 'urgent'], ['h-session', 'session'], ['h-working', 'working'], ['t-working', 'working'],
+ ['h-click', 'click'], ['h-todo', 'todo'], ['h-info', 'info'], ['h-task', 'task'], ['t-task', 'task'],
+ ['h-late', 'late'], ['h-queued', 'queued']].forEach(([name, kind]) => dash.draw(name, kindCount(kind)));
+[['t-forward', 'stage:Moving forward'], ['t-waiting', 'stage:Waiting for reply'], ['t-notsent', 'stage:Not sent'],
+ ['t-rejected', 'stage:Rejected'], ['t-closed', 'stage:Closed'], ['t-declined', 'stage:Declined'],
+ ['h-waiting', 'actions:waiting'], ['t-logins', 'logins:action']].forEach(([name, key]) => dash.draw(name, indexValue(key, 'n')));
 dash.draw('h-generated', indexValue('meta:generated', 'label'));
 // Is a run going? Started and finished rows from the usage log, and the next scheduled run.
 dash.draw('h-run', indexValue('meta:run', 'label'));
@@ -361,20 +412,28 @@ const inkFor = (el) => {
   const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
   return (1.05 / (lum + 0.05)) >= ((lum + 0.05) / 0.0509) ? '#ffffff' : '#0b0b0b';
 };
+// The drawing is stored empty (the runtime's rule): it builds the total, the bar and the legend each time.
 dash.draw('split', (el) => {
   const d = dash.data('index');
-  if (d.status !== 'ok') return;
+  if (d.status !== 'ok') { el.replaceChildren(); el.textContent = '—'; return; }
   const parts = SPLIT.map((label, i) => {
     const row = d.data.find((r) => r.key === 'stage:' + label);
-    return {label, slot: i + 1, n: row ? row.n : 0};
+    return {label, slot: i + 1, n: row ? Number(row.n) || 0 : 0};
   });
   const total = parts.reduce((s, p) => s + p.n, 0);
   const notSent = parts[2].n;
-  el.querySelector('.ja-split-total').textContent = String(total);
-  el.querySelector('.ja-split-sub').textContent = `applications in the tracker: ${total - notSent} sent, ${notSent} not sent yet`;
-  const bar = el.querySelector('.ja-split');
-  const legend = el.querySelector('.ja-legend');
-  bar.replaceChildren(); legend.replaceChildren();
+  const head = document.createElement('div');
+  const big = document.createElement('span');
+  big.className = 'ja-split-total'; big.textContent = String(total);
+  const sub = document.createElement('span');
+  sub.className = 'ja-muted ja-split-sub';
+  sub.textContent = ` applications in the tracker: ${total - notSent} sent, ${notSent} not sent yet`;
+  head.append(big, sub);
+  const bar = document.createElement('div');
+  bar.className = 'ja-split'; bar.setAttribute('role', 'img');
+  const legend = document.createElement('ul');
+  legend.className = 'ja-legend';
+  el.replaceChildren(head, bar, legend);
   const shown = parts.filter((p) => p.n > 0);
   bar.setAttribute('aria-label', 'Applications by outcome: '
     + shown.map((p) => `${p.label} ${p.n} (${Math.round(100 * p.n / total)}%)`).join(', '));
@@ -416,11 +475,26 @@ const link = (tr, url, label) => {
   return td;
 };
 
+// A table that cannot show rows says why in one row, so a failed source never reads as "nothing to do".
+const said = (tbody, d, cols, rows) => {
+  let text = '';
+  if (d.status === 'error' || d.status === 'declined' || d.status === 'missing') text = 'Could not load this: ' + (d.message || d.status) + '.';
+  else if (d.status === 'connect') text = 'Connect the source to see this.';
+  else if (d.status === 'ok' && rows && !rows.length) text = 'Nothing here.';
+  if (!text) return d.status !== 'ok';
+  const tr = document.createElement('tr');
+  const td = cell(tr, text, 'ja-empty');
+  td.colSpan = cols;
+  tbody.appendChild(tr);
+  return true;
+};
+
 dash.draw('do-rows', (tbody) => {
   const d = dash.data('do_now');
   tbody.replaceChildren();
-  if (d.status !== 'ok') return;
-  d.data.filter((r) => window.jaState.kind === 'all' || r.kind === window.jaState.kind).forEach((r) => {
+  const shown = d.status === 'ok' ? d.data.filter((r) => window.jaState.kind === 'all' || r.kind === window.jaState.kind) : null;
+  if (said(tbody, d, 4, shown)) return;
+  shown.forEach((r) => {
     const tr = document.createElement('tr');
     tr.dataset.key = r.key;
     // A click that is not a login (a filled form waiting on a CAPTCHA, say) is "Click", never "Sign in".
@@ -440,14 +514,14 @@ dash.draw('do-rows', (tbody) => {
 dash.draw('session-rows', (tbody) => {
   const d = dash.data('sessions_view');
   tbody.replaceChildren();
-  if (d.status !== 'ok') return;
+  if (said(tbody, d, 7, d.status === 'ok' ? d.data : null)) return;
   SESSION_GROUPS.forEach((g) => {
     const rows = d.data.filter((r) => r.state === g.state);
     if (!rows.length) return;
     const head = document.createElement('tr');
     head.className = 'ja-group';
     const td = document.createElement('td');
-    td.colSpan = 6;
+    td.colSpan = 7;
     td.textContent = `${g.name} · ${rows.length}`;
     head.appendChild(td);
     tbody.appendChild(head);
@@ -455,7 +529,7 @@ dash.draw('session-rows', (tbody) => {
       const tr = document.createElement('tr');
       tr.dataset.key = r.id;
       cell(tr, r.rank ? String(r.rank) : '', 'ja-when'); cell(tr, r.title); cell(tr, r.waits); cell(tr, r.jobs);
-      cell(tr, r.why, 'ja-muted'); cell(tr, r.since, 'ja-wide ja-when');
+      cell(tr, r.why, 'ja-muted'); cell(tr, r.since, 'ja-wide ja-when'); link(tr, r.link, 'Open');
       tbody.appendChild(tr);
     });
   });
@@ -464,7 +538,7 @@ dash.draw('session-rows', (tbody) => {
 dash.draw('cal-rows', (tbody) => {
   const d = dash.data('calendar_jobs');
   tbody.replaceChildren();
-  if (d.status !== 'ok') return;
+  if (said(tbody, d, 5, d.status === 'ok' ? d.data : null)) return;
   d.data.forEach((r) => {
     const tr = document.createElement('tr');
     tr.dataset.key = r.id;
@@ -476,13 +550,10 @@ dash.draw('cal-rows', (tbody) => {
 dash.draw('login-rows', (tbody) => {
   const d = dash.data('logins');
   tbody.replaceChildren();
-  if (d.status !== 'ok') return;
-  const known = new Set(LOGIN_GROUPS.flatMap((g) => g.states));
-  const state = (r) => (known.has(loginState(r)) ? loginState(r) : 'not-signed-in');
+  if (said(tbody, d, 7, d.status === 'ok' ? d.data : null)) return;
   LOGIN_GROUPS.forEach((g) => {
-    const rows = d.data.filter((r) => g.states.includes(state(r)))
-      .sort((x, y) => g.states.indexOf(state(x)) - g.states.indexOf(state(y)) || (y.jobs || 0) - (x.jobs || 0)
-        || x.name.localeCompare(y.name));
+    const rows = d.data.filter((r) => loginGroup(r) === g.group)
+      .sort((x, y) => (Number(y.jobs) || 0) - (Number(x.jobs) || 0) || String(x.name).localeCompare(String(y.name)));
     if (!rows.length) return;
     const head = document.createElement('tr');
     head.className = 'ja-group';
@@ -496,7 +567,8 @@ dash.draw('login-rows', (tbody) => {
       tr.dataset.key = r.id;
       // A sign-in nobody checked for days may have ended: the pill says since when, and is no longer green.
       cell(tr, r.name); cell(tr, r.kind);
-      pill(tr, LOGIN_LABEL[state(r)] + (r.stale ? ' · not checked since ' + String(r.checked).slice(0, 16) : ''), r.stale ? 'muted' : PILL[state(r)]);
+      const label = LOGIN_LABEL[r.status] || r.status;
+      pill(tr, label + (r.stale ? ' · not checked since ' + String(r.checked).slice(0, 16) : ''), r.stale ? 'muted' : PILL[r.status]);
       cell(tr, r.jobs ? String(r.jobs) : '', 'ja-when');
       cell(tr, r.checked, 'ja-wide ja-when'); cell(tr, r.fix || r.note, 'ja-wide ja-muted'); link(tr, r.link, 'Open');
       tbody.appendChild(tr);
@@ -521,6 +593,8 @@ dash.draw('excl-count', (el) => {
 });
 dash.draw('excl-rows', (tbody) => {
   tbody.replaceChildren();
+  const d = dash.data('excluded');
+  if (said(tbody, d, 6, d.status === 'ok' ? exclRows() : null)) return;
   exclRows().forEach((r) => {
     const tr = document.createElement('tr');
     tr.dataset.key = r.id;
@@ -545,11 +619,12 @@ dash.draw('excl-rows', (tbody) => {
 dash.draw('step-rows', (tbody) => {
   const d = dash.data('steps_view');
   tbody.replaceChildren();
-  if (d.status !== 'ok') return;
-  d.data.filter((r) => window.jaState.steps === 'all' || r.rank < 2).forEach((r) => {
+  const shown = d.status === 'ok' ? d.data.filter((r) => window.jaState.steps === 'all' || r.rank < 2) : null;
+  if (said(tbody, d, 5, shown)) return;
+  shown.forEach((r) => {
     const tr = document.createElement('tr');
     tr.dataset.key = r.key;
-    cell(tr, r.date, 'ja-when'); cell(tr, r.company); cell(tr, r.step); cell(tr, r.detail, 'ja-wide'); cell(tr, r.state);
+    cell(tr, r.when, 'ja-when'); cell(tr, r.company); cell(tr, r.step); cell(tr, r.detail, 'ja-wide'); cell(tr, r.state);
     tbody.appendChild(tr);
   });
 });
@@ -557,12 +632,12 @@ dash.draw('step-rows', (tbody) => {
 dash.draw('app-rows', (tbody) => {
   const d = dash.data('applications');
   tbody.replaceChildren();
-  if (d.status !== 'ok') return;
   const st = window.jaState;
   const q = st.q.trim().toLowerCase();
-  d.data.filter((r) => st.stage === 'all' || r.stage === st.stage)
-    .filter((r) => !q || [r.company, r.role, r.where, r.stage].join(' ').toLowerCase().includes(q))
-    .slice().sort((x, y) => (STAGE_ORDER[x.stage] - STAGE_ORDER[y.stage]) || String(y.applied).localeCompare(String(x.applied)))
+  const shown = d.status === 'ok' ? d.data.filter((r) => st.stage === 'all' || r.stage === st.stage)
+    .filter((r) => !q || [r.company, r.role, r.where, r.stage].join(' ').toLowerCase().includes(q)) : null;
+  if (said(tbody, d, 7, shown)) return;
+  shown.slice().sort((x, y) => (STAGE_ORDER[x.stage] - STAGE_ORDER[y.stage]) || String(y.applied).localeCompare(String(x.applied)))
     .forEach((r) => {
       const tr = document.createElement('tr');
       tr.dataset.key = r.id;
@@ -577,8 +652,16 @@ dash.draw('app-rows', (tbody) => {
         w.title = r.warn;
         stage.append(' ', w);
       }
+      if (r.again) {
+        // Sent twice to the same employer and role: both stay, flagged, never hidden.
+        const w = document.createElement('span');
+        w.className = 'ja-pill warn';
+        w.textContent = r.again;
+        stage.append(' ', w);
+      }
       cell(tr, r.applied, 'ja-when');
-      cell(tr, r.warn ? `Warning: ${r.warn}${r.status ? ' · ' + r.status : ''}` : r.status, 'ja-wide ja-muted');
+      const words = [r.warn ? 'Warning: ' + r.warn : '', r.status, r.reminder ? 'follow up ' + r.reminder : ''].filter(Boolean);
+      cell(tr, words.join(' · '), 'ja-wide ja-muted');
       cell(tr, r.cv, 'ja-wide'); cell(tr, r.folder, 'ja-wide ja-muted');
       tbody.appendChild(tr);
     });

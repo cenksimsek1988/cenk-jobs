@@ -23,7 +23,9 @@ python -I track.py wait <id> needs-person|account-needed "<what>" [link=<url>]
 python -I track.py show <id> [--full]                                     print one job's summary row and the path of
                                                                            its detail file; --full: the row with its
                                                                            detail merged in (prep, history, earlier)
-python -I track.py brief <id> [<id> ...]                                  compact view of prepared jobs: links, CV,
+python -I track.py brief <id> [<id> ...]                                  the filling settings (LETTERS, EMAILED_CODES,
+                                                                           OPTIONAL_FIELDS), then a compact view of
+                                                                           prepared jobs: links, CV,
                                                                            letter, answers, open points
 python -I track.py list [<status>]                                        one line per job
 python -I track.py summary                                                counts by status (and screening verdict)
@@ -79,13 +81,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import choices  # noqa: E402
 import employerlib as el  # noqa: E402
 import jsenv  # noqa: E402
-from trackerlib import (DETAILS, ENDED_STATUS, ISO_DATE, TODO_KINDS, collapse, collapse_row, companies,  # noqa: E402
-                        date_in, employer_link, entries, expand, expand_company, job_urls, login_of, workday_host,
-                        expand_row, flat_jobs, is_company_shape, json_indent, load_settings, needs_of, note_key, split_tracker,
-                        write_json)
+from trackerlib import (DETAILS, ENDED_STATUS, ISO_DATE, STATUSES, TODO_KINDS, collapse, collapse_row,  # noqa: E402
+                        companies, date_in, employer_link, entries, expand, expand_company, job_urls, login_of,
+                        workday_host, expand_row, flat_jobs, is_company_shape, json_indent, load_settings, needs_of,
+                        note_key, split_tracker, write_json)
 
-STATUSES = ("found", "pending", "to-apply", "account-needed", "needs-person", "needs-captcha", "submitted", "skipped",
-            "excluded", "failed", "closed", "declined")
 args = sys.argv[1:]
 env_arg = None
 if "--env" in args:
@@ -623,6 +623,11 @@ elif cmd == "split":
     split_tracker_files(data, "--apply" in args)
 elif cmd == "brief":
     wanted = args[1:]
+    # The settings that change how a form is filled, once, so every applier's brief carries them.
+    # The first name titles a tab that waits on the person: ">>> Jane: Acme type the code <<<".
+    print("filling: " + " ".join(f"{k}={choices.value(env, k)[0]}" for k in ("LETTERS", "EMAILED_CODES",
+                                                                              "OPTIONAL_FIELDS"))
+          + f" first_name={(env.get('PERSON_NAME') or '').split(' ')[0]}")
     for company, job in companies(data):
         if job["id"] not in wanted:
             continue

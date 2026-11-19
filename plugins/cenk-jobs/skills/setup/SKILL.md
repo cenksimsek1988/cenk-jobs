@@ -141,7 +141,11 @@ your Pro week: not known yet."
    `LETTERS=asked|always|never`, default asked.
 6. What waits for the person (only with `APPLY=auto`), one answer per step: sending an application (`send`); a
    free-text answer Claude drafted under `draft_answers` (`free_text`); booking an interview slot (`interview`).
-   `ASK_FIRST=send,free_text` by default; empty: all alone. Asking costs the person's time, not tokens.
+   `ASK_FIRST=send,free_text` by default; empty: all alone. Asking costs the person's time, not tokens. Essays
+   "auto" is `free_text` left out; `choices.py show` names it.
+   Form filling: an emailed application code read in Gmail by Claude (`EMAILED_CODES=off|on`, default off; one or
+   two Gmail reads a form, about 5-10k W), and optional demographic fields filled from the profile
+   (`OPTIONAL_FIELDS=off|fill`, default off).
 7. Interview slots: Claude books them and keeps the calendar (about 50k to 80k W an invitation, estimated), or the
    person does and Claude records the date. `CALENDAR=auto|self`, default auto.
 8. Runs: weekdays, some days, weekly or by hand (`SEARCH_DAYS`, `SEARCH_TIME`, through `/cenk-jobs:schedule`).

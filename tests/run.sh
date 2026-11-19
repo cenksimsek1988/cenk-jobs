@@ -1425,7 +1425,7 @@ check "export: an excluded employer's own site is left out, whatever its state" 
     "$1" -I "$2/dq.py" "$3/actions.json" "not any(r[\"key\"].startswith(\"login:\") for r in R)"' _ "$PY" "$T" "$OUT"
 check "export: a sign-in checked 6 days ago is stale and not counted as working" sh -c '
     "$1" -I "$2/dq.py" "$3/logins.json" "K[\"Greenhouse\"][\"stale\"] == \"yes\" and K[\"Lever\"][\"stale\"] == \"\"" &&
-    "$1" -I "$2/dq.py" "$3/index.json" "K[\"logins:ok\"][\"n\"] == 2"' _ "$PY" "$T" "$OUT"
+    "$1" -I "$2/dq.py" "$3/index.json" "\"logins:ok\" not in K"' _ "$PY" "$T" "$OUT"
 # A proposed date is no task; a step left open on a job that is over is "ended", never past due.
 cp "$H/apply/pipeline.json" "$T/pipeline.bak"
 cat >"$T/mkprop.py" <<'PYEOF'
@@ -1480,7 +1480,7 @@ PYEOF
 export_dash "$T/dash-run" >"$T/run-export.out" 2>&1
 check "export: with a run recorded, a state from before its start reads not checked, a connector too" sh -c '
     "$1" -I "$2/dq.py" "$2/dash-run/logins.json" "K[\"Lever\"][\"stale\"] == \"yes\" and K[\"gmail\"][\"stale\"] == \"yes\" and K[\"Workday · Epsilon Co\"][\"stale\"] == \"\"" &&
-    "$1" -I "$2/dq.py" "$2/dash-run/index.json" "K[\"logins:ok\"][\"n\"] == 1"' _ "$PY" "$T"
+    "$1" -I "$2/dq.py" "$2/dash-run/logins.json" "sum(1 for r in R if r[\"status\"] in (\"signed-in\", \"connected\") and not r[\"stale\"]) == 1"' _ "$PY" "$T"
 check "check: a connector not checked in this run" grep -q "^check: connectors not checked in this run: Gmail (last " "$T/run-export.out"
 check "check: a row that reads signed in while its note asks for an account" grep -q "^check: reads signed in or connected, but its note asks for a sign-in or an account: Lever " "$T/run-export.out"
 check "check: only a sign-in older than 3 days is named as old" sh -c 'grep "^check: sign-ins not checked for more than 3 days" "$1" | grep -q "Greenhouse" && ! grep "^check: sign-ins not checked for more than 3 days" "$1" | grep -q "Lever"' _ "$T/run-export.out"
@@ -1509,10 +1509,12 @@ check "check: the last line counts them" grep -q "^check: 1[0-9] mismatches" "$T
 cp -R "$T/flat" "$T/clean"
 use "$T/clean"
 track set F2 skipped "does not fit" >/dev/null 2>&1
+# F1 waits on the person: with a to-do that says what, the records agree (0.42.0: without one it is a check line).
+track wait F1 needs-person "a phone number" >/dev/null 2>&1
 build >/dev/null 2>&1
 export_dash --check >"$T/check0.out" 2>&1
 check "export --check on records that agree with the page: 0 mismatches, nothing else" sh -c '
-    grep -q "^check: 0 mismatches" "$1" && [ "$(wc -l <"$1")" -eq 1 ]' _ "$T/check0.out"
+    grep -q "^check: 0 mismatches" "$1" && [ "$(wc -l <"$1")" -eq 1 ] || { cat "$1"; false; }' _ "$T/check0.out"
 use "$T/dash"
 "$PY" -I "$S/logins.py" sync --env "$ENVF" >/dev/null 2>&1
 check "logins sync: an excluded employer's own site is marked excluded, also from expired" dq "$H/apply/logins.json" \
@@ -1654,7 +1656,7 @@ check "export: the rows of a session's jobs come before an older row outside the
 check "export: the sessions file has every session with its rank, state, jobs and why" dq "$OUT/sessions.json" \
     'len(R) == 5 and K["local_a1"]["rank"] == 1 and K["local_a1"]["apps"] == ["D5"] and K["local_a1"]["why"] == "urgent" and K["local_e5"]["rank"] == 0 and K["local_e5"]["state"] == "ready" and K["local_b2"]["why"].startswith("by ") and not K["local_a1"]["title"].startswith("You")'
 check "export: the sessions are counted" dq "$OUT/index.json" \
-    'K["sessions:you"]["n"] == 4 and K["sessions:ready"]["n"] == 1 and K["sessions:done"]["n"] == 0 and K["actions:session"]["n"] == 4'
+    'not any(k.startswith("sessions:") for k in K) and K["actions:session"]["n"] == 4 and K["actions:working"]["n"] == 1'
 
 # The cross-check on sessions and steps: a date that passed, jobs that all ended, a title that names an employer
 # whose job ended, a title that differs from the state, a to-do naming an unknown session, an old sync, and a
@@ -2553,6 +2555,190 @@ EOF
 check "feedback analyse: replies by score band; a normal band with 5 replies and no invitation proposes a higher normal" sh -c '
     "$1" -I "$2/feedback.py" analyse --env "$3" | grep -q "^proposal: raise normal from 65 to 70: 5 replies at 65-69, no invitation$"' \
     _ "$PY" "$S" "$ENVF"
+
+# --- 0.42.0: the dashboard review: page date logic, list fields as text, check lines, one row per site -------------
+mkhome "$T/h42" flat
+use "$T/h42"
+cat >"$T/mk42.py" <<'PYEOF'
+import datetime
+import json
+import sys
+
+home = sys.argv[1]
+day = lambda n: (datetime.date.today() + datetime.timedelta(days=n)).isoformat()  # noqa: E731
+now = datetime.datetime.now().replace(microsecond=0)
+job = lambda i, company, title, status, **more: dict(  # noqa: E731
+    {"id": i, "company": company, "title": title, "url": f"https://example.com/{i.lower()}", "status": status,
+     "note": ""}, **more)
+jobs = [
+    job("K1", "Acme Corp", "Staff Engineer", "submitted", applied=day(-20)),
+    job("K2", "Acme Corp", "Staff Engineer (m/f/d)", "submitted", applied=day(-1)),
+    job("K3", "Kappa Co", "Developer", "needs-jane", note="hand score 68"),
+    job("K4", "Lambda Co", "Engineer", "to-apply", grade="long-shot"),
+    job("K5", "Mu Ltd", "Analyst", "found", unread=day(-1)),
+    job("K6", "Nu Inc", "Lead", "submitted", applied=day(-3),
+        todo=[{"kind": "todo", "text": "Claude: score with the weighted fit check", "since": day(-1)}]),
+    job("K7", "Xi AG", "Architect", "submitted", applied=day(-30)),
+    job("K8", "Omicron SA", "Manager", "submitted", applied=day(-4)),
+    job("K9", "Pi Co", "Tester", "submitted", applied=day(-4)),
+    job("K10", "Rho Srl", "Developer", "submitted", applied=day(-4)),
+    job("K11", "Sigma Co", "Engineer", "account-needed"),
+    job("K13", "Tau Ltd", "Engineer", "needs-person",
+        todo=[{"kind": "todo", "text": "send the references", "due": day(5), "since": day(-1)}]),
+]
+pipeline = {
+    "K7": {"stage": "approved", "steps": [{"date": day(-12), "name": "Screening call", "done": day(-12)}]},
+    "K8": {"stage": "approved", "steps": [{"date": day(3), "name": "Performance chat"}]},
+    "K9": {"stage": "pending", "steps": [{"date": day(2), "due": day(2), "name": "Online test"}]},
+    "K10": {"stage": "approved", "steps": [{"name": "Phone call (to be proposed)"}]},
+}
+site = lambda i, status, checked, **more: dict(  # noqa: E731
+    {"id": i, "name": i, "kind": "site", "status": status, "checked": checked.isoformat(), "note": "",
+     "jobs": []}, **more)
+logins = [site("LinkedIn", "signed-in", now - datetime.timedelta(days=5), jobs=["K14"]),
+          site("Workday · Acme", "needs-sign-in", now, fix="sign in again"),
+          site("LinkedIn Easy Apply", "needs-sign-in", now - datetime.timedelta(hours=2), jobs=["K11"],
+               link="https://www.linkedin.com/jobs/"),
+          site("linkedin", "needs-sign-in", now - datetime.timedelta(hours=1), jobs=["K12"]),
+          site("DataCo", "signed-in", now, link="https://www.linkedin.com/jobs/view/1")]
+for name, data in (("targets", {"jobs": jobs}), ("pipeline", pipeline), ("logins", {"logins": logins})):
+    with open(f"{home}/apply/{name}.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+with open(f"{home}/apply/usage-log.jsonl", "w", encoding="utf-8") as f:
+    f.write(json.dumps({"step": "run", "result": "started",
+                        "time": (now - datetime.timedelta(hours=10)).isoformat()}) + "\n")
+with open(f"{home}/apply/dashboard-uploads.json", "w", encoding="utf-8") as f:
+    json.dump({"at": now.isoformat(), "files": {"index.json": "0" * 64}}, f)
+PYEOF
+"$PY" -I "$T/mk42.py" "$H"
+"$PY" -I "$S/build_app_folders.py" --env "$ENVF" >/dev/null 2>&1
+"$PY" -I "$S/export_dashboard.py" "$T/d42" --env "$ENVF" >"$T/d42.out" 2>&1
+"$PY" -I "$S/export_dashboard.py" --check --env "$ENVF" >"$T/d42c.out" 2>&1
+check "export 0.42: the same employer and role sent twice is a check line and a flag on the later row" sh -c '
+    grep -q "^check: the same employer and role twice: K1 and K2 Acme Corp" "$1" &&
+    "$2" -I "$3/dq.py" "$4/applications.json" "K[\"K2\"][\"again\"] == \"re-application of K1\" and K[\"K1\"][\"again\"] == \"\""' \
+    _ "$T/d42.out" "$PY" "$T" "$T/d42"
+check "export 0.42: a status the plugin does not know is a check line; its note is a Waits on you row with a check" sh -c '
+    grep -q "^check: status not known to the plugin: needs-jane (1: K3)" "$1" && grep -q "^check: needs-jane with no to-do: K3" "$1" &&
+    "$2" -I "$3/dq.py" "$4/actions.json" "K[\"K3:todo\"][\"text\"] == \"Waits on you: hand score 68\""' \
+    _ "$T/d42.out" "$PY" "$T" "$T/d42"
+check "export 0.42: Claude's own to-do, a job ready to send (with its long-shot) and an unread posting are Claude's next" \
+    dq "$T/d42/actions.json" \
+    'K["K6:1"]["kind"] == "queued" and "1 long-shot wait" in K["queued:send"]["text"] and K["queued:unread"]["kind"] == "queued" and not any(r["key"] == "K4:todo" or r["key"] == "K5:noowner" for r in R)'
+check "export 0.42: whole words only: \"Performance chat\" is no task row; a step with no date is proposed" sh -c '
+    "$1" -I "$2/dq.py" "$3/actions.json" "not any(\"Performance chat\" in r[\"text\"] for r in R)" &&
+    "$1" -I "$2/dq.py" "$3/steps.json" "K[\"K10#1\"][\"state\"] == \"proposed\""' _ "$PY" "$T" "$T/d42"
+check "export 0.42: a pending job's PIPELINE steps are rows; Moving forward idle 7 days is a check line" sh -c '
+    "$1" -I "$2/dq.py" "$3/steps.json" "K[\"K9#1\"][\"state\"] == \"upcoming\"" &&
+    grep -q "^check: moving forward, nothing since .*: K7 Xi AG" "$4"' _ "$PY" "$T" "$T/d42" "$T/d42.out"
+check "export 0.42: one row per job board, the plainest name kept, the latest check's state, all its jobs; no job waiting is no need" sh -c '
+    "$1" -I "$2/dq.py" "$3/logins.json" "len(R) == 3 and K[\"LinkedIn\"][\"jobs\"] == 3 and K[\"LinkedIn\"][\"status\"] == \"needs-sign-in\" and K[\"LinkedIn\"][\"needs\"] == \"yes\" and K[\"DataCo\"][\"needs\"] == \"\" and not any(r[\"needs\"] for r in R if r[\"id\"].startswith(\"Workday\"))" &&
+    grep -q "^check: one site, 3 login rows: LinkedIn, LinkedIn Easy Apply, linkedin -> keep LinkedIn in LOGINS with the latest check (needs-sign-in" "$4" &&
+    grep -q "^check: a site.s link is a job board.s page: DataCo" "$4"' _ "$PY" "$T" "$T/d42" "$T/d42.out"
+check "export 0.42: a run with no end for hours reads no end recorded; --check says the page is behind" sh -c '
+    "$1" -I "$2/dq.py" "$3/index.json" "\"no end recorded\" in K[\"meta:run\"][\"label\"] and K[\"meta:calendar_color\"][\"label\"] == \"3\"" &&
+    head -n 1 "$4" | grep -q "^check: the page is behind the records: index.json"' _ "$PY" "$T" "$T/d42" "$T/d42c.out"
+check "export 0.42: a to-do with a due date is a task on a deadline" dq "$T/d42/actions.json" 'K["K13:1"]["kind"] == "task"'
+cat >"$T/run42.py" <<'PYEOF'
+import json
+import sys
+rows = {"alone": [("2026-11-16T22:25:00", "started"), ("2026-11-16T22:57:00", "ok"), ("2026-11-18T01:34:00", "ok")],
+        "night": [("2026-11-16T22:25:00", "started"), ("2026-11-17T01:34:00", "ok")]}[sys.argv[2]]
+with open(sys.argv[1], "w", encoding="utf-8") as f:
+    for t, r in rows:
+        f.write(json.dumps({"step": "run", "time": t, "result": r}))
+        f.write(chr(10))
+PYEOF
+"$PY" -I "$T/run42.py" "$H/apply/usage-log.jsonl" alone
+"$PY" -I "$S/export_dashboard.py" "$T/d42a" --env "$ENVF" >/dev/null 2>&1
+"$PY" -I "$T/run42.py" "$H/apply/usage-log.jsonl" night
+"$PY" -I "$S/export_dashboard.py" "$T/d42b" --env "$ENVF" >/dev/null 2>&1
+check "export 0.42: an end alone reads no start recorded; a run past midnight keeps its end date" sh -c '
+    "$1" -I "$2/dq.py" "$3/index.json" "K[\"meta:run\"][\"label\"].startswith(\"Last run ended 2026-11-18 01:34: finished; no start recorded.\")" &&
+    "$1" -I "$2/dq.py" "$4/index.json" "K[\"meta:run\"][\"label\"].startswith(\"Last run 2026-11-16 22:25 to 2026-11-17 01:34: finished.\")"' \
+    _ "$PY" "$T" "$T/d42a" "$T/d42b"
+cat >"$H/apply/questions.json" <<'QEOF'
+{"questions": {"job-k1-old": {"kind": "job", "status": "done", "asked": "2026-11-15", "text": "An older done question",
+  "jobs": ["K1"], "note": "Done.", "noted_at": "2099-01-01T00:00:00.000Z"}}}
+QEOF
+mkdir -p "$T/q42"
+questions build "$T/q42" >/dev/null 2>&1
+check "questions build 0.42: an older done status is shown under Done" dq "$T/q42/questions/job-k1-old.json" 'R["done"] is True and R["open"] is False'
+check "questions build 0.42: with no round recorded, the last answer's time comes from the questions" dq "$T/q42/status/run.json" \
+    'R["recorded_at"] == "2099-01-01T00:00:00.000Z"'
+check "pay mask 0.42: whole words; \"Moderate\" and \"Corporate\" stay, a salary line is masked" "$PY" -I -c '
+import sys; sys.path.insert(0, sys.argv[1]); from trackerlib import no_pay
+assert no_pay("Moderate English, Corporate rate") == "Moderate English, Corporate rate", no_pay("Moderate English, Corporate rate")
+assert no_pay("salary 70k") == "[private]"' "$S"
+check "choices 0.42: EMAILED_CODES and OPTIONAL_FIELDS default off; bad values refused; show names essays" sh -c '
+    "$1" -I "$2/choices.py" show --env "$3" | grep -q "^EMAILED_CODES=off  (default)" &&
+    "$1" -I "$2/choices.py" show --env "$3" | grep -q "^OPTIONAL_FIELDS=off  (default)" &&
+    "$1" -I "$2/choices.py" show --env "$3" | grep -q "^essays: ask" &&
+    ! "$1" -I "$2/choices.py" set EMAILED_CODES=maybe --env "$3" >/dev/null 2>&1 &&
+    "$1" -I "$2/choices.py" set EMAILED_CODES=on OPTIONAL_FIELDS=fill --env "$3" >/dev/null &&
+    "$1" -I "$2/track.py" brief K4 --env "$3" | head -n 1 | grep -q "^filling: LETTERS=asked EMAILED_CODES=on OPTIONAL_FIELDS=fill first_name=Jane$"' \
+    _ "$PY" "$S" "$ENVF"
+cat >"$T/ecb.xml" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<gesmes:Envelope xmlns:gesmes="http://www.gesmes.org/xml/2002-08-01" xmlns="http://www.ecb.int/vocabulary/2002-08-01/eurofxref">
+<Cube><Cube time="2026-11-19"><Cube currency="USD" rate="1.0812"/><Cube currency="GBP" rate="0.8400"/></Cube></Cube>
+</gesmes:Envelope>
+EOF
+check "fx: the ECB rate of the saved day, rounded up, with the line naming ECB and the date; a missing rate exits 1" sh -c '
+    [ "$("$1" -I "$2/fx.py" 60000 EUR USD --rates "$3")" = "60000 EUR = 64872 USD (ECB 1.0812, 2026-11-19)" ] &&
+    [ "$("$1" -I "$2/fx.py" 64872 usd eur --rates "$3")" = "64872 USD = 60000 EUR (ECB 0.9249, 2026-11-19)" ] &&
+    ! "$1" -I "$2/fx.py" 100 EUR JPY --rates "$3" 2>/dev/null' _ "$PY" "$S" "$T/ecb.xml"
+if command -v node >/dev/null 2>&1; then
+    # The page's own calculations, with the runtime's shapes: list fields as JSON text, numbers as numbers, and a
+    # fixed "today". Seen 19 Nov: list fields as text emptied Do now, Sessions and Hiring steps.
+    cat >"$T/page42.js" <<'EOF'
+const fs = require('fs')
+const html = fs.readFileSync(process.argv[2], 'utf8')
+const js = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'))
+const pad = (n) => String(n).padStart(2, '0')
+const fmt = (f) => (d) => f === '%H:%M' ? pad(d.getHours()) + ':' + pad(d.getMinutes())
+  : d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+const calcs = {}
+global.window = global
+global.d3 = { timeFormat: fmt, timeDay: { offset: (d, n) => new Date(d.getTime() + n * 864e5) } }
+global.dash = { calc: (id, o) => { calcs[id] = o }, loader () {}, draw () {}, setParams () {}, setLink () {}, onData () {},
+                data: () => ({ status: 'loading', data: [] }) }
+global.document = { querySelectorAll: () => [], getElementById: () => null }
+global.location = { hash: '' }
+new Function(js)()
+window.jaToday = () => '2026-11-19'
+const apps = [{ id: 'A1', company: 'Acme', role: 'Engineer', stage: 'Moving forward' },
+              { id: 'A2', company: 'Acme', role: 'Lead', stage: 'Moving forward' }]
+const steps = calcs.steps_view.fn([
+  { key: 'A1#1', app: 'A1', step: 'Call', date: '2026-11-18', due: '', state: 'upcoming', also: '["A2"]' },
+  { key: 'A1#2', app: 'A1', step: 'Test', date: '2026-11-20', due: '2026-11-25', state: 'upcoming', also: '[]' },
+  { key: 'A1#3', app: 'A1', step: 'Phone', date: '', due: '', state: 'proposed', also: '' }], apps)
+const k = Object.fromEntries(steps.map((r) => [r.key, r]))
+const doNow = calcs.do_now.fn([
+  { key: 'x1', app: 'A1', kind: 'task', due: '2026-11-19', text: 'test' },
+  { key: 'x2', app: 'A1', kind: 'todo', due: '2026-11-18', text: 'reply' },
+  { key: 'x3', app: '', apps: '["A1","A2"]', kind: 'queued', due: '', text: 'two ready' }], apps, [])
+const d = Object.fromEntries(doNow.map((r) => [r.key, r]))
+const counts = Object.fromEntries(calcs.do_counts.fn(doNow).map((r) => [r.kind, r.n]))
+const cal = calcs.calendar_jobs.fn([
+  { id: 'c1', start: '2099-01-01T10:00:00', end: '2099-01-01T11:00:00', all_day: false, title: 'Job search · Acme call', color: '', where: '', meet: 'https://meet.example.com/a', link: 'https://cal.example.com/1', job: '' },
+  { id: 'c2', start: '2099-01-02T10:00:00', end: '2099-01-02T11:00:00', all_day: false, title: 'Beta call', color: '3', where: 'https://zoom.example.com/b', meet: '', link: 'https://cal.example.com/2', job: '' }],
+  apps, [{ key: 'meta:calendar_color', label: '3' }, { key: 'meta:calendar_prefix', label: 'Job search ·' }])
+const sess = calcs.sessions_view.fn([{ id: 's1', rank: 1, state: 'you', title: 'Prep', apps: '["A2"]', link: 'https://claude.ai/x' }], apps)
+console.log([k['A1#1'].state, k['A1#1'].company, k['A1#2'].when, k['A1#2'].state, k['A1#3'].state,
+             d.x1.kind, d.x2.kind, d.x3.for, doNow[0].key, counts.urgent, counts.late, sess[0].jobs, sess[0].link,
+             cal.map((e) => e.title + '/' + e.where + '/' + e.link).join(';')].join(' | '))
+EOF
+    node "$T/page42.js" "$S/../templates/dashboard/index.html" >"$T/page42.out" 2>&1
+    # The expected line holds a middle dot and an en dash: written by a heredoc, never passed in argv.
+    cat >"$T/page42.want" <<'EOF'
+Past | Acme: Engineer; Lead | 2026-11-20 · due 2026-11-25 | Upcoming | Proposed, no date yet | urgent | late | Acme – Engineer; Acme – Lead | x1 | 1 | 1 | Acme – Lead | https://claude.ai/x | Acme call/Video call/https://meet.example.com/a;Beta call/Video call/https://zoom.example.com/b
+EOF
+    check "page 0.42: list fields as JSON text; past, proposed and due worked out for today; counts from the rows" \
+        diff --strip-trailing-cr "$T/page42.want" "$T/page42.out"
+else
+    echo "SKIP page 0.42 date logic: no node"
+fi
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

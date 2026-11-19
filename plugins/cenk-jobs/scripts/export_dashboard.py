@@ -13,7 +13,12 @@ job, set before its job was sent, without "since", or naming a session the recor
 job whose site is signed in and that nobody started; a found or pending job with no owner; a job waiting on a
 sign-in with no row; sign-ins not checked for days; a session that is over, whose title differs from its state or
 names an employer whose jobs ended; a sessions record not synced for a day; PIPELINE and a folder with different
-steps; an excluded employer without a source; a job recorded rejected whose reason says the role closed or was filled.
+steps; an excluded employer without a source; a job recorded rejected whose reason says the role closed or was filled;
+a folder in another stage than the records give; the same employer and role sent twice; a status the plugin does not
+know; a session whose title names an employer with a running job and that has no jobs; two login rows for one site
+(merged into one row on the page); a reminder that is not a date, or on an ended job; Moving forward with nothing for
+7 days; a job waiting on the person with no to-do. --check also says when the page is behind the records (against
+dashboard-uploads.json).
 --calendar <file> (with either form): the Google Calendar list_events answer for today to 60 days ahead, saved as
 JSON; adds "calendar:" lines: a job-search event of a job that ended, a coming PIPELINE step with no event of its
 job on its date, or one at another time. Example: "calendar: 2026-11-19 "Job search · Acme: reply due" is for J3
@@ -26,12 +31,14 @@ Writes, in <out dir>:
   index.json         the root: one row per headline count (stages, actions by kind, logins needing action) and the
                      export time. The page's tiles read only this, so it opens fast.
   applications.json  one row per application, keyed by the tracker's job id: company, role, stage, applied, where,
-                     CV, folder. Read from APPLICATIONS_DIR/<stage>/<folder>/overview.md, one folder per job: a
+                     CV, folder, reminder (a date, running jobs only), again ("re-application of <id>"), ended. Read from APPLICATIONS_DIR/<stage>/<folder>/overview.md, one folder per job: a
                      not-applied folder counts only while the job is neither sent nor ended, and of two folders the
                      one in the stage the records give. Example: a sent job whose old not-applied folder is kept
                      for its notes.md is one row, under Waiting for reply.
-  steps.json         one row per hiring step: its job id (app), name, date, due, details and state (upcoming, proposed,
-                     done, past, cancelled, ended: a step left open on a job that is over) - no company or role, which the page takes from applications.json by the id.
+  steps.json         one row per hiring step: its job id (app), name, date, due, details and state (upcoming, proposed:
+                     offered or with no date yet, done, past, cancelled, ended: a step left open on a job that is
+                     over) - no company or role, which the page takes from applications.json by the id. A job whose
+                     folder lists no step takes them from PIPELINE. The page turns upcoming into past after its day.
                      The words come from the overview; date, due, done and cancelled from PIPELINE, the same
                      position. also: the applications that share the process (PIPELINE "same_as"). A wait on the
                      employer (a "waiting" to-do) is on the job's last done step (awaits, since), else a row of its
@@ -78,8 +85,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jsenv  # noqa: E402
 import sessions as sl  # noqa: E402
-from trackerlib import (ENDED_STAGE, ENDED_STATUS, ISO_DATE, employer_link, ended, flat_jobs, login_of, no_pay,  # noqa: E402
-                        pipeline_entry, step_done, waits_on_person)
+from reposts import title_key  # noqa: E402
+from trackerlib import (BOARD_NAME, ENDED_STAGE, ENDED_STATUS, ISO_DATE, STATUSES, employer_link, ended,  # noqa: E402
+                        flat_jobs, login_of, no_pay, pipeline_entry, step_done, waits_on_person)
 
 # "Closed": the position closed or was filled (not a rejection); "Declined": the person said no.
 STAGES = {"approved": "Moving forward", "pending": "Waiting for reply", "rejected": "Rejected", "closed": "Closed",
@@ -88,22 +96,27 @@ FIELD = re.compile(r"^- \*\*(.+?):\*\*\s*(.*)$")
 STEP = re.compile(r"^\d+\.\s+\*\*(.+?)\*\*\s*-\s*(.+)$")
 # A markdown link; a target in <...> may hold spaces and parentheses (step folders such as "01 ... (45 min)").
 LINK = re.compile(r"\[([^\]]*)\]\((?:<[^>]*>|[^)]*)\)")
-TASKLIKE = re.compile(r"(?i)task|test|assessment|assignment|questionnaire|ai interview|video interview|form|challenge")
+# Whole words: "Platform architecture interview" is no form, "Performance chat" no task.
+TASKLIKE = re.compile(r"(?i)\b(?:tasks?|tests?|assessments?|assignments?|questionnaires?|ai interview|video interview"
+                      r"|forms?|challenges?)\b")
 DONE_NOTE = re.compile(r"\bdone \d{4}-\d{2}-\d{2}")  # the overview's "done <date>" is not the step's own date
 OK_LOGIN = ("connected", "signed-in")
 # An excluded employer (by the person's rules) needs no sign-in, so it is never in Do now.
 NO_ACTION = OK_LOGIN + ("excluded",)
 LOGIN_CHECK_DAYS = 3  # a sign-in older than this is a check line; with no run recorded it also reads "not checked since"
-# Do now's order: urgent (it expires), the sessions to answer, working (the person waits), everything else, then
-# Claude's own queue.
-GROUP = {"urgent": 0, "session": 1, "working": 2, "queued": 4}
-KIND_RANK = {"late": 0, "task": 1, "click": 2, "todo": 3, "info": 4}
+IDLE_DAYS = 7  # Moving forward with nothing done, coming or awaited for this long is a check line
+RUN_HOURS = 6  # a run started this long ago with no end row did not finish
+# Do now's kinds, in their order: (group, rank in the group). Urgent (it expires), the sessions to answer, working
+# (the person waits), everything else by deadline and age, then Claude's own queue. Every kind is counted.
+KINDS = {"urgent": (0, 0), "session": (1, 0), "working": (2, 0), "late": (3, 0), "task": (3, 1), "click": (3, 2),
+         "todo": (3, 3), "info": (3, 4), "queued": (4, 0)}
+# A to-do that is Claude's own work ("Claude: score the fit"), not the person's: Claude's next, never To do.
+CLAUDES = re.compile(r"(?i)^\s*claude\b\s*[:,-]")
 # A rejection's reason that says the role itself ended: "closed" (RULES/hiring-steps.md, Outcomes), not "rejected".
 CLOSED_WORDS = re.compile(r"(?i)\b(?:filled|no longer (?:open|available|hiring)|(?:position|role|posting|vacancy|job)"
                           r" (?:has been |was |is )?(?:closed|cancell?ed|withdrawn|put on hold|on hold|paused))\b")
 TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templates", "dashboard", "index.html")
 JOB_TAG = re.compile(r"\[job-search: ([^\s\]]+)")
-COUNTED = ("urgent", "session", "working", "task", "click", "todo", "info", "late", "queued")
 
 
 def open_job(status):
@@ -121,14 +134,13 @@ def short(text, n=220):
     return text if len(text) <= n else text[:n].rsplit(" ", 1)[0] + "…"
 
 
-DONE = ("submitted", "excluded", "skipped", "closed", "declined", "failed")
-
-
 def kind_by_due(kind, due, today):
     """A due date that passed is "late", never Urgent: the person says whether it was done. A task due today or
     tomorrow is Urgent (RULES.md, "Urgent steps"), whether a hiring step or a job's own to-do."""
     if due and due < today and kind != "working":
         return "late"
+    if due and kind == "todo":
+        kind = "task"  # a to-do with a due date is a task on a deadline (seen: three dated to-dos counted as none)
     tomorrow = (datetime.date.fromisoformat(today) + datetime.timedelta(days=1)).isoformat()
     return "urgent" if kind == "task" and due and due <= tomorrow else kind
 
@@ -192,8 +204,12 @@ def last_run_start(env):
         return None
 
 
-def run_line(env):
-    """Whether a run is going, from the usage log's "run" rows, and the next one."""
+def run_line(env, now=None):
+    """Whether a run is going, from the usage log's "run" rows, and the next one. The latest row decides: an end is
+    paired only with the start right before it (an end with none reads "no start recorded"; an end on another day
+    keeps its date), and a start with no end row for more than RUN_HOURS hours reads "no end recorded", never
+    "Running now". Example: started 16 Nov 22:25, ok 22:57, then an "ok" on 18 Nov 01:34 alone: "Last run ended
+    2026-11-18 01:34: finished; no start recorded"."""
     rows = run_rows(env)
     # SEARCH_DAYS is what /cenk-jobs:schedule wrote from the task's real schedule: this script cannot read the task.
     days = (env.get("SEARCH_DAYS") or "weekdays").strip()
@@ -202,15 +218,26 @@ def run_line(env):
     else:
         nxt = f"Next: {'every day' if days.lower() == 'daily' else days} at {env.get('SEARCH_TIME') or '19:00'}."
     when = lambda r: r["time"][:16].replace("T", " ")
-    starts = [r for r in rows if r.get("result") == "started"]
-    if not starts:
+    rows = sorted(rows, key=lambda r: r.get("time", ""))
+    if not rows:
         return "No run recorded yet. " + nxt
-    start = starts[-1]
-    ends = [r for r in rows if r.get("result") != "started" and r["time"] >= start["time"]]
-    if not ends:
-        return f"Running now, since {when(start)}. " + nxt
-    end = ends[-1]
-    return f"Last run {when(start)} to {end['time'][11:16]}: {'finished' if end['result'] == 'ok' else end['result']}. " + nxt
+    last = rows[-1]
+    if last.get("result") != "started":
+        # The latest row ends a run: its own start is the latest start with no other end between them.
+        before = rows[:-1]
+        start = before[-1] if before and before[-1].get("result") == "started" else None
+        word = "finished" if last.get("result") == "ok" else (last.get("result") or "ended")
+        if start is None:
+            return f"Last run ended {when(last)}: {word}; no start recorded. " + nxt
+        end = last["time"][11:16] if last["time"][:10] == start["time"][:10] else when(last)
+        return f"Last run {when(start)} to {end}: {word}. " + nxt
+    try:
+        began = datetime.datetime.fromisoformat(last["time"][:19])
+    except ValueError:
+        began = None
+    if began and now and now - began > datetime.timedelta(hours=RUN_HOURS):
+        return f"Last run started {when(last)}: no end recorded. " + nxt
+    return f"Running now, since {when(last)}. " + nxt
 
 
 def dates(text):
@@ -232,7 +259,9 @@ def parse(path):
         m = STEP.match(line)
         if m and section == "hiring steps":
             # The step's links (prep, cheat-sheet, feedback) are files, not details: drop them whole.
-            out["steps"].append({"name": m.group(1).strip(), "detail": plain(LINK.sub("", m.group(2))).rstrip(" .·")})
+            # A part left empty ("date , who") leaves no ", " at either end.
+            out["steps"].append({"name": m.group(1).strip(),
+                                 "detail": plain(LINK.sub("", m.group(2))).strip(" .,;·-")})
     return out
 
 
@@ -282,9 +311,13 @@ def step_rows(job_id, overview, pipeline, also, today, over=""):
     words; PIPELINE's steps, when there are as many, give each one's date, due, done, cancelled and proposed (else
     the dates in the words, and a line that says the two differ). over: how the job ended ("rejected"), or "": a
     step of an ended job that was not done is "ended", never upcoming or past due. A proposed step is a date offered
-    and not confirmed yet."""
+    and not confirmed yet; a step with no date at all is proposed too, never past. A job whose folder lists no step
+    (one outside approved/) takes its steps from PIPELINE, so they are never invisible."""
     lines = overview["steps"]
     p_steps = pipeline_entry(pipeline, job_id).get("steps") or []
+    own = (pipeline.get(job_id) or {}).get("steps") if isinstance(pipeline.get(job_id), dict) else None
+    if not lines and own:  # its own steps only: a shared process's steps stay on the job that owns them
+        lines = [{"name": str(p.get("name") or "Step"), "detail": plain(str(p.get("note") or ""))} for p in own]
     aligned = len(p_steps) == len(lines)
     differ = "" if aligned or not lines else (f"{job_id}: {len(p_steps)} steps in PIPELINE, {len(lines)} in its "
                                               "folder -> build_app_folders.py")
@@ -298,10 +331,9 @@ def step_rows(job_id, overview, pipeline, also, today, over=""):
         last = max(date, due)
         coming = bool(last) and last >= today
         state = ("cancelled" if ps.get("cancelled") else "done" if done else "ended" if over else
-                 "proposed" if ps.get("proposed") and (coming or not last) else "upcoming" if coming else "past")
+                 "proposed" if (ps.get("proposed") and coming) or not last else "upcoming" if coming else "past")
         rows.append({"key": f"{job_id}#{i}", "app": job_id, "n": i, "step": no_pay(s["name"]), "date": date,
-                     "due": due, "detail": short(s["detail"], 160), "upcoming": "yes" if state == "upcoming" else "no",
-                     "state": state, "done": done if ISO_DATE.fullmatch(done) else "", "awaits": "", "since": "",
+                     "due": due, "detail": short(s["detail"], 160), "state": state, "done": done if ISO_DATE.fullmatch(done) else "", "awaits": "", "since": "",
                      "also": also})
     return rows, differ
 
@@ -361,6 +393,11 @@ def session_checks(record, ranked, jobs, pipeline, today, now, keys):
                 if gone and len(gone) == len(there) and any(len(k) > 3 and f" {k} " in words for k in keys(company)):
                     out.append(f"session {name}: the title names {company}, whose job {gone[0]['id']} is "
                                f"{ended(gone[0], pipeline)[0]}")
+                # No jobs recorded, and the title names an employer with a running job: the session is not linked.
+                running = [j["id"] for j in theirs if not ended(j, pipeline)[0]]
+                if not mine and running and any(len(k) > 3 and f" {k} " in words for k in keys(company)):
+                    out.append(f"session {name}: the title names {company} and it has no jobs "
+                               f"-> sessions.py set {name} jobs={','.join(running[:3])}")
         said = sl.split_title(s.get("title", ""))[0]
         if s.get("title") and said != s["state"]:
             out.append(f"session {name}: its title says {said or 'no state'}, its state is {s['state']} "
@@ -381,10 +418,108 @@ def outcome_checks(jobs, pipeline):
     out = []
     for job in jobs:
         entry = pipeline_entry(pipeline, job["id"])
-        reason = str(entry.get("reason") or "")
+        # Two shapes: "reason" beside the stage, or the older {"rejected": {"date", "reason"}}.
+        older = entry.get("rejected") if isinstance(entry.get("rejected"), dict) else {}
+        reason = str(entry.get("reason") or older.get("reason") or "")
         if entry.get("stage") == "rejected" and CLOSED_WORDS.search(reason):
             out.append(f"recorded rejected, its reason reads closed: {job['id']} {job.get('company', '')} "
                        f"(\"{short(reason, 80)}\") -> PIPELINE stage closed (RULES/hiring-steps.md, Outcomes)")
+    return out
+
+
+def site_key(row):
+    """One site, however its rows are named: a job board by the board's name in the row's name or id (one sign-in
+    serves all its pages), any other site by its name in lower case; the link's host only for a row with no name.
+    The link never decides: a row may hold a posting's link on a board. Example: "LinkedIn Easy Apply" and
+    "linkedin" are one site; "Beta Co" with a LinkedIn posting's link is its own."""
+    name = str(row.get("name") or row.get("id") or "")
+    board = BOARD_NAME.search(name) or BOARD_NAME.search(str(row.get("id") or ""))
+    if board:
+        return board.group(0).lower()
+    host = re.sub(r"^www\.", "", re.sub(r"^https?://", "", str(row.get("link") or "")).split("/")[0].lower())
+    return name.strip().lower() or host
+
+
+def merge_logins(rows):
+    """(rows, {merged id: kept id}, check lines): the job-site rows of one site (site_key) as one row, so a site is
+    never twice in the tab or in Do now. The row checked last gives the status; jobs and fixes are summed. Each
+    merge is a check line, so LOGINS gets one row too."""
+    groups, order = {}, []
+    for r in rows:
+        k = ("site", site_key(r)) if r.get("kind", "site") == "site" else ("own", r["id"])
+        if k not in groups:
+            order.append(k)
+        groups.setdefault(k, []).append(r)
+    out, alias, checks = [], {}, []
+    # A site that is no job board, linked to a board's page: its Open link leads to the wrong site.
+    odd = [r["id"] for r in rows if r.get("kind", "site") == "site" and not BOARD_NAME.search(f"{r.get('name', '')} {r['id']}")
+           and BOARD_NAME.search(re.sub(r"^https?://", "", str(r.get("link") or "")).split("/")[0])]
+    if odd:
+        checks.append(f"a site's link is a job board's page: {', '.join(odd)} -> logins.py set <id> <status> "
+                      "\"<note>\" link=<its own sign-in page>")
+    for k in order:
+        same = groups[k]
+        if len(same) == 1:
+            out.append(same[0])
+            continue
+        # The row kept is the plainest name ("LinkedIn", the first of equals); its state is the latest check's.
+        name_row = min(same, key=lambda r: len(str(r.get("name") or r["id"])))
+        last = max(same, key=lambda r: str(r.get("checked") or ""))
+        keep = dict(name_row, **{k: last.get(k) for k in ("status", "checked", "note", "fix", "link") if last.get(k)})
+        keep["jobs"] = [j for r in same for j in r.get("jobs", [])]
+        keep["fix"] = keep.get("fix") or next((r["fix"] for r in same if r.get("fix")), "")
+        out.append(keep)
+        for r in same:
+            alias[r["id"]] = keep["id"]
+        checks.append(f"one site, {len(same)} login rows: {', '.join(r['id'] for r in same)} -> keep {keep['id']} "
+                      f"in LOGINS with the latest check ({keep.get('status')}, {str(keep.get('checked'))[:16]}) and "
+                      "the jobs of all, and remove the others")
+    return out, alias, checks
+
+
+def repeat_checks(jobs, pipeline):
+    """({job id: "re-application of <id>"}, check lines): the same employer and role sent twice (employer keys and
+    title words as reposts.py matches them). Both are facts: flagged, never hidden."""
+    import employerlib as el
+    seen, again, out = {}, {}, []
+    sent = [j for j in jobs if j.get("status") == "submitted" or j["id"] in pipeline]
+    for j in sorted(sent, key=lambda j: (str(j.get("applied") or "")[:10], j["id"])):
+        keys = sorted(el.keys(j.get("company") or ""))
+        k = (keys[0] if keys else "", title_key(j.get("title", "")))
+        if k[0] and k[1] and k in seen:
+            first = seen[k]
+            again[j["id"]] = f"re-application of {first}"
+            out.append(f"the same employer and role twice: {first} and {j['id']} {j.get('company', '')} "
+                       f"\"{short(j.get('title', ''), 60)}\" -> a note on {j['id']}: re-application of {first}")
+        else:
+            seen.setdefault(k, j["id"])
+    return again, out
+
+
+def status_checks(jobs):
+    """A tracker status the plugin does not know (STATUSES): it passes every list silently otherwise."""
+    odd = {}
+    for j in jobs:
+        if j.get("status") and j["status"] not in STATUSES:
+            odd.setdefault(j["status"], []).append(j["id"])
+    return [f"status not known to the plugin: {s} ({len(ids)}: {', '.join(ids[:8])}{' ...' if len(ids) > 8 else ''}) "
+            f"-> track.py set <id> needs-person (or the status meant)" for s, ids in sorted(odd.items())]
+
+
+def idle_checks(apps, steps, today):
+    """Moving forward with nothing done, coming or awaited for IDLE_DAYS days."""
+    out = []
+    limit = (datetime.date.fromisoformat(today) - datetime.timedelta(days=IDLE_DAYS)).isoformat()
+    for a in apps:
+        if a["stage"] != "Moving forward":
+            continue
+        mine = [s for s in steps if s["app"] == a["id"]]
+        if any(s["state"] in ("upcoming", "proposed", "waiting") or s.get("awaits") for s in mine):
+            continue
+        last = max([s["done"] or s["date"] for s in mine] + [a["applied"][:10]], default="")
+        if last and last < limit:
+            out.append(f"moving forward, nothing since {last}: {a['id']} {a['company']} -> a waiting to-do "
+                       "(track.py todo <id> add waiting ...) or the outcome")
     return out
 
 
@@ -494,6 +629,15 @@ def build(env, now, calendar=None, page=None):
         checks.append(f"duplicate folder: {job_id} in {counted[job_id]} and {stage_dir} (the second is not counted)"
                       if job_id in counted else
                       f"stale folder: {job_id} in {stage_dir}, the job is {by_id[job_id].get('status')} (not counted)")
+    # The stage folder against the records: the page shows a row's stage from its folder.
+    for job_id, stage_dir, name, _ in chosen:
+        job = by_id.get(job_id)
+        want = stage_dir_of(job, pipeline) if job else stage_dir
+        if want != stage_dir:
+            said = want or f"{job.get('status')} (no folder)"
+            checks.append(f"folder stage: {job_id} is in {stage_dir}/, the records say {said} -> build_app_folders.py")
+    again, repeat_lines = repeat_checks(jobs, pipeline)
+    checks += repeat_lines + status_checks(jobs)
     shared_by = {}  # the job whose steps are shared -> the applications that share them (PIPELINE "same_as")
     for job_id in sorted(known):
         own = pipeline.get(job_id)
@@ -504,11 +648,19 @@ def build(env, now, calendar=None, page=None):
         f = o["fields"]
         # Titles and folder names can carry a posted rate ("Java Engineer - EUR 400 a day"): mask them too.
         company, _, role = no_pay(o["title"]).partition(" - ")
+        # The reminder is a date to follow up, and only while the job runs: free text or an ended job's is a check.
+        reminder = f.get("reminder", "").strip()
+        running = stage_dir in ("approved", "pending")
+        if reminder and not (running and ISO_DATE.fullmatch(reminder[:10])):
+            checks.append(f"reminder: {job_id} \"{short(reminder, 50)}\" "
+                          + ("is not a date" if running else f"on a job that is {STAGES[stage_dir]}")
+                          + " -> move the words to its notes and clear the reminder")
         apps.append({"id": job_id, "stage": STAGES[stage_dir], "company": company.strip(), "role": role.strip(),
                      "applied": f.get("applied", ""), "where": no_pay(f.get("where", "")),
                      "cv": re.sub(r"^.*?-CV-", "", f.get("cv sent", "")).replace(".pdf", "").replace("-", " "),
-                     "letter": "yes" if f.get("cover letter") and "none" not in f.get("cover letter", "").lower() else "no",
-                     "status": short(f.get("status", ""), 160), "reminder": short(f.get("reminder", ""), 160),
+                     "status": short(f.get("status", ""), 160),
+                     "reminder": reminder[:10] if running and ISO_DATE.fullmatch(reminder[:10]) else "",
+                     "again": again.get(job_id, ""), "ended": "" if running or stage_dir == "not-applied" else "yes",
                      "folder": no_pay(f"{os.path.basename(root)}/{stage_dir}/{name}")})
         rows, differ = step_rows(job_id, o, pipeline, shared_by.get(job_id, []), today,
                                  ended(by_id[job_id], pipeline)[0] if job_id in by_id else "")
@@ -532,11 +684,19 @@ def build(env, now, calendar=None, page=None):
     # An excluded employer's site needs no sign-in, whatever its last state: not in the tab, in Do now or in a count.
     logins = [r for r in all_logins if r.get("status") != "excluded" and r.get("kind") != "employer"
               and not (r.get("kind", "site") == "site" and el.excluded_site(r, excluded_rows, on_site.get(r["id"], ())))]
+    logins, login_alias, merged = merge_logins(logins)
+    checks += merged
     login_by_id = {r["id"]: r for r in logins}
+    login_by_id.update({old: login_by_id[new] for old, new in login_alias.items()})
+    site_of = lambda job: login_alias.get(login_of(job), login_of(job))  # noqa: E731
+    # "needs": the person has something to do there (a connector, or a site a job waits on); the page groups by it.
+    # A site no job waits on is "Not signed in", whatever its fix says (seen: a Workday sign-in for jobs sent).
+    needs = lambda r: r.get("status") not in NO_ACTION and bool(  # noqa: E731
+        r.get("kind") == "connector" or r.get("jobs"))
     login_rows = [{"id": r["id"], "name": r.get("name", r["id"]), "kind": r.get("kind", "site"),
                    "status": r.get("status", "unknown"), "checked": (r.get("checked") or "")[:16].replace("T", " "),
                    "note": short(r.get("note", ""), 160), "fix": short(r.get("fix", ""), 200), "link": r.get("link", ""),
-                   "account": r.get("account", ""), "jobs": len(r.get("jobs", [])),
+                   "account": r.get("account", ""), "jobs": len(r.get("jobs", [])), "needs": "yes" if needs(r) else "",
                    "stale": "yes" if stale_login(r, now, run_start) else ""}
                   for r in logins]
     sites = {r["id"] for r in all_logins}
@@ -612,7 +772,10 @@ def build(env, now, calendar=None, page=None):
             row_job[f"{job['id']}:{i}"] = job["id"]
             if shown == "late":
                 checks.append(f'past due: {job["id"]} "{short(t.get("text", ""), 60)}", due {t["due"]}')
-            actions.append({"key": f"{job['id']}:{i}", "app": app, "login": t.get("login", ""),
+            if CLAUDES.match(t.get("text", "")) and shown not in ("urgent", "late"):
+                shown = "queued"  # Claude's own work, written as a to-do: Claude's next, not the person's
+            actions.append({"key": f"{job['id']}:{i}", "app": app,
+                            "login": login_alias.get(t.get("login", ""), t.get("login", "")),
                             "kind": shown,
                             "where": t.get("where", ""), "text": short(t.get("text", ""), 240),
                             "link": t.get("link") or job_links.get(job["id"], ""), "due": t.get("due", ""),
@@ -620,23 +783,29 @@ def build(env, now, calendar=None, page=None):
         if todo or how or not open_job(job.get("status")):
             continue
         if job["status"] == "account-needed":
-            site = login_of(job)
+            site = site_of(job)
             if site in sites:
                 # One action per login, not per job: the login's row says how many jobs wait on it. A site that is
                 # signed in needs nothing from the person: the job is Claude's next (below).
                 continue
             # The site's name, even with no row in LOGINS yet: the dashboard labels it a sign-in, not a plain click.
             owned.add(job["id"])
+            row_job[f"{job['id']}:signin"] = job["id"]
             actions.append({"key": f"{job['id']}:signin", "app": app, "login": site,
                             "kind": "click",
                             "text": f"Sign in (or create the account) on {site}, leave the profile empty, then tell Claude",
                             "link": job_links.get(job["id"], ""), "due": "", "since": ""})
-        elif job["id"] not in asked_jobs and job["id"] not in in_session:
-            # What the job waits on, from its note: a To do, not a Question (questions live on the Questions page).
-            # A job in a session has that session's row instead.
+        elif waits_on_person(job["status"]) and job["id"] not in asked_jobs and job["id"] not in in_session:
+            # A job waiting on the person with no to-do: its note says what, as "Waits on you: ...", and a check
+            # line asks for a real to-do. A note on any other job (a hand score, a site's quirk) is Claude's, never
+            # the person's to-do; a job ready to send (to-apply) is Claude's next, below.
             owned.add(job["id"])
+            row_job[f"{job['id']}:todo"] = job["id"]
+            note = short(job.get("outcome") or (job.get("needs") or [""])[0] or job.get("note", ""), 220)
+            checks.append(f"{job['status']} with no to-do: {job['id']} -> track.py wait {job['id']} needs-person "
+                          "\"<what>\"")
             actions.append({"key": f"{job['id']}:todo", "app": app, "login": "", "kind": "todo",
-                            "text": short(job.get("outcome") or (job.get("needs") or [""])[0] or job.get("note", ""), 240),
+                            "text": "Waits on you: " + (note or "unknown, ask Claude"),
                             "link": job_links.get(job["id"], ""), "due": "", "since": ""})
     # Without questions.py's file (no Questions page yet): an employer the person's rules leave to them ("discuss")
     # gets a Question row here once it has answered (a job of it in PIPELINE that has not ended), as questions.py
@@ -645,7 +814,7 @@ def build(env, now, calendar=None, page=None):
     for job in [] if os.path.exists(qpath) else jobs:
         company = job.get("company", "")
         entry = pipeline_entry(pipeline, job["id"]) if job["id"] in pipeline else {}
-        if company in asked or not entry or entry.get("stage") in ENDED_STAGE or job.get("status") in DONE[1:]:
+        if company in asked or not entry or entry.get("stage") in ENDED_STAGE or job.get("status") in ENDED_STATUS:
             continue
         verdict, asks, _ = view(company)
         if verdict != "discuss" or not asks:
@@ -663,9 +832,13 @@ def build(env, now, calendar=None, page=None):
     for a in apps:
         _, _, warns = view(a["company"])
         a["warn"] = "; ".join(short(f"{w['label']} ({w['level']}): {w['fact']}", 150) for w in warns[:2])
+    # A job's own to-do with a due date already stands for its step with that due: one row, never two.
+    todo_dues = {(a.get("app") or row_job.get(a["key"], ""), a["due"]) for a in actions if a["due"]}
     for s in steps:
         late = s["state"] == "past" and bool(s["due"])  # a deadline that passed with no "done": the person says
         if not late and not (s["state"] == "upcoming" and (s["due"] or TASKLIKE.search(s["step"]))):
+            continue
+        if s["due"] and (s["app"], s["due"]) in todo_dues:
             continue
         # A step's email link (PIPELINE "mail"), never its own page: that may be a personal access link.
         p_steps = pipeline_entry(pipeline, s["app"]).get("steps") or []
@@ -678,7 +851,7 @@ def build(env, now, calendar=None, page=None):
                         "text": s["step"] + (f" - {'was due' if late else 'due'} {s['due']}" if s["due"] else ""),
                         "link": mail or job_links.get(s["app"], ""), "due": s["due"] or s["date"], "since": ""})
     for r in logins:
-        if r.get("status") not in NO_ACTION and (r.get("kind") == "connector" or r.get("jobs") or r.get("fix")):
+        if needs(r):
             verb = {"needs-reconnect": "Reconnect", "blocked": "Clear the check on", "needs-sign-up": "Create an account on",
                     "expired": "Sign in again to"}.get(r.get("status"), "Sign in to")
             waiting = len(r.get("jobs", []))
@@ -697,8 +870,8 @@ def build(env, now, calendar=None, page=None):
         waits_on = short(s.get("waits") or "; ".join(dict.fromkeys(t for _, t in named)), 200)
         title = no_pay(sl.split_title(s.get("title") or s.get("name") or s["id"])[1])
         session_rows.append({"id": s["id"], "rank": s["rank"], "state": s["state"], "title": title,
-                             "name": s.get("name", ""), "waits": waits_on, "apps": ids, "due": s["date"],
-                             "since": s.get("since", ""), "why": s["why"], "link": s.get("link", "")})
+                             "waits": waits_on, "apps": ids, "since": s.get("since", ""), "why": s["why"],
+                             "link": s.get("link", "")})
         if s["state"] == "done":
             continue
         owned |= set(ids)
@@ -711,7 +884,7 @@ def build(env, now, calendar=None, page=None):
                         "kind": "session" if waiting else "working", "rank": s["rank"],
                         "text": title + (f" · {waits_on}" if waits_on else "")
                                 + (f" · by {s['date']}" if waiting and s["date"] else ""),
-                        "link": "", "due": "", "since": s.get("since", "")})
+                        "link": s.get("link", ""), "due": "", "since": s.get("since", "")})
 
     # A wait on the employer: on the job's last done step ("Done ... awaiting feedback since ..."), else its own row.
     for job_id, items in waits.items():
@@ -722,36 +895,56 @@ def build(env, now, calendar=None, page=None):
             done_rows[-1].update(awaits=text, since=since)
         else:
             steps.append({"key": f"{job_id}#wait", "app": job_id if job_id in known else "", "n": 0,
-                          "step": "Waiting: " + text, "date": since, "due": "", "detail": "", "upcoming": "no",
-                          "state": "waiting", "done": "", "awaits": text, "since": since, "also": []})
+                          "step": "Waiting: " + text, "date": since, "due": "", "detail": "", "state": "waiting", "done": "", "awaits": text, "since": since, "also": []})
 
     # Claude's next: open jobs nobody owns, one row per reason, so every open job has an owner on the page. A job
-    # whose site is signed in but still "account-needed", and a found or pending job with no to-do or question.
-    ready, new, rowless = {}, [], []
-    login_action = {r["id"] for r in logins if r.get("status") not in NO_ACTION
-                    and (r.get("kind") == "connector" or r.get("jobs") or r.get("fix"))}
+    # whose site is signed in but still "account-needed"; one ready to send (to-apply, a long-shot held for a later
+    # day among them); an unread posting the next fit check reads again; a found or pending job with no to-do.
+    ready, new, rowless, to_send, unread, long_shots = {}, [], [], [], [], 0
+    login_action = {r["id"] for r in logins if needs(r)}
     for job in jobs:
         if job["id"] in owned or ended(job, pipeline)[0]:
             continue
         if job.get("status") == "account-needed":
-            site = login_of(job)
+            site = site_of(job)
             if job["id"] in known and (login_by_id.get(site) or {}).get("status") in OK_LOGIN:
                 ready.setdefault(site, []).append(job["id"])
             elif site not in login_action:
                 rowless.append(job["id"])  # its site's row says nothing waits on it, or is an excluded employer's
-        elif job["id"] in known and job.get("status") in ("found", "pending"):
+        elif job.get("status") == "to-apply":
+            to_send.append(job["id"])
+            long_shots += (job.get("grade") or (job.get("prep") or {}).get("grade")) == "long-shot"
+        elif job.get("status") == "found" and job.get("unread"):
+            unread.append(job["id"])
+        elif job.get("status") in ("found", "pending"):
             new.append(job["id"])
-    queued = [(f"queued:ready:{site}", ids, f"{len(ids)} application{'s' if len(ids) > 1 else ''} ready to send: "
+    plural = lambda n: "s" if n > 1 else ""  # noqa: E731
+    queued = [(f"queued:ready:{site}", ids, f"{len(ids)} application{plural(len(ids))} ready to send: "
                f"{login_by_id[site].get('name', site)} is signed in") for site, ids in sorted(ready.items())]
+    if to_send:
+        queued.append(("queued:send", to_send, f"{len(to_send)} application{plural(len(to_send))} prepared, "
+                       "to send" + (f" ({long_shots} long-shot{plural(long_shots)} wait for a later day: "
+                                    "LONG_SHOTS_PER_DAY)" if long_shots else "")))
+    if unread:
+        queued.append(("queued:unread", unread, f"{len(unread)} posting{plural(len(unread))} not read in full: the "
+                       "next fit check reads the saved text"))
     # A found or pending job nobody owns is a gap in the records: a Do now row of its own, so it is never silent.
     # Seen: 16 jobs waiting on sign-ins and answers stayed "found" with no to-do for two days.
     for job_id in new:
-        actions.append({"key": f"{job_id}:noowner", "app": job_id, "login": "", "kind": "todo",
+        row_job[f"{job_id}:noowner"] = job_id
+        actions.append({"key": f"{job_id}:noowner", "app": job_id if job_id in known else "", "login": "",
+                        "kind": "todo",
                         "text": "Waits on you: unknown, ask Claude (found or pending; no to-do, question or session)",
                         "link": job_links.get(job_id, ""), "due": "", "since": ""})
     for key, ids, text in queued:
-        actions.append({"key": key, "app": ids[0], "apps": ids, "login": "", "kind": "queued", "text": text,
-                        "link": "", "due": "", "since": ""})
+        shown = [j for j in ids if j in known]
+        actions.append({"key": key, "app": shown[0] if shown else "", "apps": shown, "login": "", "kind": "queued",
+                        "text": text, "link": "", "due": "", "since": ""})
+    # A row whose job has no folder yet still names it: company and role from the tracker (the page's For column).
+    for a in actions:
+        job = by_id.get(row_job.get(a["key"], ""))
+        if not a.get("app") and job:
+            a["for"] = f"{job.get('company', '')} – {job.get('title', '')}"
 
     # The rest of the cross-check: what the records say and no row shows, or shows as something it is not.
     if undated:
@@ -777,6 +970,7 @@ def build(env, now, calendar=None, page=None):
                       "-> logins.py set <id> needs-sign-in or needs-sign-up")
     checks += session_checks(record, ranked, jobs, pipeline, today, now, el.keys)
     checks += outcome_checks(jobs, pipeline)
+    checks += idle_checks(apps, steps, today)
     if calendar is not None:
         checks += calendar_checks(env, calendar, jobs, pipeline, today)
     if page is not None:
@@ -788,27 +982,27 @@ def build(env, now, calendar=None, page=None):
     # Urgent first (it expires), then the sessions to answer, in their order, then "working" (Claude or a session is
     # on it: the person waits), then by deadline (a past one on top), then the rows of a session's jobs in the
     # session order, then by age: the older "since" first, rows without one last in the tracker's order.
-    actions.sort(key=lambda a: (GROUP.get(a["kind"], 3), a.get("rank", 0), a["due"] == "", a["due"],
+    actions.sort(key=lambda a: (KINDS.get(a["kind"], (3, 5))[0], a.get("rank", 0), a["due"] == "", a["due"],
                                 job_rank.get(row_job.get(a["key"]), 999), a["since"] == "", a["since"],
-                                KIND_RANK.get(a["kind"], 5)))
+                                KINDS.get(a["kind"], (3, 5))[1]))
 
+    # The page works each row's kind out again from its due date and the viewer's own day (a page opened on Monday
+    # after a Friday export), and counts Do now from the rows; these counts are the export's, for a first paint.
     index = [{"key": f"stage:{s}", "group": "stage", "label": s, "n": sum(1 for a in apps if a["stage"] == s)}
              for s in STAGES.values()]
     index += [{"key": f"actions:{k}", "group": "actions", "label": k, "n": sum(1 for a in actions if a["kind"] == k)}
-              for k in COUNTED]
-    index += [{"key": f"sessions:{state}", "group": "sessions", "label": state,
-               "n": sum(1 for s in session_rows if s["state"] == state)} for state in sl.STATES]
-    index += [{"key": "actions:waiting", "group": "actions", "label": "waiting", "n": sum(len(v) for v in waits.values())},
-              {"key": "logins:ok", "group": "logins", "label": "working",
-               "n": sum(1 for r in login_rows if r["status"] in OK_LOGIN and not r["stale"])},
+              for k in KINDS]
+    index += [{"key": "actions:waiting", "group": "actions", "label": "waiting", "n": len(waits)},
               {"key": "logins:action", "group": "logins", "label": "need action",
-               "n": sum(1 for r in login_rows if r["status"] not in NO_ACTION and (r["kind"] == "connector" or r["jobs"] or r["fix"]))},
-              {"key": "excluded:n", "group": "excluded", "label": "excluded employers", "n": len(excluded)},
-              {"key": "meta:generated", "group": "meta", "label": now.strftime("%Y-%m-%d %H:%M"),
-               "n": len(apps)},
-              {"key": "meta:run", "group": "meta", "label": run_line(env), "n": 0},
+               "n": sum(1 for r in login_rows if r["needs"])},
+              {"key": "meta:generated", "group": "meta", "label": now.strftime("%Y-%m-%d %H:%M"), "n": 0},
+              {"key": "meta:run", "group": "meta", "label": run_line(env, now), "n": 0},
               # The person's own Questions page (QUESTIONS_PAGE), linked from Do now.
-              {"key": "meta:questions", "group": "meta", "label": env.get("QUESTIONS_PAGE") or "", "n": 0}]
+              {"key": "meta:questions", "group": "meta", "label": env.get("QUESTIONS_PAGE") or "", "n": 0},
+              # The page's Calendar tab keeps the events in the person's job-search colour or with this prefix.
+              {"key": "meta:calendar_color", "group": "meta", "label": str(env.get("CALENDAR_COLOR") or "3"), "n": 0},
+              {"key": "meta:calendar_prefix", "group": "meta",
+               "label": (env.get("CALENDAR_PREFIX") or "Job search · ").strip(), "n": 0}]
 
     files = list(zip(FILES, (index, apps, steps, actions, login_rows, excluded, session_rows)))
     return files, checks, (f"{len(apps)} applications, {len(steps)} steps, {len(actions)} actions, "
@@ -893,6 +1087,16 @@ def main():
             print(f"never recorded as uploaded: {' '.join(never)}")
         return
     files, checks, summary = build(env, now, calendar, given.get("--page"))
+    if "--check" in flags and os.path.isfile(uploads_path(env)):
+        # The records against what is on the page, without writing: each file as the export would write it.
+        with open(uploads_path(env), encoding="utf-8") as fh:
+            on_page = json.load(fh).get("files", {})
+        behind = [name for name, rows in files
+                  if hashlib.sha256(json.dumps(rows, ensure_ascii=False, indent=1).encode("utf-8")).hexdigest()
+                  != on_page.get(name)]
+        if behind:
+            checks.insert(0, f"the page is behind the records: {' '.join(behind)} -> export, upload them, then "
+                             "--uploaded")
     if "--check" not in flags:
         out_dir = rest[0]
         os.makedirs(out_dir, exist_ok=True)

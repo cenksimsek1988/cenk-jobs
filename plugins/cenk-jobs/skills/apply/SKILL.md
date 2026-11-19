@@ -32,7 +32,8 @@ Every question this skill asks the person goes on the Questions page as it is as
   finish before sending the next.
 - Several applications at once: one `cenk-jobs:applier` subagent per application, started together, one tab each,
   at most `APPLY_PARALLEL` at once (default 2), never two on the same site. A subagent cannot ask the person: its
-  brief holds every answer, names the CV and letter, already copied for upload, and the site's notes file
+  brief holds every answer, names the CV and letter, already copied for upload, the `filling:` line of `track.py
+  brief` (with the first name for tab titles), and the site's notes file
   (`references/sites/<site>.md`, when there is one); what it cannot do comes back as
   `needs-person`. It writes no record: this session records each block as it returns, one at a time ("After each
   submission").
@@ -51,11 +52,15 @@ never take a screenshot.
 - `send` in `ASK_FIRST` (or the older `APPLY_MODE=review`): stop at the review page; submit after the person's
   go-ahead for that job or batch.
 - `APPLY=list`: no form is filled; the fitting jobs are listed with their links.
-- A form left filled at the review page for the person: the tab's title and the question both say that Submit sends
-  the form as it is now (example title: ">>> REVIEW: Submit sends this as it is <<<"). A change asked later waits
-  until the person confirms they have not pressed Submit. After a go-ahead, read the page first: a form already sent
-  is recorded as sent, never changed.
-- If the permission check refuses a submit click, stop and ask; never work around it.
+- A form left filled at the review page for the person: read it back first (`filling.md`), then the tab's title and
+  the question both say that Submit sends the form as it is now (example title: ">>> Jane: Acme review, Submit
+  sends it <<<"). A change asked later waits until the person confirms they have not pressed Submit. After a
+  go-ahead, read the page first: a form already sent is recorded as sent, never changed.
+- If the permission check refuses a submit click: retitle the tab for the person, say so in one line, and try no
+  other way.
+- `EMAILED_CODES=on` (`choices.py show`): after a Submit that emails a code or a confirmation link, this session reads
+  it in Gmail (the site's own sender, within 15 minutes, this form only) and types it in the held tab or opens it. A
+  sign-in or sign-up code, a CAPTCHA and a password stay the person's.
 - After each submission: `track.py set <id> submitted "<what was sent>" cv=<path> letter=<path>`; a form without a
   letter field: `letter=none`, so its folder lists no prepared letter. Then `fetch_jd.py
   <id>` for every job sent, while the posting is live (the next reply analysis reads it), `build_app_folders.py`, and the dashboard refresh.

@@ -109,17 +109,20 @@ Do now. Then read `RULES/run.md`.
     unset or `no`: the line above) set to `yes`: Claude writes each open free-text answer in full from the person's
     records, shows it, and fills it only after their approval or changes. A fact the records do not hold is asked
     as a specific question, never guessed. A self-rating stays theirs. With `free_text` left out of `ASK_FIRST`, a
-    drafted answer is filled without that approval.
+    drafted answer is filled without that approval (`choices.py show`: "essays: auto"). A number the person recalled
+    with no record behind it never goes into a written answer.
   - An employer that asks candidates not to use AI: the draft is still written, and it opens with one warning line
-    that quotes the employer's rule; the person chooses. Example: "Warning: the posting says 'answers must be your
-    own work, without AI tools'."
+    that quotes the employer's rule; the person chooses, and the job waits for them even with essays on "auto".
+    Example: "Warning: the posting says 'answers must be your own work, without AI tools'."
   - A form question on whether AI was used is answered truthfully: Claude drafted, the person edited. A pledge that
     means "I did not, or will not, use AI" is never ticked by Claude: warn with the policy's words; the tick and
     the Submit are the person's.
   - Text the person wrote themselves and asks to have fixed: fix the English and the wording at once, under that
     one warning line where it applies; never hand back a fact check in its place.
 - Never type a password, a verification code, a card number or a government ID number; never solve a CAPTCHA; never
-  create an account. Stop at such a field and tell the person.
+  create an account. Stop at such a field and tell the person. One exception: with `EMAILED_CODES=on`, the code or
+  confirmation link an application's site emails for the form just submitted (its own sender, within 15 minutes),
+  read in Gmail by the session and typed in the held tab. A sign-in or sign-up code stays the person's.
 - Guarded items: date of birth, street address, references, criminal record, relatives at the company, health.
   Preparation never answers one: it goes into the job's needs, unless the person's setting `form_facts` (in their
   profile: `settings.cenk-jobs`, else `settings.common`) names it. Then the prepared answer is "from the profile",
@@ -207,9 +210,11 @@ connector is down. Their sign-ins are there, and a second browser loses them.
   uses; the extension acts in the profile it is connected in. A page that lives in another profile is named with
   its profile. Example: "Open the folder in Chrome, profile Work: your Google Drive is signed in there."
 - A step that needs the person in the browser (sign in, type a code, tick a CAPTCHA, press Submit): open the page in
-  Chrome or use the tab already held, rename that tab, and name it in the question with how to find it (Chrome's tab
-  search, Ctrl+Shift+A). The page's address is written as text marked "open in Chrome", never as the only way in:
-  a link clicked in the Claude desktop app opens in the app's own pane, without their sign-ins.
+  Chrome or use the tab already held, title it `>>> <first name>: <company> <action> <<<`, and name it in the
+  question with how to find it (Chrome's tab search, Ctrl+Shift+A). A held form's address is never the way in (it
+  opens an empty copy); another page's is written as text marked "open in Chrome": a link clicked in the Claude
+  desktop app opens in the app's own pane, without their sign-ins.
+- Only the session that opened a tab closes it; a tab group holding filled forms is never closed.
 - The same address goes into the job's to-do (`track.py todo ... link=<address>`); the dashboard shows it as a
   link, and every sub-session brief and handoff carries it.
 

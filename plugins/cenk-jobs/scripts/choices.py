@@ -18,7 +18,13 @@ Keys (default first):
     APPLY_FITS      normal | high            auto-send high and normal fits (score 65 or more), or only high (80)
     LONG_SHOTS_PER_DAY 0 | <n>               long-shots (score 50-64) auto-sent a day, after the high and normal
                                              ones; 0: none, they stay listed for the person
-    LETTERS         asked | always | never   a letter where the form has or may have a field, always, or never
+    LETTERS         asked | always | never   a letter where the form has or may have a field (an optional field
+                                             gets it too), always, or never
+    EMAILED_CODES   off | on                 on: the session reads an application's emailed code or confirmation
+                                             link in Gmail (the form just submitted, its own sender, 15 minutes);
+                                             sign-in and sign-up codes, CAPTCHAs and passwords stay the person's
+    OPTIONAL_FIELDS off | fill               fill: salutation, gender, demographics and EEO from the profile; off:
+                                             blank, or "prefer not to say" where required. Mail opt-ins stay off
     ASK_FIRST       send,free_text           the steps that wait for the person (send, free_text, interview);
                                              empty: all alone. Without the key: free_text, and send when
                                              APPLY_MODE=review (what a folder from before 0.35.0 did)
@@ -27,6 +33,7 @@ Keys (default first):
     SESSION_MODEL   sonnet | opus | haiku | (empty)   the model new sub-sessions start with; empty: sonnet
                                              (essays and study always take the main session's model)
     PLAN            pro | max5 | max20 | other   only to suggest defaults; never decides alone (max: an older max5)
+Essays (`show` names it): "auto" is ASK_FIRST without free_text, "ask" with it; no key of its own.
 Example: `choices.py set APPLY_FITS=high LETTERS=never` writes both lines, each replacing the key's old line.
 Add --env <job-search.env> anywhere to pick the env file.
 """
@@ -51,6 +58,8 @@ KEYS = {
     "MAX_NEW_PER_RUN": (None, "30"),
     "LONG_SHOTS_PER_DAY": (None, "0"),
     "SESSION_MODEL": (("sonnet", "opus", "haiku", ""), "sonnet"),
+    "EMAILED_CODES": (("off", "on"), "off"),
+    "OPTIONAL_FIELDS": (("off", "fill"), "off"),
     "PLAN": (("pro", "max5", "max20", "max", "other", ""), ""),
 }
 SUGGEST = {"pro": {"APPLY": "list", "LETTERS": "never", "SEARCH_DAYS": "Mon"}, "max5": {}, "max20": {}, "max": {}, "other": {}}
@@ -236,6 +245,8 @@ def main():
             val, own = value(env, key)
             older = key == "ASK_FIRST" and "ASK_FIRST" not in env
             print(f"{key}={val}" + ("" if own else "  (older folder: from APPLY_MODE)" if older else "  (default)"))
+        # Essays are no key of their own: ASK_FIRST with free_text asks first, without it writes alone.
+        print(f"essays: {'ask' if 'free_text' in ask_first(env) else 'auto'}  (ASK_FIRST free_text)")
     elif cmd == "workflow":
         print(json.dumps(workflow_args(env)))
     elif cmd == "suggest":

@@ -119,6 +119,7 @@ textarea { min-height: 7rem; resize: vertical; }
 (function () {
   const $ = (id) => document.getElementById(id);
   const state = { questions: [], answers: {}, status: null, sentAt: '', loaded: { q: false, a: false } };
+  const KEEP_DONE_DAYS = 7;  // questions.py KEEP_DONE_DAYS: a handled question stays under Done this long
   let db = null;
   let comments = null;
   let sendState = 'off';
@@ -341,7 +342,10 @@ textarea { min-height: 7rem; resize: vertical; }
     if (!state.loaded.q) return;
     const sent = (q) => !!(state.answers[q.id] && state.answers[q.id].sent);
     const open = state.questions.filter((q) => q.open !== false && !q.done && !sent(q));
-    const done = state.questions.filter((q) => q.done || (q.open !== false && sent(q)))
+    // A question done more than KEEP_DONE_DAYS ago leaves Done here too, even when Claude has not deleted it yet
+    // (seen 19 Nov: 19 items from 10-11 Nov still shown).
+    const fresh = (q) => !q.done || !q.noted_at || Date.now() - Date.parse(q.noted_at) < KEEP_DONE_DAYS * 864e5;
+    const done = state.questions.filter((q) => (q.done && fresh(q)) || (q.open !== false && !q.done && sent(q)))
       .sort((a, b) => String((state.answers[b.id] || {}).sent || b.noted_at || '')
         .localeCompare(String((state.answers[a.id] || {}).sent || a.noted_at || '')));
     const groups = { decision: [], fact: [], job: [], general: [] };
@@ -351,11 +355,13 @@ textarea { min-height: 7rem; resize: vertical; }
     $('tally').textContent = open.length ? `${open.length} open question${open.length === 1 ? '' : 's'} · ${answered} answered`
       + (done.length ? ` · ${done.length} done` : '') : (done.length ? `${done.length} done` : '');
     const s = state.status;
-    // checked: Claude's last look at this page (each run); at: the last recorded answer. A status written before
-    // "checked" existed shows the older line.
+    // checked: Claude's last look at this page (each run); recorded_at: the last time an answer was recorded (at
+    // also moves when Claude only read a Discuss, for the Send button). A status written before "checked" existed
+    // shows the older line; one before "recorded_at", at.
     $('handled').hidden = !(s && (s.checked || s.at));
+    const recorded = s && ('recorded_at' in s ? s.recorded_at : s.at);
     if (s && s.checked) $('handled').textContent = `Last checked by Claude: ${day(s.checked)} · ${s.open || 0} open question${s.open === 1 ? '' : 's'}`
-      + (s.at ? ` · last answer recorded ${day(s.at)}` + (s.summary ? ` (${s.summary})` : '') : '');
+      + (recorded ? ` · last answer recorded ${day(recorded)}` : '') + (s.summary ? ` (last round: ${s.summary})` : '');
     else if (s && s.at) $('handled').textContent = `Last handled by Claude: ${day(s.at)}` + (s.summary ? ' · ' + s.summary : '');
     const dash = s && /^https:\/\/claude\.ai\//.test(s.dashboard || '') ? s.dashboard : '';
     $('dash-link').hidden = !dash;

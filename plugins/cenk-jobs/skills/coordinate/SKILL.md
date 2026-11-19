@@ -66,6 +66,8 @@ archived. A scheduled run reaches the older one's sub-sessions by message and re
   coordinator starts a fresh session for today's run at once ("Run /cenk-jobs:coordinate for today's run."), never
   runs it itself: a run inside a long coordinator cost 1.4M tokens on 16 Nov. A turn the app will not let start a
   session (one a message or a trigger started) proposes it as a card and names it in Do now.
+- An apply session is never started from an automated turn (a message from another session or a trigger): it is
+  proposed as a card, with one line saying so. Its forms may need the person, who may be away.
 - A finished search's questions go to the person at once, in one ordered list (the order of "Answer first"), even
   while another task is open; they never wait for that task to end.
 - Runs in the main folder and is titled **Job search coordinator**: only the person's own main session, started in

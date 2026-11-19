@@ -72,7 +72,9 @@ from trackerlib import pipeline_entry  # noqa: E402
 
 KINDS = ("fact", "job", "decision", "general")
 DONE = ("submitted", "excluded", "skipped", "closed", "declined", "failed")  # job statuses
-HANDLED = ("answered", "closed")  # question statuses shown under Done
+# Question statuses shown under Done; "done" is an older word for answered (seen in a record, 17 Nov). A dropped
+# question (nobody needs it any more) leaves the page.
+HANDLED = ("answered", "closed", "done")
 KEEP_DONE_DAYS = 7  # a handled question stays on the page this long, with its note
 args = sys.argv[1:]
 env_args = []
@@ -348,8 +350,13 @@ elif args[0] == "build":
         # at: when an answer was last recorded (the page's Send button counts the answers saved after it). checked:
         # this build, so a page nobody answered for two runs still says when Claude last looked, and open: how many
         # questions wait. The dashboard's link too, so the page links back to it.
-        json.dump(dict(data.get("handled") or {"at": "", "summary": ""}, checked=now, open=len(open_ids),
-                       dashboard=env.get("DASHBOARD_URL") or ""), f, ensure_ascii=False, indent=1)
+        # recorded_at: the last answer really recorded, from the questions themselves when the record has none (a
+        # round that only read a Discuss, or a record from before 0.42.0). Seen: an 18 Nov answer shown as none.
+        handled = dict(data.get("handled") or {"at": "", "summary": ""})
+        handled["recorded_at"] = handled.get("recorded_at") or max(
+            (q.get("noted_at", "") for q in qs.values() if q["status"] in ("answered", "done")), default="")
+        json.dump(dict(handled, checked=now, open=len(open_ids), dashboard=env.get("DASHBOARD_URL") or ""), f,
+                  ensure_ascii=False, indent=1)
     print(f"{len(open_ids)} open and {len(shown) - len(open_ids)} done questions -> {os.path.join(out_dir, 'questions')}")
     print("on the page:", " ".join(shown))
     if page_dir:
@@ -536,7 +543,10 @@ else:  # record, answer
     if handled or discuss:
         # Every open question waiting on a talk, not only this run's.
         talks = sum(1 for x in qs.values() if x["status"] == "open" and x.get("discuss"))
-        data["handled"] = {"at": now, "summary": f"{handled} recorded" + (f", {talks} to discuss" if talks else "")}
+        # at: the Send button's mark (a Discuss read moves it too); recorded_at: only a round that recorded answers.
+        before = data.get("handled") or {}
+        data["handled"] = {"at": now, "recorded_at": now if handled else before.get("recorded_at", ""),
+                           "summary": f"{handled} recorded" + (f", {talks} to discuss" if talks else "")}
     flush()
     # Only jobs still to send: one this round excluded (an "exclude" answer) does not go on.
     go_on = sorted({j for j in go_on if (jobs.get(j) or {}).get("status") not in DONE})

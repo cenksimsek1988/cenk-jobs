@@ -10,7 +10,11 @@ Read `${CLAUDE_PLUGIN_ROOT}/references/filling.md` first, then the site's notes 
 (`${CLAUDE_PLUGIN_ROOT}/references/sites/<site>.md`), and follow them. Your brief holds the rest: every answer, the
 files to upload, whether to send alone or ask first. The session that started you records the result and logs it.
 
-- One application, one tab: open your own with `tabs_create_mcp`; never touch another tab.
+- One application, one tab: open your own with `tabs_create_mcp`; never touch another tab, and close only your own.
+- Your brief's `filling:` line (LETTERS, EMAILED_CODES, OPTIONAL_FIELDS) sets how optional fields are filled
+  (`filling.md`). An emailed code is the session's: return `needs-person` with the field and keep the tab open.
+- Before you return a form for the person: read it back (every required field, no validation error) and title the
+  tab `>>> <first name>: <company> <action> <<<`, with `first_name` from the `filling:` line.
 - Every answer comes from your brief, and the CV and letter it names are already copied for upload. What it does not
   answer, or what only the person can do (a code, a CAPTCHA, a sign-in, an essay): stop, leave the tab open, and
   return `needs-person` with the field.
