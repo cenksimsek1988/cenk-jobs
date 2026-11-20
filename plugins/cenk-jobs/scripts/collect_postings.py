@@ -34,9 +34,21 @@ place or region of the person's). Before the funnel, each posting's own page is 
 in another country, or works US hours is left out. A posting whose employer and title are already in the tracker
 under another link is left out. A "team lead" title needs an engineering word. A job the last fit check could not
 read ("unread" in the tracker) gets its text saved (fetch_jd.py --posting) and passed as text_file.
-LinkedIn: up to 3 pages per search, 4 seconds apart, over the window since its start; an error or a refusal (429)
-stops LinkedIn for this run and its remaining searches stay due. A board that answers 404 twice is marked gone
-(searches.py fail). found_by is script:<source>:<board>; the run report counts script and agent finds apart.
+LinkedIn: up to 3 pages per search over the window since its start, 4.5 s between calls and a job text 6 s after
+the last call; one refusal (429) pauses 60 s and slows to 8 s, an error or a second refusal stops LinkedIn for this
+run and its remaining searches stay due. A board that answers 404 twice is marked gone (searches.py fail).
+found_by is script:<source>:<board>; the run report counts script and agent finds apart.
+The order, in which the funnel is filled too: company boards and remote feeds (remotive, remoteok, jobicy,
+himalayas, arbeitnow, remoterocketship, himalayas-search, workable-search), then LinkedIn by city (mode=any), then
+LinkedIn remote searches (mode=remote). On 19 Nov Remote Rocketship gave 12 of 14 fits.
+The person's title rules (SEARCH_RULES, see templates/search-rules-example.json) apply before any text is read, to
+boards and feeds too, whose postings are often sales or operations roles: another language's title form, a low
+level, no level word, a word they drop, no engineering word. A feed's posting passes only with a region of the
+scope in its own location field: "Remote, Europe" passes with the region Europe, "Remote, USA only" does not. A
+LinkedIn remote search's posting goes on only when its own text speaks of remote work (one text read, no model,
+TEXT_FETCHES a run; seen: 73 of 82 were hybrid in one city). The location check, seen 19 Nov: 32 of 40 "Europe"
+postings were single-country elsewhere. A repost of a role already applied to or declined, or skipped for fit in
+the last 30 days, is left out (reposts.py).
 Add --env <job-search.env> anywhere to pick the env file.
 """
 import datetime

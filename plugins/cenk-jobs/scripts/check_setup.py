@@ -3,12 +3,12 @@ tracker.
 
 Usage: python -I check_setup.py [--env] [<job-search.env or main folder>]
        python -I check_setup.py --needs [--env] [...]    the programs, connectors, sign-ins and answers the next run
-                                                         waits on, one line each (RULES.md, "Every run")
+                                                         waits on, one line each (/cenk-jobs:coordinate, "Each run")
        (default: $JOB_SEARCH_ENV, else the job-search.env above the current folder; --env is optional, so the
        check runs the same way as every other script)
 Prints one line per check (OK / WARN / FAIL) and exits 1 if anything FAILs. It changes nothing.
 Logins and connectors (Gmail, Google Calendar, Google Drive, Claude in Chrome, job sites) cannot be seen from a
-script: every run checks those with its own tools (RULES.md, "Every run").
+script: every run checks those with its own tools (RULES/run.md, "The health check").
 """
 import importlib.util
 import json

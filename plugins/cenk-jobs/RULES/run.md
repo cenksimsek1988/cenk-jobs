@@ -1,24 +1,19 @@
 # cenk-jobs rules: run
 
-A part of `RULES.md`. Read when you run the health check, create or refresh the dashboard, or need a script's name.
+A part of `RULES.md`. Read when you run the health check, or create or refresh the dashboard.
 
-## Every run: health check and status
+## The health check
 
-After step 1: the handoff check, Gmail (first, never dropped) and the shared-list update (`coordinate`), then `check_setup.py --needs` as one list to the person (RULES.md, "Every run"), with what step 3 finds.
+A step of the run (/cenk-jobs:coordinate, "Each run"):
 
-1. Say when the run starts: "Job-search run started at 21:05 (by hand); I'll tell you when it's done." Log it with
-   `usage.py log run started "<by hand|scheduled>"`. At the end: "Run finished at 21:40." plus the short report,
-   and `usage.py log run ok` (or `failed` / `stopped`). The dashboard header shows the run's state from these rows.
-   "Run my job search now" starts a run at once; if a run started under 6 hours ago has no end row, say so instead;
-   an older one: `usage.py log run stopped`, then start.
-2. `check_setup.py`: fix or report each FAIL in one line.
-3. Each connector, one cheap read call: Gmail `search_threads` (`pageSize` 1), Google Calendar `list_calendars`,
-   Google Drive (the main folder readable on disk, or the Drive connector), Claude in Chrome `tabs_context_mcp`.
-   Record each: `logins.py set <id> connected|needs-reconnect "<what you saw>" kind=connector name=<Name> fix=<how>`,
-   then `logins.py sync`. `LOGINS` is the one place login state lives. Again before every dashboard export in the
-   run: the export cannot call a connector, and names each one not checked since the run started in a `check:` line.
-4. The dashboard: `DASHBOARD_URL` set and readable. If not, create it now (see "Dashboard"). The same for
-   `QUESTIONS_PAGE` (see "Questions for the person").
+1. `check_setup.py`: fix or report each FAIL in one line.
+2. Each connector, one cheap read call, once per run: Gmail `search_threads` (`pageSize` 1), Google Calendar
+   `list_calendars`, Google Drive (the main folder readable on disk, or the Drive connector), Claude in Chrome
+   `tabs_context_mcp`. Record each: `logins.py set <id> connected|needs-reconnect "<what you saw>" kind=connector
+   name=<Name> fix=<how>`, then `logins.py sync`. `LOGINS` is the one place login state lives. The export cannot
+   call a connector: it names each one not checked since the run started in a `check:` line.
+3. The dashboard: `DASHBOARD_URL` set and readable. If not, create it now (see "Dashboard"). The same for
+   `QUESTIONS_PAGE` (`RULES/questions.md`).
 
 ## Dashboard
 
@@ -47,8 +42,9 @@ employers**, **Hiring steps** and **All applications**, under the total count an
   ids it lists (RULES/questions.md). A dashboard uploaded without it leaves the page a run behind. Seen 19 Nov:
   two questions open for jobs sent the day before.
 - Each refresh also passes the page and the calendar: save the store's `files` (ArtifactData list with `out_dir`)
-  and Google Calendar's `list_events` from today to 60 days ahead as JSON, then `export_dashboard.py <out dir>
-  --page <dir>/files/index.html.json --calendar <events.json>`. "the dashboard page is not the plugin's template":
+  as JSON, and Google Calendar's `list_events` from today to 60 days ahead once per run (a later refresh in the run
+  passes the same file), then `export_dashboard.py <out dir> --page <dir>/files/index.html.json --calendar
+  <events.json>`. "the dashboard page is not the plugin's template":
   write `files/index.html` from `templates/dashboard/index.html` in the same run. Example: after a plugin update the
   page still lacks the Sessions tab.
 - Every export ends with one `check:` line per mismatch between the records and the page (`export_dashboard.py
@@ -103,42 +99,3 @@ employers**, **Hiring steps** and **All applications**, under the total count an
   its note as a To do.
 - A hiring step's Do now row links to its email (`mail` in `PIPELINE`), never the step's own page: a personal
   access link (a page that opens without a sign-in) stays in the calendar and the person's folder. Pay figures and addresses never go into the exported files.
-
-## Tools
-
-| Script | Does |
-|---|---|
-| `check_setup.py` | health check of the env file, folders, profile, master record, CV versions, tracker and the dashboard key; `--needs`: what the next run waits on |
-| `init_career_folder.py` | creates the main folder and `job-search.env` for a new person (never overwrites) |
-| `build_cv.py` | builds every CV PDF from its JSON (`--no-photo` for employers that ask for none) |
-| `make_letter_pdf.py` | builds one cover letter PDF from a body file, on the day it is sent; `--job-file <prepared file> --job <id>` takes the company and role from that file |
-| `track.py` | tracker: add, set, todo (add, done, list), show (`--full`), brief, list, summary, sync (merges a screening run), split (summary rows and detail files) |
-| `build_app_folders.py` | rebuilds the application folders; never deletes what the person or Claude wrote |
-| `fetch_jd.py` | saves a posting's full text as `job-description.md`; `--posting`: an unread posting's text in `POSTINGS_DIR` for the next fit check |
-| `logins.py` | login state: set, sync, show |
-| `sessions.py` | the open sessions and the order to answer them: sync (the app's session list), set, order, show |
-| `export_dashboard.py` | exports the dashboard's files: index, applications, steps, actions, logins, excluded, sessions; then what to upload and the check lines. `--check`: the check lines alone; `--uploaded <out dir> <file> ...`: only the files named are on the page now (`all`: every file); the others keep their earlier record |
-| `career_view.py` | one part of the master record: screen (rules and decisions), facts (what a letter or form may use, with the profile's person facts but no address, birth date, private answers or contacts) |
-| `profilelib.py` | the person's profile through cenk-base's `lib/profile.py` (from `CENK_BASE`): home, path, get, set (compare-and-set), erase, create, pin; exit 3 when it holds another value; `coordinator`: the path of cenk-base's shared coordinator rules (0.2.0 or later; exit 1 when missing); a key under `settings` only with `--yes`, after the person's yes |
-| `move_to_profile.py` | once: moves the person's facts from the master record and the old private record into the profile (dry run, `--apply`, `--confirm <key>`, then `--remove-old` after the person's OK) |
-| `cheat_sheet.py` | a step's keywords.md as one page for the call (`cheat-sheet-wide.html`), opened in Chrome on a monitor other than the call's |
-| `collect_postings.py` | new postings from every saved search a script can read (job board APIs, remote job feeds, LinkedIn's guest search), without a model: boards and feeds first, the person's title rules (`SEARCH_RULES`) before any text, a remote check of LinkedIn remote hits, Remote Rocketship, Himalayas and Workable searches, 3 s per feed and a stop after 2 refusals, each posting's own page for its location (`LOCATION_CHECKS`), a dedupe by employer and title; `--add` puts them in the tracker with `found_by` and `search` |
-| `employer_lookup.py` | the free public-data lookup (Wikidata) of an employer never checked: exclude, go on or undecided; cached |
-| `choices.py` | the person's cost choices in `job-search.env`: show, set, the workflow's args, suggestions per plan, the fit score and grade (`FIT_SETTINGS`), `fit` (the fit settings in use) |
-| `statusline.py` | opt-in status line script: saves the plan's usage share and, with `--log`, each change of the 7-day share; `read` gives the run report's line |
-| `cost.py` | the plan cost table (`data/plan-costs.json`): table (each step's W and share of the plan's week), calibrate (W per 1% of the week, from the status line log), context (the coordinator's context: hand off or keep) |
-| `feedback.py` | employer replies as fit clues (`FEEDBACK_LOG`): add (one line per reply), silent (no reply after 14 days), clues (`FIT_CLUES`, read by the fit check), analyse (outcomes by score band, proposed `FIT_SETTINGS` grades) |
-| `reposts.py` | the postings that repeat a role already applied to or declined, or skipped for fit in 30 days (employer and title); collect leaves them out |
-| `workflow_args.py` | the funnel's args from the scripts, about 8 KB, with the rules in a file the agents read; `--screen "<name>" --out <dir>`: the full employer check before a first hiring step |
-| `variants.py` | the run's variant (model and effort per step), its models for the workflow, and each run's good-fit count |
-| `token_report.py` | tokens per run and per agent kind from this computer's transcripts; numbers only, sends nothing |
-| `searches.py` | saved searches: add, list, due (on a weekday for a site without an alert), done, fail (a board's error; two 404s: gone), sites (the tracker's sites with no saved search; `--add`: a script search for each), seen (is a posting new), rates (real fits per search), import (rows from a profile), every (how often a row or a source is read; boards weekly by default) |
-| `questions.py` | questions for the person: add, list, build (the Questions page's files), record (answers into the records) |
-| `employer.py` | employer checks: check (`--full`), record, environment, decide, alias (`--not`), split (`--apply`), repair-clear, import-tracker, merge |
-| `usage.py` | usage log (steps and runs) and the weekly usage report (due, run-due, report, mark-drafted) |
-| `trackerlib.py`, `employerlib.py` | shared code for the scripts above (`profilelib.py` too) |
-| `workflows/screen-and-prepare.js` | Workflow: screens a batch of employers and prepares the cleared jobs; never submits |
-
-Older records: the scripts also read a tracker kept before the plugin (`{companies: [...]}`). Optional keys:
-`TRACKER_SETTINGS`, `REDACT_FILE` (private text replaced in every application file; keep it outside shared folders),
-`SENT_CVS_DIR`, `SENT_CVS_BEFORE_DIRS`, `SEARCH_TIME` (the scheduled run's time, default 19:00), `SEARCH_DAYS` (its days, default `weekdays`).

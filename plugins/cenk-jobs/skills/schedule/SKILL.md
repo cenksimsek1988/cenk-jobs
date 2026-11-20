@@ -29,12 +29,5 @@ Read `../../RULES.md` first.
 
 ## What each run does
 
-The coordinator runs it (RULES.md, "Every run"):
-`run started` -> handoff check -> Gmail and calendar (`/cenk-jobs:prepare`; first, never dropped) -> shared-list update (`employer.py shared-update`, its questions, `--apply`) ->
-`check_setup.py --needs` -> health check -> search (`/cenk-jobs:search`) -> plan
-(`/cenk-jobs:plan`) -> apply where the person is signed in (`/cenk-jobs:apply`, one `applier` subagent per application) -> prep for
-the nearest steps -> `build_app_folders.py` and the dashboard -> `run ok` and the short report.
-
-Log each step with `usage.py log <step> <ok|failed|stopped> "<note>"`. At the end, `usage.py due`: "ask" asks the
-usage-report question once; "due" shows the person the report text and, on their yes, drafts the email (they send
-it), then `usage.py mark-drafted`.
+The coordinator's "Each run" list (/cenk-jobs:coordinate), in its order. In a scheduled run each piece is a
+subagent (an `applier` per application) or a card, since a trigger's turn starts no session (above).

@@ -17,10 +17,8 @@ who has not set up yet starts with `/cenk-jobs:setup`.
 
 ## First: the main folder and the title
 
-Follow "First: work in the main folder" in RULES.md. A coordinator started anywhere else moves to the main folder
-first and takes the title "Job search coordinator" (the app's session-title tool), so the person and other sessions find it.
-Only when it cannot move does it start a session with that title in the main folder, with the person's request as
-its brief, say so in one line, and stop, writing no records.
+A coordinator started anywhere else moves to the main folder first (`../../RULES/start.md`), then takes the title
+"Job search coordinator" (the app's session-title tool), so the person and other sessions find it.
 
 ## Then: the handoff check
 
@@ -30,10 +28,9 @@ coordinator"): the new coordinator writes no other record until the older one's 
 archived. A scheduled run reaches the older one's sub-sessions by message and restarts none.
 
 0. The base plugin: `profilelib.py coordinator` (Bash tool). Exit 1: stop here, write no record, and tell the
-   person in plain words with the line for their terminal, then a new session. "cenk-base is not loaded":
-   `claude plugin install cenk-jobs@cenk` (or `@<the marketplace they installed from>`; a plain `claude plugin
-   update` does not bring the base). "coordinator.md is missing" (cenk-base older than 0.2.0): `claude plugin
-   update cenk-base@cenk`. A scheduled run puts the same line in Do now and ends.
+   person in plain words with the line for their terminal, then a new session: "cenk-base is not loaded" as RULES.md
+   says ("Keep learning about the person"); "coordinator.md is missing" (cenk-base older than 0.2.0): `claude
+   plugin update cenk-base@cenk`. A scheduled run puts the same line in Do now and ends.
 1. List the open sessions in the main folder (`list_sessions`, this session left out).
 2. A session active since the previous "run started" row in `USAGE_LOG` (at the first check: every session): one message (`SendMessage` to
    its `local_...` id): "Write your handoff to handoffs/<short name>.md, then stop." A running session finishes first.
@@ -45,20 +42,43 @@ archived. A scheduled run reaches the older one's sub-sessions by message and re
 5. Delete each recorded file: its facts are in the records now.
 6. One line: "Read 4 handoffs; ended 3 sessions; kept 'Prep Acme' until the interview on 12 Nov."
 
+## Each run
+
+1. Start: "Job-search run started at 21:05 (by hand); I'll tell you when it's done.", with the apply choices
+   (`choices.py show`) and the plan's share when `statusline.py read` prints one; `usage.py log run started "<by
+   hand|scheduled>"` (with `variant=<name>` from `variants.py current` when the person turned variants on).
+   Example: "Job-search run started at 19:02 (scheduled); apply: auto, high fits, sent alone. Plan used: 5 hours
+   23%, 7 days 41%." "Run my job search now" starts a run at once; a run started under 6 hours ago with no end row:
+   say so instead; an older one: `usage.py log run stopped`, then start.
+2. The handoff check (above).
+3. Gmail (`/cenk-jobs:prepare`, "Mail and calendar"): first, never dropped for other work. Seen on 17 Nov: a day
+   spent on applying left 15 rejections and an interview invitation unread.
+4. The shared-list update: `employer.py shared-update` (a dry run), its `ask` items to the Questions page, then
+   `--apply`; each `updated` item is one line in the run report (RULES/employers.md, "Shared list updates").
+5. `check_setup.py --needs`: the programs, connectors and sign-ins the run waits on, to the person as one list.
+   Example: "sign in to Workday · Acme: 2 planned". With nobody there, each goes in Do now.
+6. The health check (RULES/run.md), then the calendar check (RULES/hiring-steps.md, "Calendar").
+7. The Questions page's answers: `questions.py record`, then `build` and write the page in the same turn, so the
+   jobs they free go on in this run and the page shows them done; act on each "act on" line; bring up every
+   "Discuss" in the chat.
+8. The pieces of the day, one sub-session each ("Pieces"), in this order: search, plan, apply where the person is
+   signed in, prep for the nearest steps.
+9. The run's new questions to the page (`questions.py build`), `build_app_folders.py` and the dashboard refresh
+   (RULES/run.md, "Dashboard"): each `check:` line fixed, or named in the report.
+10. The deadline notification (RULES/urgent.md) and the report ("Ending"), whose last line is `token_report.py
+    --days 1` for the run's W and, from the run 7 days back, `variants.py count`.
+11. "Run finished at 21:40.", `usage.py log run ok` (or `failed` / `stopped`), then `sessions.py unlock <id>`: a
+    lock left behind holds the next coordinator for 30 minutes.
+
+Each step is logged with `usage.py log <step> <ok|failed|stopped> "<note>"`; the dashboard header shows the run's
+state from these rows.
+
 ## The coordinator session
 
-- Reads the person's choices (`choices.py show`) at the start of every run and names the apply ones in the first
-  line of the run's report, with the plan's share when `statusline.py read` prints one. Under `APPLY=auto`, an
-  application whose answers all come from the records is sent without asking, unless `ASK_FIRST` holds `send`: then
-  it waits at the review page. Under `APPLY=list`, nothing is filled: the report lists the fitting jobs with links.
-  Example: "Job-search run started at 19:02 (scheduled); apply: auto, high fits, sent alone. Plan used: 5 hours 23%,
-  7 days 41%."
 - A job that waits on the person gets its status and a to-do with its link as soon as the wait is known:
   `track.py wait <id> needs-person|account-needed "<what>"`. A wait kept only in a chat or a hand-off note is
   invisible on the dashboard. Example: `track.py wait J7 account-needed "Workday sign-in for Acme"`.
-- Every question for the person, its own or a sub-session's, goes on the Questions page as it is asked: `questions.py
-  add`, `build`, write the page, in the same turn (RULES/questions.md). Example: "your notice period?" asked in chat
-  is also `questions.py add fact "What is your notice period?" key=notice_period job=J7`.
+- A cost choice the person changes: its cost line first (`../../references/choices.md`), then `choices.py set`.
 - Fact answers (residence, citizenship, work permit, notice period) come only from the records: a prepared answer
   is changed only by the records or the person, never from memory. Example: the record says resident in Spain and
   Italy, so "resident in Spain: Yes" stays.
@@ -72,8 +92,8 @@ archived. A scheduled run reaches the older one's sub-sessions by message and re
   while another task is open; they never wait for that task to end.
 - Runs in the main folder and is titled **Job search coordinator**: only the person's own main session, started in
   their main folder by them or by the schedule. A development or test session that loads this skill keeps its own
-  title and writes no record. It tells the person, at the start of each run, that this is their main session
-  (RULES.md, "One main session").
+  title and writes no record. At the start of each run it says so in one line: "This is your main job-search
+  session: ask here for anything; I start one session per job and record what it reports."
 - Before it writes any record: `sessions.py lock <its own local_... id>`; again before each later step that writes
   (it refreshes the beat); `sessions.py unlock <id>` at the end. Refused (another coordinator's beat within 30
   minutes): it writes nothing, asks that coordinator to write its handoff and stop (as in the handoff check), and
@@ -87,28 +107,16 @@ archived. A scheduled run reaches the older one's sub-sessions by message and re
   sessions writing one file lose each other's changes.
 - The person's profile is not a shared record: any session saves a fact about the person there at once, by
   compare-and-set (`profilelib.py set`, RULES.md "Keep learning about the person"), and its handoff names the key.
-- Never changes the plugin and never starts a session in its repository (RULES.md, "The plugin's own files"): a
-  lesson is one line in `plugin-lessons.md`, a sub-session's lesson too, and the new lines go in one message to the
-  session titled "Coordinator · workbench" when one is open.
-- The Gmail step runs first in every run, right after the handoff check, and is never dropped for other work.
-  Seen on 17 Nov: a day spent on applying left 15 rejections and an interview invitation unread.
-- Each run: "run started", the handoff check, Gmail (`/cenk-jobs:prepare`, "Mail and calendar"), the shared-list update, `check_setup.py --needs`, the health check, then the pieces of the day (`/cenk-jobs:schedule` lists the order),
-  one sub-session per piece; "run finished" and the short report at the end.
-- Each run, before the pieces: read the Questions page's answers and record them (`questions.py record`, RULES.md
-  "Questions for the person"), then `build` and write the page in the same turn, so the jobs they free go on in this
-  run and the page shows them done; act on each "act on" line; bring up every "Discuss" in the chat. After
-  the pieces: add the run's new questions to the page (`questions.py build`).
-- Each run, after the handoff check: `employer.py shared-update` (a dry run), its `ask` items to the Questions page,
-  then `employer.py shared-update --apply`; each `updated` item is one line in the run report (RULES/employers.md,
-  "Shared list updates").
+- Never changes the plugin and never starts a session in its repository (RULES.md, "The plugin's own files"). It
+  writes each lesson in `plugin-lessons.md`, a sub-session's too, then sends the new lines, each with its line
+  number, in one message to the open session titled "Coordinator · workbench"; a line that holds for any plugin is
+  marked general. None open (always so for a person who does not develop the plugin): the file keeps the lines.
+  Example: `Lessons 56 and 57 for cenk-jobs; 57 is general.`
 - After every change that can move an employer's verdict (the person's rules, a decision, a sync, a shared-list
   update): `employer.py recheck-running`, and each employer it lists goes to the person (RULES/employers.md, "Running
   applications").
-- Urgent steps (RULES.md): when a report names one, add the job's Urgent to-do (`track.py todo <id> add urgent
-  "<what to do>" where=pc`, or `where=phone`) and remove it once done or expired; the sub-session already sent the
-  notification. At the end of each run, one notification for deadlines today or tomorrow.
-- Each run, after the health check: the calendar check (RULES/hiring-steps.md, "Calendar"). After each dashboard
-  refresh: every `check:` line of the export is fixed, or named in the run report (RULES/run.md, "Dashboard").
+- Urgent steps: the coordinator adds and removes each Urgent to-do a report names (RULES/urgent.md); the
+  sub-session already sent the notification.
 - A turn in which a script printed `pages behind` (any record change: a job submitted, skipped, rejected or closed, a
   new or done step, a to-do, a login, a question) ends with `export_dashboard.py --check`; when it names a page, both
   pages are refreshed in that turn, once, after all its records (RULES/run.md, "Dashboard"). Example: three handoffs
@@ -117,10 +125,6 @@ archived. A scheduled run reaches the older one's sub-sessions by message and re
 - The dashboard is checked by `export_dashboard.py --check`, not by reading its tabs: a page is opened only when a
   check line names something the page shows wrong, or the person reports one. The Calendar tab is compared by the
   calendar check (RULES/hiring-steps.md, "Calendar").
-- Variants (`variants.py`, off unless the person turned them on): at "run started", `variants.py current` names the
-  run's variant; log it (`usage.py log run started "<how>" variant=<name>`) and pass `variants.py models` to the
-  workflow. The run report's last line: `token_report.py --days 1` for the run's W, and, from the run 7 days back,
-  `variants.py count`.
 - A hiring step that is done: `"done": "<date>"` on its `PIPELINE` step, and what is awaited next as a to-do.
   Example: `track.py todo J1 add waiting "feedback on the take-home"`.
 - A CV rebuilt while forms are filled and not sent: tell every session that holds one to upload the new file again,
@@ -202,7 +206,7 @@ Written to `handoffs/<short name>.md` in the main folder (shared rules). One blo
 `failed`); what was sent (CV file, letter file); the fields answered on the form, by name only (their values are in the records); new facts the person stated (one fact
 line each; a fact about the person themselves is already in the profile: only its key, such as `person.phone`); hiring steps or deadlines seen (date, time, name, link); sign-ins seen; employee reviews looked up
 (employer, rating, number of reviews, complaint topics, source); a study or after-a-step session's `Weak answers:`
-lines (/cenk-jobs:prepare, "Study notes"); a `write` session's approved text: its job, question and file
+lines (`references/study.md`); a `write` session's approved text: its job, question and file
 (`handoffs/<short name>.answer.md`). Nothing else.
 
 The coordinator records it: `track.py set`, `PIPELINE`, `MASTER_RECORD`, `logins.py set` and `sync`, `employer.py
@@ -218,13 +222,12 @@ page never asked it), then that file is deleted with the handoff.
 - A sub-session ends once its handoff is recorded: the coordinator archives it (`ARCHIVE_SESSIONS`: `yes` without
   asking, empty when the person agrees).
 - Every run ends with `handoffs/job-search-coordinator.md` (the coordinator's hand-off, shared rules): what is open,
-  what waits on the person, what is next, and every open sub-session. Before it, each open sub-session
-  writes or updates its own handoff file (the message of the handoff check, step 2). An older
-  `handoffs/coordinator.md` is read once by the next handoff check, like any other file there.
+  what waits on the person, what is next, and every open sub-session. An older `handoffs/coordinator.md` is read
+  once by the next handoff check, like any other file there.
 - The run ends with a short report: what was sent, what waits on the person (Do now, and how many questions are
   open on the Questions page), what is planned next, and the two links (`DASHBOARD_URL`, `QUESTIONS_PAGE`), so the
   person never has to look for them.
+- After the report, `usage.py due`: "ask" asks the usage-report question once; "due" shows the person the report
+  text and, on their yes, drafts the email (they send it), then `usage.py mark-drafted`.
 - The scheduled run is its own session, the day's coordinator (`/cenk-jobs:schedule`). By hand: this skill. The records
   and `handoffs/` hold everything a new one needs.
-- Last: `usage.py log run ok` (or `failed` / `stopped`), then `sessions.py unlock <id>`: a lock left behind holds
-  the next coordinator for 30 minutes.

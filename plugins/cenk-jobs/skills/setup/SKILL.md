@@ -6,58 +6,30 @@ description: "First run of the job search, once: checks programs and logins, cre
 
 # Setup: the first run
 
-Read `../../RULES.md` first (honesty, consents, never an ID, password, code or CAPTCHA). Run these steps in order and
-ask before moving on. Each step is safe to run again: it skips what is already there and says so.
-Once the Questions page exists, every question setup asks goes there as it is asked (RULES/questions.md); one
-asked before it and still open is added when it is created.
+Read `../../RULES.md` first (honesty, consents, never an ID, password, code or CAPTCHA). Say first, in one plain
+sentence, what setup needs from the person; then run these steps in order and ask before moving on. Example: "Setup
+needs from you: your OK to install what is missing, your sign-ins to Google Drive, Chrome and LinkedIn, and your CVs
+and documents." Each step is safe to run again: it skips what is already there and says so.
 
 ## 1. Programs
 
-- Check each program:
-
-  | Program | What it is for | Check |
-  |---|---|---|
-  | Python 3.10+ | runs every script | `python --version` (Windows also `py --version`) |
-  | Google Chrome | prints CVs and letters to PDF; Claude in Chrome applies in it | `check_setup.py` |
-  | Google Drive for desktop | keeps the main folder in Drive and on the computer | `check_setup.py` |
-  | pypdf | reads the person's PDFs as text (old CVs, documents) and checks each CV built | `python -I -c "import pypdf"` |
-  | Poppler (`pdftoppm`) | lets Claude see PDF pages as images (a scanned diploma, a CV's layout) | `pdftoppm -v` |
-
-- Ask once, listing only the missing ones with what each is for: "I'll install these now, unless you say no to any."
-  Install every one the person does not refuse, from the official source. Example: "pypdf and Poppler are missing:
-  pypdf reads your PDFs, Poppler shows me their pages. I'll install both now, unless you say no." Say that an
-  install accepts the program's own licence (Poppler: GPL; Chrome and Drive: Google's terms).
-
-  | System | Python | Chrome | Drive | pypdf | Poppler |
-  |---|---|---|---|---|---|
-  | Windows | `winget install -e --id Python.Python.3.12` | `winget install -e --id Google.Chrome` | `winget install -e --id Google.GoogleDrive` | `python -I -m pip install pypdf` | `winget install -e --id oschwartz10612.Poppler` |
-  | Mac | `brew install python` | `brew install --cask google-chrome` | `brew install --cask google-drive` | `python3 -I -m pip install pypdf` | `brew install poppler` |
-  | Linux | the distribution's `python3` | google.com/chrome | none: keep the main folder backed up | `python3 -I -m pip install pypdf` (refused as externally managed: `sudo apt install python3-pypdf`) | `sudo apt install poppler-utils` |
-
-- pypdf goes into Python's own folder (`-I` above): the scripts run with `python -I`, which skips per-user packages.
-- A command that needs `sudo` or an administrator: the person runs it; give them the line.
-- A program installed with winget is on the PATH in sessions started after the install: say so, then run
-  `check_setup.py` again.
-- The person signs in to Google Drive and Chrome themselves. The Claude in Chrome extension: open its Chrome Web
-  Store page for them; they click "Add to Chrome", pin it and sign in with their Claude account. Read each page in
-  the browser with `find`, `read_page` or `get_page_text`; never a screenshot.
+Check the programs setup needs and install the missing ones by `../../references/install.md` (each program,
+what it is for, its check and its install line per system). Ask once, listing only the missing ones with what
+each is for: "I'll install these now, unless you say no to any." Example: "pypdf and Poppler are missing: pypdf
+reads your PDFs, Poppler shows me their pages. I'll install both now, unless you say no."
 
 ## 2. Logins and connectors
 
-The health-check calls in RULES/run.md, and the person's LinkedIn signed in in Chrome. Help with each missing one, step
-by step.
+The connector calls of the health check (RULES/run.md), and the person's LinkedIn signed in in Chrome. Help with each missing one, step
+by step. Read each page in Chrome with `find` or `read_page` (`max_chars` 5000); never take a screenshot.
 
 ## 3. The main folder
 
 - The profile first (their own facts, shared with the other cenk plugins through the base plugin cenk-base):
   `profilelib.py path` (Bash tool: only it gets `CENK_BASE`).
-  - "cenk-base is not loaded" (exit 1): tell the person cenk-jobs needs its base plugin cenk-base, and give them the
-    line for their terminal: `claude plugin install cenk-jobs@cenk` (or `@<the marketplace they installed from>`);
-    a plain `claude plugin update` does not bring the base. Then a new session. Stop setup here.
-  - None yet: ask where the cenk folder goes, suggesting `profilelib.py home` (`cenk/` in their Google Drive's "My
-    Drive"), then `profilelib.py create <folder>`; when its output says nothing finds it, `profilelib.py pin
-    <folder> --yes` after their yes (the output names cenk-base's `profile.py`: run `profilelib.py`). An old profile (`claude/profile.json`, or a `PROFILE` line in an old
-    `job-search.env`): `create` copies it; the old file stays until they say to delete it.
+  - "cenk-base is not loaded" or no profile yet (exit 1): as RULES.md says ("Keep learning about the person");
+    with the base missing, stop setup here. `create` also copies the old profile a `PROFILE` line in an old
+    `job-search.env` names.
   - Ask how they want to be referred to, and save it: `set person.pronouns`.
 - The main folder: ask where it should be, suggesting `<cenk folder>/jobs/` (the cenk folder: `profilelib.py home`),
   then `init_career_folder.py "<main folder>" "<Full Name>"`. Say where it was created. An existing main folder
@@ -114,54 +86,7 @@ in `changes`.
 
 ### The cost choices
 
-Ask each on its own, with its cost line, after the defaults. W is a cost-weighted Opus token, measured on real runs.
-Write the answers with `choices.py set KEY=value ...`; `choices.py show` lists them. Free in every case: the search
-by script, the list lookup, the public-data lookup, employers the person adds by hand.
-First ask the plan (Pro, Max 5x, Max 20x or other): `choices.py suggest pro|max5|max20|other` gives the starting
-answers, never the final ones. Example: Pro suggests `APPLY=list`, `LETTERS=never` and one run a week.
-Then show the cost before anything starts: `cost.py table <plan>`, the setup week apart (setup 5-10M W, an
-estimate) and a steady week against 30% of a Pro week. Each figure says whether it is measured or an estimate;
-while the table prints "unknown" for a share, give the W figures and say the shares come after a calibration week.
-Example: "Setup: 5-10M W (estimate). A steady week: 5 searches, 10 applications, 1 interview prep. Its share of
-your Pro week: not known yet."
-
-1. Letters and free text: Opus, which writes better (about 68k W a letter), or the cheaper model with its review
-   (about 40k W). `WRITER_MODEL=opus|sonnet`, default opus.
-2. Employer check: the list and the public-data lookup always run, free, and their warnings always show. The cheap
-   model check where the lookup cannot decide: about 18k W per new employer, once. `EMPLOYER_CHECK=cheap|free`,
-   default cheap.
-3. Applying: fill and send where the records answer everything (about 210k to 280k W an application), or only a
-   list of fitting jobs with links, sent by the person (the fit check alone, about 60k W an employer).
-   `APPLY=auto|list`, default auto.
-4. Which fits: the fit score weighs each requirement by its place in the posting (title skill 4, must-have with
-   years 3, must-have 2, nice-to-have 1) against the record: 80+ high, 65-79 normal, 50-64 long-shot, under 50
-   weak. Send high and normal, or only high. Each application less saves about 280k W. `APPLY_FITS=normal|high`,
-   default normal. Long-shots a day on top: `LONG_SHOTS_PER_DAY`, default 0 (none; about 180k-1.1M W each). A weak
-   fit is listed, never sent. Weights and bands: `FIT_SETTINGS` (`templates/fit-settings-example.json`).
-5. Cover letters: where the form has or may have a field, always, or never; about 68k W a letter with its review.
-   `LETTERS=asked|always|never`, default asked.
-6. What waits for the person (only with `APPLY=auto`), one answer per step: sending an application (`send`); a
-   free-text answer Claude drafted under `draft_answers` (`free_text`); booking an interview slot (`interview`).
-   `ASK_FIRST=send,free_text` by default; empty: all alone. Asking costs the person's time, not tokens. Essays
-   "auto" is `free_text` left out; `choices.py show` names it.
-   Form filling: an emailed application code read in Gmail by Claude (`EMAILED_CODES=off|on`, default off; one or
-   two Gmail reads a form, about 5-10k W), and optional demographic fields filled from the profile
-   (`OPTIONAL_FIELDS=off|fill`, default off).
-7. Interview slots: Claude books them and keeps the calendar (about 50k to 80k W an invitation, estimated), or the
-   person does and Claude records the date. `CALENDAR=auto|self`, default auto.
-8. Runs: weekdays, some days, weekly or by hand (`SEARCH_DAYS`, `SEARCH_TIME`, through `/cenk-jobs:schedule`).
-   Each run has a start cost (1.7M to 4.7M W measured in long sessions; a fresh run less); fewer runs take more
-   postings each, and some close in between. Default weekdays at 19:00.
-9. Postings per run: a number or `unlimited` (`MAX_NEW_PER_RUN`, default 30). Applications go high fits first, then
-   the newest.
-10. The plan's share in the run report, opt-in: Claude Code gives it only to a status line script. On a yes,
-    `statusline.py install` copies the script into the main folder and prints the `statusLine` setting; add it to
-    the person's Claude Code settings after their yes to that change. An existing status line stays, with `--then`.
-    It also logs each change of the 7-day share (`PLAN_USAGE_LOG`); after a week, `cost.py calibrate <plan>` gives
-    W per 1% of the week, the figure the shares come from.
-11. Sub-sessions: Sonnet (0.6 of the Opus cost per turn; measured: apply, search and prep sessions cost about 130M
-    W in 12 days on Opus) or Opus. Essays and study always take the main session's model.
-    `SESSION_MODEL=sonnet|opus|haiku`, default sonnet (empty counts as sonnet).
+After the defaults, the cost choices one at a time, each with its cost line: `../../references/choices.md`.
 
 ## 5. Documents
 
@@ -189,8 +114,11 @@ your Pro week: not known yet."
 Cities, remote, hybrid, relocation; the pay floor (private); how interviews may be scheduled. Write each into
 `preferences` as fact lines. The scripts read the places from `job-search.env`: `PLACES` (accepted cities and
 countries) and `NOT_PLACES` (cities ruled out). Example: PLACES=Rome, Italy; NOT_PLACES=Turin. The pay figure of a
-city goes into the private table once it is worked out (`career_view.py pay "<city>" --set "<figure>"`). Then ask once about the weekly usage report ("It holds no name, contact, CV, pay or
-address; you read each one and send it yourself") and write `USAGE_SHARING=yes|no` in `job-search.env`.
+city goes into the private table once it is worked out (`career_view.py pay "<city>" --set "<figure>"`). The roles,
+for the scripts' search: `ROLE_TERMS`, as role phrases that match whole words ("tech lead", not "lead", which also
+passes "Lead Project Manager"), and `REMOTE_REGIONS`. Then ask once about the weekly usage report ("It holds no
+name, contact, CV, pay or address; you read each one and send it yourself") and write `USAGE_SHARING=yes|no` in
+`job-search.env`.
 
 ## 7. CV versions
 
@@ -205,7 +133,7 @@ Create it without asking (RULES.md, "Dashboard") and put its link in `DASHBOARD_
 Then the Questions page, without asking: publish `templates/questions/index.html` as its own artifact with the
 capabilities `{"db": {"rules": [{"path": "questions", "read": "owner", "write": "owner"}, {"path": "answers", "read": "owner", "write": "owner"}, {"path": "status", "read": "owner", "write": "owner"}]}, "user": {}, "comments": {}}` (only the person reads or writes it, even when the page is shared: answers can be
 health facts; `comments` lets its send button reach the main session), list its `answers` collection once to check the store answers,
-and put its link in `QUESTIONS_PAGE`.
+and put its link in `QUESTIONS_PAGE`. Then add every question setup asked before the page existed and still open.
 
 Then tell the person, in these words, what the two pages are and how to find them again; a new person has never
 opened an artifact:
@@ -218,18 +146,20 @@ opened an artifact:
 Pin both when they are created (`pin: true` on the publish) when the person accepted the defaults; if they turned
 that one down, leave them unpinned and say how to pin one later (the page's menu, Pin).
 
-## 9. The main session
+## 9. The schedule
 
-Title this session "Job search coordinator" (the app's session-title tool) and say: "This is your main job-search
-session. Ask here for anything: I start one session per job (applying, interview prep, essays) and record what each
-reports. Keep job-search work out of other sessions." From here on it runs `cenk-jobs:coordinate`.
+With the defaults accepted, create the scheduled run with `/cenk-jobs:schedule` (weekdays at 19:00 local time).
 
-## 10. The schedule and the first search
+## 10. The report and the main session
 
-With the defaults accepted, create the scheduled run with `/cenk-jobs:schedule` (weekdays at 19:00 local time), then run the first
-search now with `/cenk-jobs:search`: first `searches.py sites --add` saves a script search for every employer whose
-job links are on a board the script reads (after asking for `ROLE_TERMS`, as role phrases that match whole words: "tech lead", not "lead", which
-also passes "Lead Project Manager"; and `REMOTE_REGIONS`); then it saves one
-search per other site and query and offers the sites' free email alerts
-(`search`, "Saved searches"), so later runs read only what is new. Job sites that need an account come out of that search: the person creates each
-account and leaves its profile empty, because Claude fills it when applying.
+- The report, in short lines: what was set up (the main folder, the profile, the CV versions, the two pages with
+  their links, the schedule), the choices made, and what waits on the person. Example: "Set up: main folder in
+  Drive, 3 CV versions, both pages pinned, runs weekdays at 19:00. Waiting on you: sign in to LinkedIn in Chrome."
+- Then the main session, fresh, so its context starts without setup's long reads: start a session in the main
+  folder (`start_session`, title "Job search coordinator") with the brief "Run /cenk-jobs:coordinate for the first
+  run: `searches.py sites --add`, one saved search per other site and query with its free email alert
+  (references/saved-searches.md), then the first search." Tell the person in one line to go on there, with
+  its link, and stop here. Without a session tool: they run `claude` in the main folder and type
+  `/cenk-jobs:coordinate`.
+- Job sites that need an account come out of that search: the person creates each account and leaves its profile
+  empty, because Claude fills it when applying.

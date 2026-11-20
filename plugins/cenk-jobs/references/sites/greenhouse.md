@@ -2,7 +2,7 @@
 
 Read by the applier, and by a session that fills this site's form, with `../filling.md`.
 
-- The form's questions, before opening Chrome: `https://boards-api.greenhouse.io/v1/boards/<board>/jobs/<id>?questions=true`.
+- (session) The form's questions, before opening Chrome: `https://boards-api.greenhouse.io/v1/boards/<board>/jobs/<id>?questions=true`.
 - Open the plain embed form, `job-boards.greenhouse.io/embed/job_app?for=<board>&token=<job id>`, not
   the employer's heavy careers page. When the embed answers "error processing your application", use the form on
   the employer's own careers page.

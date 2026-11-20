@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__claude-in-chrome__computer|mcp__claude-in-chrome__browser_batch|mcp__Claude_Browser__computer|mcp__Claude_Browser__browser_batch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -I \"${CLAUDE_PLUGIN_ROOT}/hooks/no_screenshot.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

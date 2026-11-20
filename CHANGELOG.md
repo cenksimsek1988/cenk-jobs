@@ -6,6 +6,49 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.44.2] - 2026-11-20
+
+Smaller rules and skills with one owner per fact, and a hook that holds the no-screenshot rule.
+
+### Added
+
+- `hooks/no_screenshot.py`, a PreToolUse hook on the `computer` and `browser_batch` tools of Claude in Chrome and of
+  the app's built-in browser: it denies a screenshot or a zoom in a job-search session (a folder that holds
+  `job-search.env`, or one below it), and an unreadable call that names one. Clicks, typing and every other folder
+  pass.
+- Parts read only when their reader needs them: `RULES/start.md` (a session outside the main folder),
+  `RULES/tools.md` (one line per script, `fx.py` and `jsenv.py` added), `references/install.md` (setup step 1),
+  `references/choices.md` (setup step 4 and any change of a choice), `references/study.md` (study and after-a-step
+  sessions), `references/weekly.md` (the first run of the week) and `references/saved-searches.md` (none saved, an
+  alert decision, tuning).
+
+### Changed
+
+- The run's order is one numbered "Each run" list in /cenk-jobs:coordinate; RULES.md, RULES/run.md and the schedule
+  skill point to it.
+- One owner per fact: the question rule and the profile writes in RULES.md, not in each skill; the lesson route,
+  "I'm at my PC" and the start-of-run line in coordinate; the code-on-Submit rule in `references/filling.md`; the
+  guarded items in one bullet.
+- A step due within 24 hours: one rule in RULES/urgent.md: one notification for all of them at the end of the run
+  that finds them, or at once outside a run.
+- Page reads are capped: `read_page` with `max_chars` 5000, or `javascript_tool` returning JSON; `get_page_text`
+  only on a short page; a booking page with `find` or `read_page`. The link check says how a page is read; a
+  SuccessFactors link opened signed out lands on the site's home page.
+- `references/filling.md` says each rule once (screenshots, true answers, consents, guarded items); its "(session)"
+  marks are fixed for uploads (the session builds and copies the letter, the applier uploads) and for the Greenhouse
+  and Ashby question reads.
+- Setup says what it needs in one sentence first, asks for `ROLE_TERMS` and `REMOTE_REGIONS` with the places, takes
+  its cost lines from `cost.py table`, ends with a report and starts a fresh main session for the first search.
+  Prepare ends with a report.
+- The calendar's `list_events` and the connector reads run once per run, not before every refresh.
+- The search skill's account of `collect_postings.py`'s internals is in the script's docstring, with its LinkedIn
+  pacing corrected there (4.5 s; after a refusal 60 s, then 8 s).
+
+### Removed
+
+- The end-of-run message asking every open sub-session to write its handoff.
+- `variants.py models` passed by hand to the workflow: `workflow_args.py` already passes it.
+
 ## [0.44.1] - 2026-11-20
 
 Four lessons from the job search, the workflow fixes from the workbench review, and the full employer check before a

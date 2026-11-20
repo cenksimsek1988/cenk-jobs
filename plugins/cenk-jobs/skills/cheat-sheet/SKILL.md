@@ -13,7 +13,7 @@ file the script writes; to check it once open, `get_page_text`, never a screensh
 ## Steps
 
 The page opens in the same turn as the request, even mid-call: no link to click, no question first. Questions come
-after it is open; each goes on the Questions page too (RULES/questions.md).
+after it is open.
 
 1. The time first: check the step's date and time against now and name the step. Example: "Now 13:40. Acme technical
    interview, today 14:00." Several steps today: open the nearest one, then ask.

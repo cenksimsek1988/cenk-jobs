@@ -8,7 +8,6 @@ description: "Apply to planned jobs in the person's Chrome: fills each form from
 Read `../../RULES.md` first: never an ID number, password, verification code or CAPTCHA; optional consents off;
 open free-text questions stay the person's. Read `../../RULES/urgent.md` and `../../RULES/questions.md` when a form
 waits on the person.
-Every question this skill asks the person goes on the Questions page as it is asked, in a run or in the chat (RULES/questions.md); in a sub-session, by a message to the coordinator, which adds it.
 
 ## Before filling
 
@@ -43,7 +42,7 @@ Every question this skill asks the person goes on the Questions page as it is as
 ## Filling
 
 The filling rules are in `../../references/filling.md`, and each site's in `../../references/sites/<site>.md`: read
-both before the first field. Read each page with `find`, `read_page` (`filter: interactive`) or `get_page_text`;
+both before the first field. Read each page with `find` or `read_page` (`filter: interactive`, `max_chars` 5000);
 never take a screenshot.
 
 ## Sending

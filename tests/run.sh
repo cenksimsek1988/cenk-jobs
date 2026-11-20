@@ -2963,6 +2963,59 @@ check "make_letter_pdf 0.44.1: --job-file finds the job by id, refuses another s
 check "workflow 0.44.1: whole names in labels, one file per company, the employer check before a first hiring step" sh -c '
     grep -q "const label = (kind, name) => kind + .:. + name$" "$1" && grep -q "findIndex(c => c.name === name) + 1" "$1" &&
     grep -q "if (c.screen_only) return" "$1" && ! grep -q "A.decided" "$1"' _ "$S/../workflows/screen-and-prepare.js"
+# 0.44.2: the no-screenshot hook denies a screenshot or a zoom through Claude in Chrome, alone or in a batch, in a
+# main folder (job-search.env in it or above it), and an unreadable call that names one; a click, a typed word and a
+# call outside a main folder pass with no output.
+"$PY" -I - "$T/hk" <<'PYEOF'
+import json
+import os
+import sys
+
+base = sys.argv[1]
+main, sub, other = (os.path.join(base, *p) for p in (("main",), ("main", "sub"), ("other",)))
+for folder in (sub, other):
+    os.makedirs(folder, exist_ok=True)
+open(os.path.join(main, "job-search.env"), "w").close()
+
+
+def call(tool, given, cwd):
+    return json.dumps({"session_id": "s1", "transcript_path": "t.jsonl", "cwd": cwd, "permission_mode": "default",
+                       "hook_event_name": "PreToolUse", "tool_name": "mcp__claude-in-chrome__" + tool,
+                       "tool_input": given})
+
+
+cases = {"shot": call("computer", {"action": "screenshot", "tabId": 1}, main),
+         "zoom": call("computer", {"action": "zoom", "region": [0, 0, 9, 9]}, sub),
+         "batch": call("browser_batch", {"actions": [{"name": "computer", "input": {"action": "left_click"}},
+                                                     {"name": "computer", "input": {"action": "zoom"}}]}, main),
+         "broken": '{"tool_input": {"action": "screenshot"',
+         "click": call("computer", {"action": "left_click", "coordinate": [1, 2]}, main),
+         "typed": call("computer", {"action": "type", "text": "screenshot"}, main),
+         "other": call("computer", {"action": "screenshot"}, other)}
+for name, raw in cases.items():
+    with open(os.path.join(base, name + ".json"), "w", encoding="utf-8") as f:
+        f.write(raw)
+PYEOF
+for c in shot zoom batch broken click typed other; do
+    "$PY" -I "$S/../hooks/no_screenshot.py" <"$T/hk/$c.json" >"$T/hk/$c.out" 2>&1
+    echo "exit $?" >>"$T/hk/$c.out"
+done
+check "hook 0.44.2: a screenshot, a zoom below the main folder, a zoom in a batch and an unreadable call are denied" sh -c '
+    for c in shot zoom batch broken; do
+        grep -q "permissionDecision.: .deny" "$1/$c.out" && grep -q "^exit 0$" "$1/$c.out" || exit 1
+    done' _ "$T/hk"
+check "hook 0.44.2: a click, a typed word and a screenshot outside a main folder pass with no output" sh -c '
+    for c in click typed other; do [ "$(cat "$1/$c.out")" = "exit 0" ] || exit 1; done' _ "$T/hk"
+check "hook 0.44.2: hooks.json runs it on both browsers' computer and browser_batch, with a timeout" \
+    dq "$S/../hooks/hooks.json" 'R["hooks"]["PreToolUse"][0]["matcher"] == "mcp__claude-in-chrome__computer|mcp__claude-in-chrome__browser_batch|mcp__Claude_Browser__computer|mcp__Claude_Browser__browser_batch" and R["hooks"]["PreToolUse"][0]["hooks"][0]["timeout"] == 10 and "/hooks/no_screenshot.py" in R["hooks"]["PreToolUse"][0]["hooks"][0]["command"]'
+check "rules 0.44.2: the moved parts exist and every skill points to them" sh -c '
+    for f in RULES/start.md RULES/tools.md references/install.md references/choices.md references/study.md \
+        references/weekly.md references/saved-searches.md; do [ -s "$1/$f" ] || exit 1; done
+    grep -q "RULES/start.md" "$1/RULES.md" && grep -q "RULES/tools.md" "$1/RULES.md" &&
+    grep -q "references/install.md" "$1/skills/setup/SKILL.md" && grep -q "references/choices.md" "$1/skills/setup/SKILL.md" &&
+    grep -q "references/study.md" "$1/skills/prepare/SKILL.md" && grep -q "references/weekly.md" "$1/skills/search/SKILL.md" &&
+    grep -q "references/saved-searches.md" "$1/skills/search/SKILL.md" && grep -q "^## Each run$" "$1/skills/coordinate/SKILL.md"' \
+    _ "$S/.."
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]
