@@ -17,8 +17,13 @@ applied_on(job, note) the job's "applied" date, else the first date in its note.
 login_of(job)        the id of the sign-in a job waits on: the job's own "login" field when set, else its platform
                      with the company for platforms where each employer has its own account (Workday,
                      SuccessFactors, Cornerstone, a company's own site), else the shared platform, else the
-                     apply link's site. Why: the apply link is often a LinkedIn page that only forwards to the
-                     employer's site, so the link alone names the wrong login.
+                     apply link's site. A job board is a login only when its own form is the way to apply
+                     (LinkedIn Easy Apply, Indeed Apply); a board that forwards to the employer's site gives ""
+                     until `track.py wait <id> account-needed ... login=<site>` names the site. Example: platform
+                     "linkedin" -> ""; "LinkedIn Easy Apply" -> itself; "LinkedIn to company site" -> "company site
+                     · <employer>".
+site_key(row)        one key per site, however its login rows are named: a job board by its name ("LinkedIn Easy
+                     Apply" and "linkedin" are one), any other site by its name in lower case.
 
 A job's own to-do items are its "todo" list, kept in the summary row: [{kind, text, where, link, due, login, since,
 session}]. TODO_KINDS names the kinds; "waiting" means the next move is the employer's.
@@ -68,6 +73,12 @@ PER_EMPLOYER = re.compile(r"(?i)workday|successfactors|cornerstone|taleo|icims|o
 JOB_BOARD = re.compile(r"(?i)^https?://([a-z0-9-]+\.)*(linkedin\.com|indeed\.com|glassdoor\.[a-z.]+|stepstone\.[a-z.]+|"
                        r"infojobs\.net|monster\.[a-z.]+)(/|$)")
 BOARD_NAME = re.compile(r"(?i)linkedin|indeed|glassdoor|stepstone|infojobs|monster")
+# A board's own application form: the only case where a board's sign-in blocks an application.
+ON_BOARD = re.compile(r"(?i)easy apply|indeed apply")
+# The note logins.py sync gives a row it makes; such a row records a wait, not a check of the sign-in.
+SYNC_NOTE = "an application waits on this site's sign-in or account"
+# Printed by every script that changes a record the two pages show (RULES/run.md, "Dashboard").
+PAGES_BEHIND = 'pages behind: refresh both (RULES/run.md, "Dashboard")'
 MONTHS = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
 DAY_MONTH = re.compile(r"(\d{1,2})\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?:uary|ruary|ch|il|e|y|ust|t|tember|ober|ember)?(?![a-z])")
 
@@ -248,7 +259,25 @@ def login_of(job):
     host = workday_host(*job_urls(job), platform)
     if host:
         return f"Workday · {company}" if company else host
-    return platform or site_of(job.get("apply_url"))
+    name = platform or site_of(job.get("apply_url"))
+    # A board that only forwards to the employer's site never blocks the application (seen 20 Nov 2026: two jobs
+    # asked for a LinkedIn sign-in while each waited on its employer's own portal).
+    if BOARD_NAME.search(name) and not ON_BOARD.search(platform):
+        return ""
+    return name
+
+
+def site_key(row):
+    """One site, however its rows are named: a job board by the board's name in the row's name or id (one sign-in
+    serves all its pages), any other site by its name in lower case; the link's host only for a row with no name.
+    The link never decides: a row may hold a posting's link on a board. Example: "LinkedIn Easy Apply" and
+    "linkedin" are one site; "Beta Co" with a LinkedIn posting's link is its own."""
+    name = str(row.get("name") or row.get("id") or "")
+    board = BOARD_NAME.search(name) or BOARD_NAME.search(str(row.get("id") or ""))
+    if board:
+        return board.group(0).lower()
+    host = re.sub(r"^www\.", "", re.sub(r"^https?://", "", str(row.get("link") or "")).split("/")[0].lower())
+    return name.strip().lower() or host
 
 
 def employer_link(job, login=""):

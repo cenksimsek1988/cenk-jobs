@@ -17,6 +17,8 @@ What an application needs and the records do not answer is asked once, on the pe
     the person themselves takes its profile key. Example: `key=person.birth_date`.
   - `questions.py add job "<question>" job=<id>`: an essay or a motivation answer for one application;
     `options="apply:Apply,decline:Don't apply"` asks whether to apply to that job (pay below target, a weak fit).
+    A question about several postings names each one's job (`job=J1 job=J2`): several links and one `job=` are
+    refused.
   - `questions.py add decision "<question>" employer="<name>" category=<category> job=<id>`: allow or exclude, for
     an employer whose rule is unclear (example: excluded only through an investor-owner's office).
   - `questions.py add general "<question>" [job=<id>] [options=...]`: any other question, with no answer key.
@@ -50,11 +52,12 @@ What an application needs and the records do not answer is asked once, on the pe
   sub-session's brief or a report.
 - `build` closes a job question whose jobs all ended, with a note when one was sent (example: "Closed: the
   application was sent on 2026-11-10; nothing to answer now."); with none sent (excluded, declined, skipped, closed,
-  failed), it drops it. A question marked keep stays open until it is answered.
+  failed), it drops it with a note naming what happened. A question marked keep, or one the person chose to discuss,
+  stays open until it is answered; a discussed one gets the note "<company · role> was skipped: still needed?".
 - A plugin version that changes `templates/questions/index.html`: the coordinator publishes it again to
   `QUESTIONS_PAGE` (its `url`, capabilities left out so the page keeps them); the questions and answers stay.
-- Every handled question gets a note saying what happened and stays on the page under Done until the first build
-  after 7 days. When its
+- Every handled or dropped question gets a note saying what happened and stays on the page under Done until the
+  first build after 7 days. When its
   job moves on, a new note: `questions.py note <id> "Submitted on 8 Nov; the confirmation is in Gmail."`.
 - Where answers go: a fact into the master record's `form_answers`; a `person.*` key and a private fact
   (`private.<key>`) into the profile; a job's answer into that job's prepared answers; a decision through

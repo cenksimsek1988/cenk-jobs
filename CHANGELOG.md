@@ -6,6 +6,77 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.44.0] - 2026-11-20
+
+Write free texts with the person, plain links instead of hidden tabs, both pages kept current, five fixes to the
+dashboard and Questions page, and the first fixes from a review against the workbench rules.
+
+### Added
+
+- `/cenk-jobs:write`: one essay, motivation answer or letter, written with the person. The order is the
+  employer's AI rule in one line, the company and role in a few sourced lines, the person's matching background and
+  gaps, "Why this role for you?", a draft in their voice (a gap mid-paragraph, the end on a strength), then only
+  the changed parts. It fills no form; the essays round runs it.
+- `questions.py answer <id> --file <text file>`: a long answer from a UTF-8 file.
+- `questions.py build --check`: says when a build would now write other files than the last build did (the
+  Questions page is behind); `export_dashboard.py --check` prints it, so one check covers both pages. Each build
+  records a fingerprint of the files it writes; files built and never written to the page are not caught.
+- `track.py wait <id> account-needed ... login=<site>`, kept on the job; `track.py set ... repeat_of=<earlier id>`.
+- Every script that changes a record the pages show prints `pages behind: refresh both`.
+
+### Changed
+
+- A page the person only has to look at or act on is given as its address, marked "open in Chrome", and Claude
+  closes its own tab: a tab in Claude's tab group is hard to find. Only a tab holding a filled form stays held.
+- A turn that changed a record ends with `export_dashboard.py --check`, and both pages are refreshed once when it
+  names one. A refresh that writes a page template or uploads every file goes to a fresh session.
+- A dropped question shows under Done for 7 days with a note naming what happened, like a closed one.
+- Every agent has a `maxTurns` cap (about 2-3 times a long run), and its description ends with `Internal:` and
+  the skills that start it.
+- The applier loads its Chrome tools in one ToolSearch, reads pages with `read_page` (`max_chars` 5000) or
+  `javascript_tool`, and uses `get_page_text` (no size limit in Chrome) only on a short page.
+- `/cenk-jobs:setup` starts only when typed (`disable-model-invocation`): it installs programs and changes
+  settings. Its description leaves every session (about 75 tokens).
+- Safety rules that lived only in a part now stand in RULES.md:
+  - a one-time code is masked;
+  - military-service answers are private;
+  - a private value never goes into a handoff, brief or report;
+  - a calendar event is deleted only after the person's yes.
+- The coordinator's run ends with `usage.py log run ok` and `sessions.py unlock`. A sub-session's brief names
+  `${CLAUDE_PLUGIN_ROOT}` paths.
+- The manifest's description is one sentence (the skill list is in the README); it gains `repository`. The catalog
+  entry's description and keywords match it.
+
+### Fixed
+
+- A job found on a job board and applied on the employer's own site no longer asks for the board's sign-in: a board
+  is the login only for its own form (Easy Apply, Indeed Apply), and `wait ... account-needed` needs `login=` when
+  the records name no site. `logins.py sync` files a job under the row of its site, never a second one, and a merged
+  row takes its state from the latest check, never from a row `sync` made.
+- A login row set by hand that no job waits on says "no application waits on it (since <date>)" instead of an old
+  "Sign in ..." note.
+- A question the person chose to discuss is no longer dropped when its jobs end; `questions.py add` refuses several
+  posting links with one `job=`.
+- The Questions page's "to discuss" count is counted at each build, not copied from the last record.
+- A re-application recorded with `repeat_of=` is no longer a check line at every run.
+- `track.py sync` could record one employer's check for another: a workflow label cut the name at 20 characters,
+  and "Acme" matched "Acme Defence". Labels carry the whole name, and sync matches it exactly (a cut label from an
+  older run still matches by prefix).
+- The apply skill named its filling rules and site notes from its own folder, where none exist: they are the
+  plugin's (`../../references/`).
+- Contradictions in the rules and skills:
+  - a sub-session's new facts go into its handoff, never the master record;
+  - pay goes only into a form's pay fields;
+  - under `APPLY=auto` a planned batch is applied without a per-batch OK;
+  - a run with no end row for 6 hours no longer blocks the next run;
+  - a hiring step's Do now row links to its email;
+  - an empty `SESSION_MODEL` is Sonnet;
+  - an unsure employer-name match goes to the Questions page.
+- Privacy:
+  - the apply report names the fields answered, never a profile, private, guarded or pay value;
+  - a degree example that read like one person's record is replaced with a made-up one;
+  - the developer's blacklist merge moves from a job-search rule to the repository's CLAUDE.md.
+
 ## [0.43.0] - 2026-11-19
 
 Interview study notes, weekly board discovery, and a coordinator that stays free for messages.

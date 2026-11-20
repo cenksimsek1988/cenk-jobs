@@ -1,6 +1,6 @@
 ---
 name: coordinate
-description: "The main job-search session: owns the records, dashboard and decisions, runs the daily search, starts one sub-session per piece of work. Use for 'coordinate my job search', 'start the job search coordinator', 'run my job search now', 'open a session for this job', or the daily trigger."
+description: "The main job-search session: owns the records, dashboard and decisions, runs the daily search, starts one sub-session per piece of work. Use for 'coordinate my job search', 'start the job search coordinator', 'run my job search now', 'open a session for this job'. Long work goes to sub-sessions."
 ---
 
 # Coordinate: the main session
@@ -83,7 +83,7 @@ archived. A scheduled run reaches the older one's sub-sessions by message and re
   and never ran. The holder that gets this message does just that, never a card. Example: a test coordinator started while the person's own one runs waits for its handoff.
 - **Is the only writer of the shared records**: `TRACKER`, `PIPELINE`, `LOGINS`, `SESSIONS`, `MASTER_RECORD`,
   `QUESTIONS`, `EMPLOYER_RULES`, `EMPLOYER_CHECKS`, `USAGE_LOG`, the study notes (`INTERVIEW_LESSONS_DIR`), the application folders (through
-  `build_app_folders.py`), the calendar category, the dashboard and the Questions page. Sub-sessions report; the coordinator records. Why: the files sync through Google Drive, and two
+  `build_app_folders.py`), the calendar category, the dashboard and the Questions page (a refresh session, below, writes only the pages). Sub-sessions report; the coordinator records. Why: the files sync through Google Drive, and two
   sessions writing one file lose each other's changes.
 - The person's profile is not a shared record: any session saves a fact about the person there at once, by
   compare-and-set (`profilelib.py set`, RULES.md "Keep learning about the person"), and its handoff names the key.
@@ -109,6 +109,11 @@ archived. A scheduled run reaches the older one's sub-sessions by message and re
   notification. At the end of each run, one notification for deadlines today or tomorrow.
 - Each run, after the health check: the calendar check (RULES/hiring-steps.md, "Calendar"). After each dashboard
   refresh: every `check:` line of the export is fixed, or named in the run report (RULES/run.md, "Dashboard").
+- A turn in which a script printed `pages behind` (any record change: a job submitted, skipped, rejected or closed, a
+  new or done step, a to-do, a login, a question) ends with `export_dashboard.py --check`; when it names a page, both
+  pages are refreshed in that turn, once, after all its records (RULES/run.md, "Dashboard"). Example: three handoffs
+  recorded in one turn, one refresh. A refresh that writes a page template or uploads every file goes to a fresh
+  session that writes only the pages; the coordinator refreshes nothing while it runs.
 - The dashboard is checked by `export_dashboard.py --check`, not by reading its tabs: a page is opened only when a
   check line names something the page shows wrong, or the person reports one. The Calendar tab is compared by the
   calendar check (RULES/hiring-steps.md, "Calendar").
@@ -157,7 +162,8 @@ archived. A scheduled run reaches the older one's sub-sessions by message and re
 
 One sub-session per piece (`start_session`): fresh context, the same main folder, a short name. Its brief (shared
 rules) names the jobs by company, role and id, the CV and letter files, the answers from `MASTER_RECORD` it needs,
-`../../RULES.md` and the skill it runs, the script path (`<plugin>/scripts`), and the handoff below.
+`${CLAUDE_PLUGIN_ROOT}/RULES.md` and the skill it runs, the script path (`${CLAUDE_PLUGIN_ROOT}/scripts`), and
+the handoff below.
 
 Every long piece goes to a fresh session: searches, workflows, analyses, page-check rounds, publish-and-verify
 rounds, and requests from other sessions. The coordinator records results and answers messages: a busy session
@@ -174,10 +180,7 @@ sessions; `/cenk-jobs:schedule`).
 | Prepare one step | `/cenk-jobs:prepare` prep notes for one hiring step, in its own folder. | `prep-acme-18nov` |
 | Study for one step | `/cenk-jobs:prepare` studying: brief, weak points, practice, with the person. | `study-acme-6nov` |
 | Search sweep | `/cenk-jobs:search`; one row per posting. | `search-2026-11-06` |
-| Essays round | The person studies a site's open questions and writes the answers in their own words; the session gives facts from the record and feedback where the employer's rules allow. Feedback aims at a calm, experienced voice: no essay words, no selling the employer's own product ("I led two migrations like yours", not "I am passionate about your innovative platform"). | `greenhouse-answers` |
-
-With the person's setting `draft_answers` set to `yes`, the essays round drafts each answer in full for their
-approval, and fixes the English of a text they wrote at once (RULES.md, "Honesty and what Claude never does").
+| Essays round | `/cenk-jobs:write` with the person, one question or letter at a time: the company and role, their background and gaps, a draft in their voice, revised together. | `write-acme-why` |
 
 An essays round, and every session that drafts answers for a form, checks that the posting is still open at the
 start of the session and again before each round of approvals, not only before filling. Approved answers of a
@@ -198,13 +201,16 @@ Written to `handoffs/<short name>.md` in the main folder (shared rules). One blo
 `failed`); what was sent (CV file, letter file); the fields answered on the form, by name only (their values are in the records); new facts the person stated (one fact
 line each; a fact about the person themselves is already in the profile: only its key, such as `person.phone`); hiring steps or deadlines seen (date, time, name, link); sign-ins seen; employee reviews looked up
 (employer, rating, number of reviews, complaint topics, source); a study or after-a-step session's `Weak answers:`
-lines (/cenk-jobs:prepare, "Study notes"). Nothing else.
+lines (/cenk-jobs:prepare, "Study notes"); a `write` session's approved text: its job, question and file
+(`handoffs/<short name>.answer.md`). Nothing else.
 
 The coordinator records it: `track.py set`, `PIPELINE`, `MASTER_RECORD`, `logins.py set` and `sync`, `employer.py
 record`, `environment` or `decide`, `usage.py log`, `build_app_folders.py`, calendar events, the `working` to-do
-removed, the session's state and title (`sessions.py set <name> state=done`), and the dashboard refresh. Each
+removed, the session's state and title (`sessions.py set <name> state=done`), and both pages refreshed (above). Each
 `Weak answers:` line goes into its file in `INTERVIEW_LESSONS_DIR` (the folder and the three files created when
-missing), and `roadmap.md` is kept in order: what to study next first.
+missing), and `roadmap.md` is kept in order: what to study next first. An approved text: `questions.py answer
+<question id> --file handoffs/<short name>.answer.md` (after `questions.py add job "<question>" job=<id>` when the
+page never asked it), then that file is deleted with the handoff.
 
 ## Ending
 
@@ -219,3 +225,5 @@ missing), and `roadmap.md` is kept in order: what to study next first.
   person never has to look for them.
 - The scheduled run is its own session, the day's coordinator (`/cenk-jobs:schedule`). By hand: this skill. The records
   and `handoffs/` hold everything a new one needs.
+- Last: `usage.py log run ok` (or `failed` / `stopped`), then `sessions.py unlock <id>`: a lock left behind holds
+  the next coordinator for 30 minutes.

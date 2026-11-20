@@ -1,6 +1,6 @@
 # cenk-jobs
 
-The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply`, `prepare`, `cheat-sheet`, `schedule`), with its own one-plugin catalog
+The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply`, `prepare`, `cheat-sheet`, `schedule`, `write`), with its own one-plugin catalog
 `cenk-jobs`. Generic code and instructions only. The public catalog `cenk` is the repository
 `cenksimsek1988/claude-plugins`, which lists cenk-jobs (since its catalog 0.2.0, 6 Nov 2026).
 
@@ -44,7 +44,8 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
   `workflows/screen-and-prepare.js`, `templates/` (including `employer-rules.json`, the default rules),
   `data/blacklist.json` (the shared blacklist).
 - Usage reports from users arrive by email at the developer's address in `scripts/usage.py`; merge their employers
-  with `python -I plugins/cenk-jobs/scripts/employer.py merge <report.json> ...`.
+  with `python -I plugins/cenk-jobs/scripts/employer.py merge <report.json> ...`, and Cenk's own findings with
+  `employer.py merge --from-checks`, both run here, never from a job-search session.
 - `release.py`: builds `dist/cenk-jobs.plugin` from HEAD; `dist/` is git-ignored.
 - `CHANGELOG.md`.
 
@@ -59,7 +60,9 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
 - `claude plugin validate .`
 - `claude plugin validate plugins/cenk-jobs`
 - `python -I -m py_compile plugins/cenk-jobs/scripts/*.py`
-- `sh tests/run.sh` (a throwaway folder; never touches real records)
+- `sh tests/run.sh` (a throwaway folder; never touches real records). It takes about 15 to 25 minutes: run it in the
+  background, on a copy (`cp -r tests plugins <scratch>/t`, then `sh <scratch>/t/tests/run.sh`) when edits go on
+  meanwhile, since `sh` reads `run.sh` as it runs.
 - With the workbench: `sh <workbench>/scripts/check-plugin.sh --base main plugins/cenk-jobs` (the plugin folder: the
   repository root has no plugin.json). From workbench 0.23.0 its personal-data check reads the person's profile for
   the values it looks for; it prints none.

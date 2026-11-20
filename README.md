@@ -19,6 +19,7 @@ installs on its own). Skills:
 | `cenk-jobs:prepare` | interviews and hiring steps: "prepare my interview", "let's practise" |
 | `cenk-jobs:cheat-sheet` | your keyword cheat sheet as one page beside a call: "open my cheat sheet" |
 | `cenk-jobs:schedule` | the scheduled run: "run it on weekdays at 19:00", "run it every day", "stop the daily run" |
+| `cenk-jobs:write` | one essay, motivation answer or letter, written with you: "write this essay with me" |
 
 It also understands other languages, for example "iş arıyorum", "cerco lavoro", "Jobsuche", "buscar trabajo".
 
@@ -73,7 +74,8 @@ an install from `/plugin` does not fall back to HTTPS. Install one way only: to 
 for example `/plugin uninstall cenk-jobs@cenk-jobs`. Updating from 0.35 or older: run your install line again
 (`/plugin install cenk-jobs@cenk`, or `cenk-jobs@cenk-jobs` if you installed from this repository); an update alone does not install cenk-base, and setup says so.
 
-Then start a new session and say **"set up my job search"** (or type `/cenk-jobs:setup`). That session becomes your main session: ask there for anything from then on. On the first run Claude:
+Then start a new session and type **`/cenk-jobs:setup`** (it starts only when typed: it installs programs and
+changes settings). That session becomes your main session: ask there for anything from then on. On the first run Claude:
 
 1. checks your logins and connectors and helps you fix what is missing (Claude in Chrome too);
 2. asks where your job-search folder should be and creates it, with a `job-search.env` file that names every
@@ -190,7 +192,7 @@ plugins/cenk-jobs/.claude-plugin/plugin.json
 plugins/cenk-jobs/RULES.md               the router every skill reads first, with the safety rules
 plugins/cenk-jobs/RULES/                 the parts of the rules, by audience
 plugins/cenk-jobs/agents/                one short tool list and model per workflow stage
-plugins/cenk-jobs/skills/<name>/SKILL.md setup, coordinate, search, plan, apply, prepare, cheat-sheet, schedule
+plugins/cenk-jobs/skills/<name>/SKILL.md setup, coordinate, search, plan, apply, prepare, cheat-sheet, schedule, write
 plugins/cenk-jobs/scripts/               check_setup, init_career_folder, build_cv, make_letter_pdf, track,
                                          logins, build_app_folders, fetch_jd, export_dashboard, jsenv (reads
                                          job-search.env), trackerlib (shared tracker reading), employer and

@@ -1,6 +1,6 @@
 ---
 name: prepare
-description: "Prepare the hiring steps: reads invitations and tests in Gmail, books slots, puts steps in Google Calendar, writes prep notes, practises. Use for 'prepare my interview', 'let's practise', 'book the interview', 'any interview invitations?', 'mülakata hazırla'. Never accepts or sends."
+description: "Prepare the hiring steps: reads invitations and tests in Gmail, books slots, puts steps in the calendar, writes prep notes, practises. Use for 'prepare my interview', 'let's practise', 'book the interview', 'any interview invitations?', 'mülakata hazırla'. Never accepts offers; replies are drafts."
 ---
 
 # Prepare: hiring steps and interviews

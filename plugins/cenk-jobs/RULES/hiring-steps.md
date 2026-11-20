@@ -54,7 +54,6 @@ A job-search message whose action is done gets the Gmail label `GMAIL_DONE_LABEL
   (interview OR availability OR assessment)`.
 - Gmail's list shows a thread with the label when any of its messages has it; a new reply shows there as unread.
 - Setup creates the label (`create_label`, purple; parents are created with it). Missing at a run: create it.
-- Never remove the person's own labels, never archive a message, mark it read or move it to another tab.
 - The mail connector is down: read and label the mail in the person's signed-in Chrome instead, say so, and keep
   asking for the reconnect. Search `newer_than:1d -label:<GMAIL_DONE_LABEL>`; to label, tick the handled rows, open
   the Labels menu, type the label, press Enter. A mail's snippet can show a one-time code: mask every code in what

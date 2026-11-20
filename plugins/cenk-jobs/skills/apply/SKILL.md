@@ -13,7 +13,7 @@ Every question this skill asks the person goes on the Questions page as it is as
 ## Before filling
 
 - Check the posting is still open and its link lands on the employer's own form (RULES.md, "Links"). The site's
-  own notes are in `references/sites/<site>.md` (greenhouse, ashby, linkedin, smartrecruiters, successfactors, workday, eightfold):
+  own notes are in `../../references/sites/<site>.md` (greenhouse, ashby, linkedin, smartrecruiters, successfactors, workday, eightfold):
   read the one for the form in hand.
 - Write a letter by `LETTERS`: `asked` (the default) only for a form with a letter field: many have none (often
   Workable, Rippling, HiBob, Ashby, Lever); `always` for every form, attached where it takes a file; `never` none.
@@ -34,13 +34,13 @@ Every question this skill asks the person goes on the Questions page as it is as
   at most `APPLY_PARALLEL` at once (default 2), never two on the same site. A subagent cannot ask the person: its
   brief holds every answer, names the CV and letter, already copied for upload, the `filling:` line of `track.py
   brief` (with the first name for tab titles), and the site's notes file
-  (`references/sites/<site>.md`, when there is one); what it cannot do comes back as
+  (`../../references/sites/<site>.md`, when there is one); what it cannot do comes back as
   `needs-person`. It writes no record: this session records each block as it returns, one at a time ("After each
   submission").
 
 ## Filling
 
-The filling rules are in `references/filling.md`, and each site's in `references/sites/<site>.md`: read
+The filling rules are in `../../references/filling.md`, and each site's in `../../references/sites/<site>.md`: read
 both before the first field. Read each page with `find`, `read_page` (`filter: interactive`) or `get_page_text`;
 never take a screenshot.
 
@@ -68,4 +68,5 @@ never take a screenshot.
 ## Report
 
 One block per job, by company and role: status (submitted, ready at review, needs-person and which field, closed,
-failed), the CV and letter sent, every answer given, the next step seen. Log it: `usage.py log apply ok "<n sent>"`.
+failed), the CV and letter sent, the fields answered by name (a value only from the master record's form
+answers; never a profile, private, guarded or pay value), the next step seen. Log it: `usage.py log apply ok "<n sent>"`.

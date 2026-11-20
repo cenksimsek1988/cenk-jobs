@@ -38,7 +38,7 @@ site's notes in `sites/<site>.md`. The safety rules here are `RULES.md`'s, in sh
 - A form with rank or percentile picks and an evidence text: compare each pick with the numbers in the text and in
   the records, and say when a pick is above them. Read the hint under a count question before proposing the count.
   Example: "top 5%" picked while the evidence says 3 of 40.
-- Picks the person asks to make themselves: open the form in their Chrome at that question, name the tab and say
+- Picks the person asks to make themselves: fill the rest, hold the tab at that question (titled as below) and say
   which fields are theirs. A notes file is no place to select.
 - A tab in another session's tab group cannot be seen: a form another session filled is filled again by the session
   that takes it over; say so, do not look for the tab.
@@ -52,13 +52,14 @@ site's notes in `sites/<site>.md`. The safety rules here are `RULES.md`'s, in sh
 - The home address and the birth date only in the form's own fields, never in a file or a message.
 - (session) A contractor pay field, from the person's rates and day counts in their records, by the contract's length: one
   year or longer, the day rate x the working days of a year / 12 for a month; about six months, the day rate x the
-  working days of a month; no length, or only some hours a day, the hourly rate x the hours. Always round up.
+  working days of a month; no length, or only some hours a day, the hourly rate x the posting's hours. Always
+  round up. Example: 500 a day, 220 working days, 12 months: 500 x 220 / 12 = 9,167 a month.
 - (session) Any pay field in another currency, current pay included: `fx.py <amount> <from> <to>` (the day's ECB
   rate, rounded up); its line is the answer's note. Example: `60000 EUR = 64872 USD (ECB 1.0812, 2026-11-19)`.
 - (session) A written answer (essay, motivation) is built only from the records; only a missing fact is asked. A
   number the person recalled with no record behind it never goes into one. An employer that asks candidates not to
   use AI stops the job for the person, also when essays are "auto".
-- (session) A form that waits on the person (RULES.md, "Applications"): stop on that page and put the field in Do now. If
+- (session) A form that waits on the person (RULES.md, "Honesty and what Claude never does"): stop on that page and put the field in Do now. If
   the step expires (an emailed or SMS code, a CAPTCHA, a Submit waiting for their yes, a sign-in page), send one
   notification at once (RULES.md, "Urgent steps"), "At your PC:" or "From your phone:", and keep the tab open.
   A Submit answered by "The captcha is invalid." means an invisible CAPTCHA ran: a CAPTCHA stop.
@@ -73,6 +74,8 @@ site's notes in `sites/<site>.md`. The safety rules here are `RULES.md`'s, in sh
   the held tab `>>> <first name>: <company> <action> <<<` (`first_name` in the brief's `filling:` line; example:
   `document.title = ">>> Jane: Acme type the code <<<"`), scroll the field into view, and tell the person to find it
   with Chrome's tab search (Ctrl+Shift+A). The form's address is never given as the way in.
+- Any other page the person must open (a sign-in, a posting, a confirmation): its address as text marked "open in
+  Chrome", and close your own tab: a tab in Claude's tab group is hard to find.
 - Before a form goes to the person, read it back: every required field filled, no validation error. A field put
   right is filled again in place, never after a reload, so a CAPTCHA the person typed survives.
 - A Submit click the browser tool refuses: retitle the tab for the person, say so in one line, and try no other way.

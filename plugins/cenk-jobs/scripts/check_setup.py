@@ -56,7 +56,8 @@ def needs():
         elif waits_on_person(status):
             waiting[status] = waiting.get(status, 0) + 1
     for login, planned in sorted(by_login.items()):
-        if logins.get(login, {}).get("status") not in fine:
+        # No site named yet (a job board that only forwards): the apply session finds it; no sign-in to ask for.
+        if login and logins.get(login, {}).get("status") not in fine:
             lines.append(f"sign in to {login}: {len(planned)} planned, first {planned[0].get('company')}, {planned[0].get('title')}")
     lines += [f"{n} job(s) wait: {status}" for status, n in sorted(waiting.items())]
     lines += [f"profile: {detail}" for level, what, detail in profile_checks()

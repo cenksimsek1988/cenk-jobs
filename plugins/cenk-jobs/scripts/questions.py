@@ -8,7 +8,8 @@ python -I questions.py add fact "<question>" key=<answer key> [job=<id>] [person
 python -I questions.py add job "<question>" job=<id> [job=<id> ...] [detail="..."] [options="yes:Yes,no:No"]
     writing only the person can do for one application (a motivation answer, an essay); with options, buttons
     instead of a reply box: the chosen label becomes each job's form answer, and "decline" (options
-    "apply:Apply,decline:Don't apply") makes the job declined
+    "apply:Apply,decline:Don't apply") makes the job declined. A text and detail with several links and one job=
+    is refused: name each posting's job (--one-job: the links all belong to that job)
 python -I questions.py add decision "<question>" employer="<name>" category=<category> [job=<id> ...] [detail="..."]
     [source=<url>]
     allow or exclude for an employer the build does not ask about by itself (example: one excluded through its
@@ -28,9 +29,14 @@ python -I questions.py build <out dir> [--page <dir>]
     "Allow, or exclude?" questions from the person's employer rules: an employer whose finding is "discuss" or
     undecided, asked only once it answers (a sent job of it has a PIPELINE entry that has not ended); until then its
     jobs go on and nothing is asked. Then it ends each job question whose jobs all ended: closed, with a note saying when, if one was
-    sent; dropped if none was (excluded, declined, skipped, closed, failed); one marked keep stays open until
-    answered. --page <dir>: the page's questions as an ArtifactData list saved there (<dir>/questions/*.json):
-    prints the ids to delete on the page (done more than 7 days ago, or dropped).
+    sent; dropped, with a note naming what happened, if none was (excluded, declined, skipped, closed, failed); one
+    marked keep, or one the person chose to discuss, stays open (a discussed one with that note, "still needed?").
+    A dropped question shows under Done for 7 days, like a closed one. --page <dir>: the page's questions as an
+    ArtifactData list saved there (<dir>/questions/*.json): prints the ids to delete on the page (done or dropped
+    more than 7 days ago). Each build records a fingerprint of the files it writes.
+python -I questions.py build --check
+    writes nothing: "the Questions page is behind the records: <n> file(s)" when a build now would write other
+    files than the last build did, else "the Questions page is up to date" (export_dashboard.py --check prints it)
 python -I questions.py record <answers dir>
     the page's answers, an ArtifactData list of "answers" saved there (<dir>/answers/<id>.json). A typed answer (a
     fact, or a job question without options) is not recorded: it is printed under "read first", and its question
@@ -44,8 +50,9 @@ python -I questions.py record <answers dir>
     under "discuss", for Claude to bring up with the person in the chat. A general question's answer, and a keep
     question's button answer, is kept with a note and printed under "act on". After record, run build and write the
     page in the same turn: until then the page shows the recorded questions as open.
-python -I questions.py answer <id> "<answer>" [typed="<their words>"] [replace=yes]
-    record one answer the person gave in the chat (example: after discussing it), the same way as record;
+python -I questions.py answer <id> "<answer>"|--file <text file> [typed="<their words>"] [replace=yes]
+    record one answer the person gave in the chat (example: after discussing it), the same way as record; --file:
+    the answer from a UTF-8 file (a long text, such as an essay written with /cenk-jobs:write);
     typed=: a page answer Claude read and corrected (spelling, grammar): the record keeps their words and the page
     as its source. replace=yes: the profile holds another value and the person, shown both, chose this one.
     A profile answer is never written over another value (it is printed under "ask the person", the question stays
@@ -57,6 +64,7 @@ Files: QUESTIONS (default apply/questions.json), MASTER_RECORD, TRACKER, PIPELIN
 """
 import datetime
 import glob
+import hashlib
 import json
 import os
 import re
@@ -68,13 +76,14 @@ sys.path.insert(0, HERE)
 import jsenv  # noqa: E402
 import profilelib as pl  # noqa: E402
 from trackerlib import ENDED_STAGE, collapse_row, expand_row, flat_jobs, is_company_shape, json_indent  # noqa: E402
-from trackerlib import pipeline_entry  # noqa: E402
+from trackerlib import PAGES_BEHIND, pipeline_entry  # noqa: E402
 
 KINDS = ("fact", "job", "decision", "general")
 DONE = ("submitted", "excluded", "skipped", "closed", "declined", "failed")  # job statuses
 # Question statuses shown under Done; "done" is an older word for answered (seen in a record, 17 Nov). A dropped
-# question (nobody needs it any more) leaves the page.
+# question (nobody needs it any more) shows there too, with its note, so it never leaves the page unsaid.
 HANDLED = ("answered", "closed", "done")
+SHOWN_DONE = HANDLED + ("dropped",)
 KEEP_DONE_DAYS = 7  # a handled question stays on the page this long, with its note
 args = sys.argv[1:]
 env_args = []
@@ -190,6 +199,22 @@ def ended_jobs(tracker, pipeline):
     return sent, set(sent) | {j["id"] for j in flat if j.get("status") in DONE}
 
 
+def ended_text(job_ids, tracker, pipeline, names):
+    """What happened to a question's jobs, for its note. Example: "Acme · Engineer was skipped"."""
+    flat = {j["id"]: j for j in flat_jobs(tracker)}
+    parts = []
+    for j in job_ids:
+        entry = pipeline_entry(pipeline, j) if j in pipeline else {}
+        how = entry.get("stage") if entry.get("stage") in ENDED_STAGE else (flat.get(j) or {}).get("status") or "ended"
+        parts.append(f"{job_label(names, j)} was {how}")
+    return "; ".join(parts)
+
+
+def doc_digest(doc):
+    """A short fingerprint of one page file: the same records give the same fingerprint at any minute."""
+    return hashlib.sha256(json.dumps(doc, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+
+
 def parse_options(text):
     """[{value, label}] from "a:A|b:B", or from "a:A,b:B" when there is no "|" (a label with a comma needs "|")."""
     out = []
@@ -205,14 +230,14 @@ def page_doc(q, jobs):
            "employer": q.get("employer", ""), "role": q.get("role", ""),
            "jobs": [job_label(jobs, j) for j in q.get("jobs", [])][:8], "personal": bool(q.get("personal")),
            "category": q.get("category_label", ""), "placeholder": q.get("placeholder", ""),
-           "open": q["status"] == "open", "done": q["status"] in HANDLED, "note": q.get("note", ""),
+           "open": q["status"] == "open", "done": q["status"] in SHOWN_DONE, "note": q.get("note", ""),
            "noted_at": q.get("noted_at", ""), "order": q.get("order", 0), "options": q.get("options", [])}
     return {k: v for k, v in doc.items() if v not in ("", [], None) or k in ("open", "personal", "done")}
 
 
 def recent(q):
-    """A question done within KEEP_DONE_DAYS: it stays on the page with its note."""
-    if q["status"] not in HANDLED or not q.get("noted_at"):
+    """A question done or dropped within KEEP_DONE_DAYS: it stays on the page with its note."""
+    if q["status"] not in SHOWN_DONE or not q.get("noted_at"):
         return False
     noted = datetime.datetime.fromisoformat(q["noted_at"].replace("Z", "+00:00"))
     return datetime.datetime.now(datetime.timezone.utc) - noted < datetime.timedelta(days=KEEP_DONE_DAYS)
@@ -238,10 +263,18 @@ if args[0] == "add":
     if len(args) < 3 or args[1] not in KINDS:
         sys.exit(__doc__)
     kind, text = args[1], args[2]
-    job_ids = [a.split("=", 1)[1] for a in args[3:] if a.startswith("job=")]
-    opts = pairs(a for a in args[3:] if not a.startswith("job="))
+    one_job = "--one-job" in args[3:]
+    rest = [a for a in args[3:] if a != "--one-job"]
+    job_ids = [a.split("=", 1)[1] for a in rest if a.startswith("job=")]
+    opts = pairs(a for a in rest if not a.startswith("job="))
     if job_ids:
         opts["job"] = job_ids[0]
+    # A question about several postings names each one's job, or it goes when that one job ends (seen 20 Nov 2026:
+    # a question on five postings, recorded with one job, was dropped when that job was skipped).
+    links = {u.rstrip("/.,;:") for u in re.findall(r"https?://[^\s\"'<>)]+", f"{text} {opts.get('detail', '')}")}
+    if len(job_ids) == 1 and len(links) > 1 and not one_job:
+        sys.exit(f"{len(links)} links and one job: name every job, job=<id> per posting (--one-job: the links all "
+                 "belong to that one job)")
     if kind == "fact" and not opts.get("key"):
         sys.exit("a fact needs key=<answer key>")
     if kind == "job" and not opts.get("job"):
@@ -283,6 +316,7 @@ if args[0] == "add":
         q["keep"] = True
     save(QUESTIONS, data)
     print(qid, "->", ", ".join(q["jobs"]) or "no job")
+    print(PAGES_BEHIND)
 
 elif args[0] == "list":
     for qid, q in qs.items():
@@ -294,12 +328,14 @@ elif args[0] == "note":
         sys.exit(__doc__ if len(args) < 3 else f"no question {args[1]!r}")
     qs[args[1]].update(note=args[2], noted_at=now)
     save(QUESTIONS, data)
-    print(args[1], "-> note set; run build and write its file to the page")
+    print(args[1], "-> note set")
+    print(PAGES_BEHIND)
 
 elif args[0] == "build":
     if len(args) < 2:
         sys.exit(__doc__)
-    out_dir, page_dir = args[1], None
+    check = args[1] == "--check"
+    out_dir, page_dir = (None if check else args[1]), None
     if "--page" in args:
         page_dir = args[args.index("--page") + 1]
     tracker = load(env.path("TRACKER"), {})
@@ -318,12 +354,14 @@ elif args[0] == "build":
                         + (" The level could not be settled; your applications there go on meanwhile."
                            if a["level"] == "undecided" else ""),
                  source=a["source"], jobs=sorted(set(q.get("jobs", [])) | set(a["jobs"])))
-    # A decision nobody needs any more (decided elsewhere, or its jobs went): dropped, with the date.
+    # A decision nobody needs any more (decided elsewhere, or its jobs went): dropped, with the date and a note.
     for qid, q in qs.items():
         if q["kind"] == "decision" and q["status"] == "open" and not q.get("manual") and q.get("employer") not in asked:
-            q.update(status="dropped", dropped=today)
+            q.update(status="dropped", dropped=today, noted_at=now,
+                     note="Dropped: no application waits on this decision now.")
     # A job question whose jobs all ended (the asks() rule: a DONE status or a PIPELINE row), so nobody answers it for
-    # nothing: closed with a note when one was sent, else dropped, like a decision nobody needs.
+    # nothing: closed with a note when one was sent, else dropped with a note. One the person chose to discuss stays
+    # open, with what happened to its jobs: only the person drops it.
     sent, ended = ended_jobs(tracker, pipeline)
     for qid, q in qs.items():
         if q["kind"] == "job" and q["status"] == "open" and not q.get("keep") and q.get("jobs") \
@@ -332,31 +370,56 @@ elif args[0] == "build":
                 when = max(sent.get(j, "") for j in q["jobs"]) or today
                 q.update(status="closed", closed=today, noted_at=now,
                          note=f"Closed: the application was sent on {when}; nothing to answer now.")
+            elif q.get("discuss"):
+                note = f"{ended_text(q['jobs'], tracker, pipeline, jobs)}: still needed?"
+                if q.get("note") != note:
+                    q.update(note=note, noted_at=now)
             else:
-                q.update(status="dropped", dropped=today)
+                q.update(status="dropped", dropped=today, noted_at=now,
+                         note=f"Dropped: {ended_text(q['jobs'], tracker, pipeline, jobs)}; nothing to answer now.")
+    # The page's files: one per open question and per one done or dropped in the last KEEP_DONE_DAYS.
+    docs, open_ids = {}, []
+    for n, (qid, q) in enumerate(sorted(((k, v) for k, v in qs.items() if v["status"] == "open" or recent(v)),
+                                        key=lambda kv: (kv[1].get("category_label", ""), kv[1]["asked"], kv[0]))):
+        docs[qid] = page_doc(dict(q, order=n), jobs)
+        if q["status"] == "open":
+            open_ids.append(qid)
+    # at: when an answer was last recorded (the page's Send button counts the answers saved after it). open: how many
+    # questions wait. The dashboard's link too, so the page links back to it. recorded_at: the last answer really
+    # recorded, from the questions themselves when the record has none (a round that only read a Discuss, or a record
+    # from before 0.42.0). Seen: an 18 Nov answer shown as none. "to discuss" is counted now, never copied from the
+    # last record (seen 20 Nov 2026: "2 to discuss" with none left).
+    handled = dict(data.get("handled") or {"at": "", "summary": ""})
+    handled["recorded_at"] = handled.get("recorded_at") or max(
+        (q.get("noted_at", "") for q in qs.values() if q["status"] in ("answered", "done")), default="")
+    recorded = re.match(r"\d+ recorded", handled.get("summary") or "")
+    if recorded:
+        talks = sum(1 for x in qs.values() if x["status"] == "open" and x.get("discuss"))
+        handled["summary"] = recorded.group(0) + (f", {talks} to discuss" if talks else "")
+    status_doc = dict(handled, open=len(open_ids), dashboard=env.get("DASHBOARD_URL") or "")
+    # What this build puts on the page, so --check can tell when the records moved on without a build.
+    digests = {qid: doc_digest(doc) for qid, doc in docs.items()}
+    digests["status/run.json"] = doc_digest(status_doc)
+    if check:
+        before = (data.get("page") or {}).get("docs")
+        if before is None:
+            print("the Questions page has no build record -> questions.py build <dir> --page <dir>, then write the page")
+        else:
+            behind = sorted(k for k in set(before) | set(digests) if before.get(k) != digests.get(k))
+            print(f"the Questions page is behind the records: {len(behind)} file(s) -> questions.py build <dir> "
+                  "--page <dir>, then write the page" if behind else "the Questions page is up to date")
+        sys.exit(0)
+    data["page"] = {"built": now, "docs": digests}
     save(QUESTIONS, data)
     os.makedirs(os.path.join(out_dir, "questions"), exist_ok=True)
     os.makedirs(os.path.join(out_dir, "status"), exist_ok=True)
-    shown, open_ids = [], []
-    for n, (qid, q) in enumerate(sorted(((k, v) for k, v in qs.items() if v["status"] == "open" or recent(v)),
-                                        key=lambda kv: (kv[1].get("category_label", ""), kv[1]["asked"], kv[0]))):
-        q["order"] = n
+    for qid, doc in docs.items():
         with open(os.path.join(out_dir, "questions", qid + ".json"), "w", encoding="utf-8") as f:
-            json.dump(page_doc(q, jobs), f, ensure_ascii=False, indent=1)
-        shown.append(qid)
-        if q["status"] == "open":
-            open_ids.append(qid)
+            json.dump(doc, f, ensure_ascii=False, indent=1)
     with open(os.path.join(out_dir, "status", "run.json"), "w", encoding="utf-8") as f:
-        # at: when an answer was last recorded (the page's Send button counts the answers saved after it). checked:
-        # this build, so a page nobody answered for two runs still says when Claude last looked, and open: how many
-        # questions wait. The dashboard's link too, so the page links back to it.
-        # recorded_at: the last answer really recorded, from the questions themselves when the record has none (a
-        # round that only read a Discuss, or a record from before 0.42.0). Seen: an 18 Nov answer shown as none.
-        handled = dict(data.get("handled") or {"at": "", "summary": ""})
-        handled["recorded_at"] = handled.get("recorded_at") or max(
-            (q.get("noted_at", "") for q in qs.values() if q["status"] in ("answered", "done")), default="")
-        json.dump(dict(handled, checked=now, open=len(open_ids), dashboard=env.get("DASHBOARD_URL") or ""), f,
-                  ensure_ascii=False, indent=1)
+        # checked: this build, so a page nobody answered for two runs still says when Claude last looked.
+        json.dump(dict(status_doc, checked=now), f, ensure_ascii=False, indent=1)
+    shown = list(docs)
     print(f"{len(open_ids)} open and {len(shown) - len(open_ids)} done questions -> {os.path.join(out_dir, 'questions')}")
     print("on the page:", " ".join(shown))
     if page_dir:
@@ -368,10 +431,21 @@ else:  # record, answer
         sys.exit(__doc__)
     typed, replace = "", False
     if args[0] == "answer":
+        text, more = args[2], args[3:]
+        if text == "--file":
+            # A long text (an essay written with the person) comes in a UTF-8 file: a console mangles it in argv.
+            if not more:
+                sys.exit("answer <id> --file <UTF-8 text file>")
+            try:
+                with open(more[0], encoding="utf-8") as fh:
+                    text = fh.read().strip()
+            except OSError as e:
+                sys.exit(f"answer: cannot read {more[0]}: {e}")
+            more = more[1:]
         # typed="<their words>": a page answer Claude read and corrected keeps its source and the person's wording.
-        typed = next((a.split("=", 1)[1] for a in args[3:] if a.startswith("typed=")), "")
-        replace = "replace=yes" in args[3:]
-        given = [(args[1], args[2], "Questions page, read by Claude" if typed else "chat")]
+        typed = next((a.split("=", 1)[1] for a in more if a.startswith("typed=")), "")
+        replace = "replace=yes" in more
+        given = [(args[1], text, "Questions page, read by Claude" if typed else "chat")]
     else:
         given = [(os.path.basename(f)[:-5], (load(f, {}) or {}).get("answer", ""), "Questions page")
                  for f in sorted(glob.glob(os.path.join(args[1], "answers", "*.json")))]
@@ -561,3 +635,4 @@ else:  # record, answer
     print("\n".join(read_first) or "none")
     print("next, in this turn: questions.py build <dir> --page <dir> and write the page; until then it shows these "
           "questions as open")
+    print(PAGES_BEHIND)

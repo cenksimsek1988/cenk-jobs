@@ -2785,6 +2785,136 @@ EOF
 else
     echo "SKIP page 0.42 date logic: no node"
 fi
+# 0.44.0: a sign-in at the employer's own site, one login row per site, discussed and dropped questions, one --check
+# for both pages, repeat_of. The middle dot of "Workday · Beta" is written by the heredoc's escape, never in argv.
+mkhome "$T/h44" flat
+use "$T/h44"
+cat >"$T/mk44.py" <<'PYEOF'
+import datetime
+import json
+import sys
+
+home = sys.argv[1]
+now = datetime.datetime.now().replace(microsecond=0)
+day = lambda n: (datetime.date.today() + datetime.timedelta(days=n)).isoformat()  # noqa: E731
+job = lambda i, company, title, status, **more: dict(  # noqa: E731
+    {"id": i, "company": company, "title": title, "url": f"https://www.linkedin.com/jobs/view/{i[1:]}0000/",
+     "status": status, "note": ""}, **more)
+jobs = [
+    job("A1", "Acme Corp", "Backend Engineer", "found", platform="LinkedIn"),
+    job("A2", "Beta Ltd", "Platform Engineer", "found", platform="LinkedIn Easy Apply"),
+    job("A3", "Gamma Co", "Data Engineer", "skipped"),
+    job("A4", "Delta Co", "Engineer", "skipped"),
+    job("A5", "Kappa Co", "Staff Engineer", "submitted", applied=day(-20)),
+    job("A6", "Kappa Co", "Staff Engineer", "submitted", applied=day(-1)),
+    job("A7", "Mu Co", "Engineer", "account-needed", platform="linkedin"),
+    job("A8", "Nu Co", "Engineer", "account-needed", platform="linkedin",
+        todo=[{"kind": "click", "text": "sign in", "login": "linkedin", "since": day(-1)}]),
+    job("A9", "Xi Co", "Engineer", "to-apply", platform="linkedin"),
+    job("A10", "Omicron Co", "Engineer", "account-needed", platform="Indeed Apply"),
+    job("A11", "Pi Co", "Engineer", "account-needed", platform="indeed apply"),
+]
+site = lambda i, status, checked, note, **more: dict(  # noqa: E731
+    {"id": i, "name": i, "kind": "site", "status": status, "checked": checked.isoformat(), "note": note,
+     "jobs": []}, **more)
+logins = [site("LinkedIn", "signed-in", now - datetime.timedelta(days=5), "signed in"),
+          site("linkedin", "needs-sign-in", now, "an application waits on this site's sign-in or account",
+               jobs=["A7"]),
+          site("Workday · Beta", "needs-sign-in", now - datetime.timedelta(days=7), "Sign in on Beta's Workday")]
+questions = {"_about": "made up", "handled": {"at": "", "summary": "0 recorded, 2 to discuss"}, "questions": {
+    "job-a3-why-gamma": {"kind": "job", "text": "Why Gamma?", "status": "open", "asked": day(-3), "jobs": ["A3"],
+                         "discuss": day(-2)},
+    "job-a4-why-delta": {"kind": "job", "text": "Why Delta?", "status": "open", "asked": day(-3), "jobs": ["A4"]}}}
+for name, data in (("targets", {"jobs": jobs}), ("logins", {"logins": logins}), ("questions", questions)):
+    with open(f"{home}/apply/{name}.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+PYEOF
+"$PY" -I "$T/mk44.py" "$H"
+"$PY" -I "$S/build_app_folders.py" --env "$ENVF" >/dev/null 2>&1
+"$PY" -I "$S/export_dashboard.py" "$T/d44" --env "$ENVF" >"$T/d44.out" 2>&1
+"$PY" -I "$S/export_dashboard.py" --check --env "$ENVF" >"$T/d44c.out" 2>&1
+check "export 0.44: a board row sync made never overrides a checked sign-in: the merged row is signed in" \
+    dq "$T/d44/logins.json" 'K["LinkedIn"]["status"] == "signed-in"'
+check "export 0.44: an account at no named site and a sign-in to-do naming a board are check lines; Claude finds the site" sh -c '
+    grep -q "^check: account-needed with no site named: A7 " "$1" && grep -q "^check: a sign-in to-do names a job board.*A8 (linkedin)" "$1" &&
+    "$2" -I "$3/dq.py" "$4/actions.json" "K[\"queued:nosite\"][\"text\"].startswith(\"1 application waits on an account\") and \"A7:signin\" not in K"' \
+    _ "$T/d44.out" "$PY" "$T" "$T/d44"
+check "export 0.44: --check names a Questions page with no build record" grep -q "^check: the Questions page has no build record" "$T/d44c.out"
+questions build "$T/q44" >"$T/q44.out" 2>&1
+check "build 0.44: a discussed question whose job ended stays open, with what happened" \
+    dq "$T/q44/questions/job-a3-why-gamma.json" 'R["open"] and R["note"].startswith("Gamma Co") and R["note"].endswith("was skipped: still needed?")'
+check "build 0.44: an undiscussed one is dropped with a note and shown under Done" \
+    dq "$T/q44/questions/job-a4-why-delta.json" 'R["done"] and not R["open"] and R["note"].startswith("Dropped: Delta Co") and R["note"].endswith("was skipped; nothing to answer now.")'
+check "build 0.44: \"to discuss\" is counted now, not copied from the last record" \
+    dq "$T/q44/status/run.json" 'R["summary"] == "0 recorded, 1 to discuss"'
+questions build --check >"$T/q44c1.out" 2>&1
+questions note job-a3-why-gamma "Asked again in the chat." >"$T/q44n.out" 2>&1
+questions build --check >"$T/q44c2.out" 2>&1
+"$PY" -I "$S/export_dashboard.py" --check --env "$ENVF" >"$T/d44c2.out" 2>&1
+check "build 0.44: --check is up to date after a build; a note makes the page behind, in export --check too" sh -c '
+    grep -q "^the Questions page is up to date$" "$1" && grep -q "^the Questions page is behind the records: 1 file(s)" "$2" &&
+    grep -q "^check: the Questions page is behind the records: 1 file(s)" "$3" && grep -q "^pages behind: refresh both" "$4"' \
+    _ "$T/q44c1.out" "$T/q44c2.out" "$T/d44c2.out" "$T/q44n.out"
+questions add job "Which of these two?" job=A1 detail="https://example.com/p/1 or https://example.com/p/2" >"$T/q44a1.out" 2>&1
+echo "exit $?" >>"$T/q44a1.out"
+questions add job "Which of these two?" job=A1 detail="https://example.com/p/1 or https://example.com/p/2" --one-job >"$T/q44a2.out" 2>&1
+check "questions 0.44: several links with one job are refused; --one-job lets them through" sh -c '
+    grep -q "2 links and one job: name every job" "$1" && grep -q "^exit 1$" "$1" && grep -q "^job-a1-which-of-these-two -> A1$" "$2"' \
+    _ "$T/q44a1.out" "$T/q44a2.out"
+printf 'I build payment systems that stay up.\n' >"$T/q44-answer.md"
+questions answer job-a1-which-of-these-two --file "$T/q44-answer.md" >"$T/q44ans.out" 2>&1
+check "questions 0.44: answer --file records the text of the file" sh -c '
+    grep -q "^job-a1-which-of-these-two: recorded" "$1" && grep -q "I build payment systems that stay up." "$2"' \
+    _ "$T/q44ans.out" "$H/apply/targets.json"
+track wait A1 account-needed "create the candidate account" >"$T/w44a.out" 2>&1
+echo "exit $?" >>"$T/w44a.out"
+track wait A1 account-needed "create the candidate account" login="Acme careers" >"$T/w44b.out" 2>&1
+track wait A2 account-needed "sign in to LinkedIn" >"$T/w44c.out" 2>&1
+"$PY" -I "$S/logins.py" sync --env "$ENVF" >"$T/l44.out" 2>&1
+check "wait 0.44: a job found on a board needs login= for its site; with it, sync files the job under that site" sh -c '
+    grep -q "account-needed needs login=<site>" "$1" && grep -q "^exit 1$" "$1" && grep -q "^pages behind: refresh both" "$2" &&
+    "$3" -I "$4/dq.py" "$5" "[r for r in R[\"logins\"] if r[\"id\"] == \"Acme careers\"][0][\"jobs\"] == [\"A1\"]"' \
+    _ "$T/w44a.out" "$T/w44b.out" "$PY" "$T" "$H/apply/logins.json"
+check "logins 0.44: an Easy Apply job waits under the board's row; the empty row sync made goes; no second board row" \
+    dq "$H/apply/logins.json" '[r["jobs"] for r in R["logins"] if r["id"] == "LinkedIn"] == [["A2"]] and not any(r["id"] in ("linkedin", "LinkedIn Easy Apply") for r in R["logins"])'
+check "logins 0.44: two spellings of one board with no row yet make one row" \
+    dq "$H/apply/logins.json" '[sorted(r["jobs"]) for r in R["logins"] if "indeed" in r["id"].lower()] == [["A10", "A11"]]'
+"$PY" -I "$S/check_setup.py" --needs --env "$ENVF" >"$T/needs44.out" 2>&1
+check "check_setup 0.44: a planned job whose site is not named asks for no sign-in" sh -c '
+    ! grep -q "^sign in to :" "$1" && ! grep -q "Traceback" "$1"' _ "$T/needs44.out"
+questions add job "Which one?" job=A2 detail="https://example.com/p/1 and https://example.com/p/1/." >"$T/q44a3.out" 2>&1
+check "questions 0.44: one posting written twice is one link" grep -q "^job-a2-which-one -> A2$" "$T/q44a3.out"
+check "logins 0.44: a hand-set row no job waits on says so; its old note is in its history; its state stays" \
+    dq "$H/apply/logins.json" 'any(r["id"].startswith("Workday") and r["status"] == "needs-sign-in" and r["note"].startswith("no application waits on it (since ") and r["history"][-1]["note"] == "Sign in on Beta'"'"'s Workday" for r in R["logins"])'
+track set A6 submitted "" repeat_of=A5 >"$T/r44.out" 2>&1
+"$PY" -I "$S/export_dashboard.py" "$T/d44b" --env "$ENVF" >"$T/d44b.out" 2>&1
+check "export 0.44: the same role twice is a check line until the later job names the earlier; the flag stays" sh -c '
+    grep -q "^check: the same employer and role twice: A5 and A6 Kappa Co.*repeat_of=A5$" "$1" &&
+    ! grep -q "the same employer and role twice" "$2" &&
+    "$3" -I "$4/dq.py" "$5/applications.json" "K[\"A6\"][\"again\"] == \"re-application of A5\""' \
+    _ "$T/d44.out" "$T/d44b.out" "$PY" "$T" "$T/d44b"
+mkhome "$T/h44o" old
+use "$T/h44o"
+"$PY" -I - "$H/apply/targets.json" <<'PYEOF'
+import json
+import sys
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+for n, name in ((7, "Acme Defence Systems"), (8, "Acme Defence Systems GmbH")):
+    data["companies"].append({"name": name, "verdict": "allow", "jobs": [
+        {"id": f"L4{n}", "title": "Engineer", "url": f"https://example.com/l4{n}", "status": "found", "outcome": ""}]})
+json.dump(data, open(sys.argv[1], "w", encoding="utf-8"))
+PYEOF
+cat >"$T/journal44.jsonl" <<'EOF'
+{"type": "started", "agentId": "c1", "label": "excl-screen:Acme"}
+{"type": "result", "agentId": "c1", "result": {"verdict": "exclude", "hits": [{"criterion": "A", "finding": "made up"}], "ties": []}}
+{"type": "started", "agentId": "c2", "label": "excl-screen:Acme Defence Systems"}
+{"type": "result", "agentId": "c2", "result": {"verdict": "exclude", "hits": [{"criterion": "A", "finding": "made up"}], "ties": []}}
+EOF
+track sync "$T/journal44.jsonl" >"$T/s44.out" 2>&1
+check "sync 0.44: a result labelled with another employer's shorter name is never taken" \
+    "$PY" -I "$T/q.py" "$H/apply/targets.json" companies.0.verdict eq allow
+check "sync 0.44: a 20-character name that is another employer's whole name is that employer's only" \
+    dq "$H/apply/targets.json" '{c["name"]: c["verdict"] for c in R["companies"]}["Acme Defence Systems"] == "exclude" and {c["name"]: c["verdict"] for c in R["companies"]}["Acme Defence Systems GmbH"] == "allow"'
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

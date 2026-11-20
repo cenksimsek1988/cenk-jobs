@@ -14,12 +14,16 @@ python -I track.py todo <id> add <kind> "<text>" [key=value ...]          add a 
 python -I track.py todo <id> done <n>|all|kind=<kind>|session=<id>        remove to-dos: the one `list` numbers <n>, all,
                                                                            or every one of a kind or a session
 python -I track.py todo <id> list                                         the job's to-dos, numbered
-python -I track.py wait <id> needs-person|account-needed "<what>" [link=<url>]
+python -I track.py wait <id> needs-person|account-needed "<what>" [link=<url>] [login=<site>]
                                                                            a wait on the person, recorded where the
                                                                            dashboard shows it: the status and one to-do
                                                                            with its link (the job's own form when no
                                                                            link is given); account-needed: a sign-in
-                                                                           to-do with the site
+                                                                           to-do with the site. login= names the site
+                                                                           and stays on the job; it is required when
+                                                                           the records name none (a job board that
+                                                                           only forwards). Example: login="Workday ·
+                                                                           Acme"
 python -I track.py show <id> [--full]                                     print one job's summary row and the path of
                                                                            its detail file; --full: the row with its
                                                                            detail merged in (prep, history, earlier)
@@ -61,7 +65,7 @@ checks are written to EMPLOYER_CHECKS. An employer the run did not screen keeps 
 are attached: only an excluded employer stops. A
 second check against the person's own rules (own: excl-own:) adds own_level beside its finding, and the verdict uses it.
 sync reads workflow journals (rows {type: started, agentId, label} and {type: result, agentId, result}); an agent's
-label is "<kind prefix><company name, maybe cut short>". By default the kinds are the ones workflows/
+label is "<kind prefix><company name>" (cut at 20 characters before 0.44.0). By default the kinds are the ones workflows/
 screen-and-prepare.js writes (exclusion: excl-judge:, excl-verify:, excl-screen:, then excl-quick:, the cheap check; own: excl-own:; prep: prep-jobs:,
 whose result may be the path of the JSON file the agent wrote, then prep-fit:, the fit check alone, used when no
 file was written because no job fitted). Older runs, search-result files to merge and per-company decisions
@@ -85,6 +89,7 @@ from trackerlib import (DETAILS, ENDED_STATUS, ISO_DATE, STATUSES, TODO_KINDS, c
                         companies, date_in, employer_link, entries, expand, expand_company, job_urls, login_of,
                         workday_host, expand_row, flat_jobs, is_company_shape, json_indent, load_settings, needs_of,
                         note_key, split_tracker, write_json)
+from trackerlib import PAGES_BEHIND  # noqa: E402
 
 args = sys.argv[1:]
 env_arg = None
@@ -235,13 +240,18 @@ def results(journals):
     return done
 
 
-def newest(done, name, prefixes):
-    # Labels carry a cut-short company name; match it back by prefix, the first prefix (newest run) first.
-    for prefix in prefixes:
-        found = [v for label, v in done if label.startswith(prefix) and label[len(prefix):]
-                 and name.startswith(label[len(prefix):]) and isinstance(v, dict)]
-        if found:
-            return found[-1]
+def newest(done, names, name, prefixes):
+    # A label carries the whole company name: an exact match first, the first prefix (newest run) first. A run before
+    # 0.44.0 cut the name at 20 characters, so a 20-character label is then matched by prefix, unless it is another
+    # employer's whole name (names: every employer in the tracker). Seen: "Acme" took the result of "Acme Defence".
+    for exact in (True, False):
+        for prefix in prefixes:
+            found = [v for label, v in done if label.startswith(prefix) and isinstance(v, dict)
+                     and (label[len(prefix):] == name if exact else
+                          len(label) - len(prefix) == 20 and label[len(prefix):] not in names
+                          and name.startswith(label[len(prefix):]))]
+            if found:
+                return found[-1]
     return None
 
 
@@ -290,6 +300,7 @@ def sync(journals):
         sys.exit("sync works on the {companies: [...]} tracker, where screening verdicts belong to companies")
     merge_found(data, [tuple(x) for x in rules.get("merge", [])])
     done = results(journals)
+    names = {c["name"] for c in data["companies"]}
     for company in data["companies"]:
         name = company["name"]
         if name in exclude_overrides:
@@ -297,11 +308,11 @@ def sync(journals):
             company["override"] = exclude_overrides[name]
             company["hits"] = [{"criterion": "override", "finding": exclude_overrides[name]}]
             continue
-        if company.get("verdict") == "exclude" and not newest(done, name, screens[:1]):
+        if company.get("verdict") == "exclude" and not newest(done, names, name, screens[:1]):
             continue
-        x = newest(done, name, exclusions)
+        x = newest(done, names, name, exclusions)
         # {category: {own_level, why}}: the level under the person's own rules, beside the finding as found.
-        own = {k["category"]: k for k in (newest(done, name, owns) or {}).get("checks", [])
+        own = {k["category"]: k for k in (newest(done, names, name, owns) or {}).get("checks", [])
                if k.get("category") and k.get("own_level") in el.OWN_LEVELS}
         if own and not x and env.get("EMPLOYER_CHECKS"):
             # A known employer whose second check alone ran: its findings are recorded already. Only a category whose
@@ -324,11 +335,11 @@ def sync(journals):
             if by_rules != "allow":
                 company["rule_reasons"] = reasons
             if by_rules != "exclude":
-                attach_prep(company, newest(done, name, preps))
+                attach_prep(company, newest(done, names, name, preps))
             continue
         if x and x.get("checks"):
             # One result per category: the deciding check's, filled from the first check's for categories it left out.
-            first = newest(done, name, ["excl-screen:"]) or {}
+            first = newest(done, names, name, ["excl-screen:"]) or {}
             found = {k["category"]: k for k in first.get("checks", []) if k.get("category")}
             found.update({k["category"]: k for k in x["checks"] if k.get("category")})
             checks = {c: {f: k.get(f, "") for f in ("status", "level", "fact", "source_url")}
@@ -350,21 +361,21 @@ def sync(journals):
                 company["rule_reasons"] = reasons
                 company[ties_key(x)] = x.get(ties_key(x), [])
                 if by_rules == "discuss":
-                    attach_prep(company, newest(done, name, preps))
+                    attach_prep(company, newest(done, names, name, preps))
                 continue
         if x and x.get("verdict") == "exclude":
             company["verdict"] = "exclude"
             company["hits"] = x.get("hits", [])
             continue
-        s = newest(done, name, screens)
+        s = newest(done, names, name, screens)
         if not s and not x:
             # Not screened in this run (the funnel screens only where it is needed): the verdict stays as recorded.
             if company.get("verdict") != "exclude":
-                attach_prep(company, newest(done, name, preps))
+                attach_prep(company, newest(done, names, name, preps))
             continue
         if not s:
             s = {"verdict": "allow", "hits": []}
-        r = newest(done, name, refuters)
+        r = newest(done, names, name, refuters)
         verdict = s["verdict"]
         if verdict == "clear" or (verdict == "incomplete" and name in refute_also):
             verdict = r["verdict"] if r else "verifying"
@@ -379,7 +390,7 @@ def sync(journals):
             verdict = "clear" if verdict == "clear" else "allow"
         company["verdict"] = verdict
         if verdict in ("clear", "allow"):
-            attach_prep(company, newest(done, name, preps))
+            attach_prep(company, newest(done, names, name, preps))
     save(collapse(data, PATH))  # rows with a detail file go back to summary rows and their files
     queue = [(c["name"], j) for c in data["companies"] if c.get("verdict", "") in ("clear", "allow", "discuss", "")
              for j in c["jobs"] if "prep" in j and j["status"] == "pending"]
@@ -534,6 +545,7 @@ def set_one(data, job_id, status, note, more):
 
 if cmd == "sync":
     sync(args[1:])
+    print(PAGES_BEHIND)
     sys.exit(0)
 data = load()
 if not is_company_shape(data):
@@ -549,6 +561,7 @@ if cmd == "add":
     add_job(data, company, job)
     save(data)
     print("added", job_id, company, title)
+    print(PAGES_BEHIND)
 elif cmd == "set" and args[1:2] == ["--file"]:
     # Lines "<id><TAB><status><TAB><note>": every change in one tracker write (a Drive-synced file is slow).
     if len(args) < 3:
@@ -561,23 +574,31 @@ elif cmd == "set" and args[1:2] == ["--file"]:
     for ln in lines:
         set_one(data, ln[0], ln[1], ln[2] if len(ln) > 2 else "", [])
     save(data)
+    print(PAGES_BEHIND)
 elif cmd == "set":
     set_one(data, args[1], args[2], args[3] if len(args) > 3 else "", args[4:])
     save(data)
+    print(PAGES_BEHIND)
 elif cmd == "wait":
     # A wait known only in a chat or a hand-off note is invisible on the dashboard: the status and the to-do go
     # together. Seen: 16 jobs waiting on sign-ins and answers stayed "found" with no to-do for two days.
     if len(args) < 4 or args[2] not in ("needs-person", "account-needed") or not args[3].strip():
-        sys.exit('wait <id> needs-person|account-needed "<what it waits on>" [link=<url>]')
+        sys.exit('wait <id> needs-person|account-needed "<what it waits on>" [link=<url>] [login=<site>]')
     job_id, status, what = args[1], args[2], args[3].strip()
     extra = {}
     for pair in args[4:]:
         key, eq, value = pair.partition("=")
-        if key != "link" or not eq:
-            sys.exit(f"wait takes only link=<url>: got {pair!r}")
-        extra[key] = value
+        if key not in ("link", "login") or not eq or not value.strip():
+            sys.exit(f"wait takes only link=<url> and login=<site>: got {pair!r}")
+        extra[key] = value.strip()
     company, row = find(data, job_id)
     job = expand_row(PATH, row)
+    if extra.get("login"):
+        job["login"] = extra["login"]  # kept on the job: logins.py sync files it under this site from now on
+    if status == "account-needed" and not login_of(job):
+        # A job board that only forwards to the employer's site is never the login (trackerlib.login_of).
+        sys.exit(f'account-needed needs login=<site>: which site wants the account? Example: login="Workday · '
+                 f'{company.get("name", "") or "Acme"}" or login="company site · {company.get("name", "") or "Acme"}"')
     history = job.setdefault("history", [])
     old = job.get(NOTE, "")
     if old and not any(h.get(NOTE) == old for h in history):
@@ -604,12 +625,14 @@ elif cmd == "wait":
                                   *([f"login={login}"] if status == "account-needed" and login else [])])
     save(data)
     print(job_id, company.get("name", ""), title_of(job)[:60], "->", status)
+    print(PAGES_BEHIND)
 elif cmd == "todo":
     if len(args) < 3:
         sys.exit("todo <id> add|done|list")
     company, row = find(data, args[1])
     if todo_command(row, args[2], args[3:]):
         save(data)
+        print(PAGES_BEHIND)
 elif cmd == "show":
     company, job = find(data, [a for a in args[1:] if a != "--full"][0])
     row = {"company": company.get("name", "")}

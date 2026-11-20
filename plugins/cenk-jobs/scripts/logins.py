@@ -10,8 +10,11 @@ site of an employer the person's rules exclude: no sign-in needed; sync sets it,
 its name, the part after "·" or the employers of the jobs on it; the employers themselves are in the dashboard's
 Excluded tab, not in this file), unknown (older rows only; the dashboard shows it as "not signed
 in"). sync makes new site rows needs-sign-in; Claude sets needs-sign-up and expired with `set`.
-A site no job waits on keeps its last state, with the reason in its note: signed-in, or needs-sign-in (shown as
-"not signed in"). Example: `set "Acme Jobs" signed-in "no open job: the offer closed, 6 Nov 2026"`.
+sync files each job under the row of its site, one row per site (a job board by the board's name: "LinkedIn Easy
+Apply" waits under "LinkedIn"); a job whose site is not named yet (a board that only forwards) gets no row.
+A site no job waits on keeps its last state: signed-in with its own note, any other state with the note "no
+application waits on it (since <date>)", the earlier note kept in its history.
+Example: `set "Acme Jobs" signed-in "no open job: the offer closed, 6 Nov 2026"`.
 The file (LOGINS in job-search.env) is the one place login state lives: the dashboard's Logins tab and its "Do now"
 list read it, and each job-site row points at the tracker's jobs by id instead of repeating them. Claude writes it at
 every session's health check: a connector's status from one cheap call, a site's from what the person or the browser
@@ -25,6 +28,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jsenv  # noqa: E402
 from trackerlib import JOB_BOARD, PER_EMPLOYER, employer_link, flat_jobs, job_urls, login_of, workday_host  # noqa: E402
+from trackerlib import PAGES_BEHIND, SYNC_NOTE, site_key  # noqa: E402
 
 STATUSES = ("connected", "signed-in", "needs-sign-up", "expired", "needs-sign-in", "needs-reconnect", "blocked",
             "excluded", "unknown")
@@ -90,9 +94,20 @@ if args[0] == "sync":
             row.update(id=name, name=name, link=row.get("link") or f"https://{h}")
             rows[name] = row
             named[h] = name
+    # One row per site: a job waits under the row already kept for its site, whatever its spelling, never a second
+    # one (seen 20 Nov 2026: "linkedin" rows made beside a signed-in "LinkedIn" one asked for a sign-in). Of
+    # several, the plainest name, as export_dashboard.merge_logins keeps.
+    same_site = {}
+    for row in sorted((r for r in rows.values() if r.get("kind") == "site"),
+                      key=lambda r: (len(str(r.get("name") or r["id"])), r["id"])):
+        same_site.setdefault(site_key(row), row["id"])
     for job in flat_jobs(tracker):
         if job.get("status") == "account-needed":
             login = named.get(workday_host(*job_urls(job))) or login_of(job)
+            if not login:
+                continue  # no site named yet (a job board that only forwards): export_dashboard.py --check names it
+            if login not in rows:
+                login = same_site.setdefault(site_key({"id": login}), login)
             waiting.setdefault(login, []).append(job["id"])
             if not links.get(login):
                 links[login] = employer_link(job, login)
@@ -105,13 +120,18 @@ if args[0] == "sync":
             if PER_EMPLOYER.search(row["id"]) and JOB_BOARD.search(row.get("link") or ""):
                 row["link"] = ""
             row["link"] = row.get("link") or links.get(row["id"], "")
-            # A row sync made earlier that no job waits on any more goes; a row Claude set by hand stays.
-            if not row["jobs"] and row.get("note", "").startswith("an application waits"):
+            # A row sync made earlier that no job waits on any more goes; a row Claude set by hand stays, and says
+            # that nothing waits on it, so an old "Sign in ..." never reads as a request (seen 20 Nov 2026: a sign-in
+            # done for jobs already sent).
+            if not row["jobs"] and row.get("note", "").startswith(SYNC_NOTE):
                 del rows[row["id"]]
+            elif not row["jobs"] and row.get("status") not in OK + ("excluded",) \
+                    and not row.get("note", "").startswith("no application waits"):
+                row.setdefault("history", []).append({k: row[k] for k in ("checked", "status", "note") if k in row})
+                row["note"] = f"no application waits on it (since {now[:10]})"
     for site, ids in waiting.items():
         rows[site] = {"id": site, "name": site, "kind": "site", "status": "needs-sign-in", "checked": now,
-                      "note": "an application waits on this site's sign-in or account", "jobs": sorted(ids),
-                      "link": links.get(site, "")}
+                      "note": SYNC_NOTE, "jobs": sorted(ids), "link": links.get(site, "")}
     # Excluded employers are listed in the dashboard's Excluded tab (employerlib.excluded_list), not here: rows of
     # kind "employer" from older versions go, and a job site of an excluded employer is marked excluded.
     for rid in [k for k, r in rows.items() if r.get("kind") == "employer"]:
@@ -148,6 +168,7 @@ elif args[0] == "set":
     data["logins"] = sorted(rows.values(), key=lambda r: (r.get("kind") != "connector", r["id"]))
     save(data)
     print(login_id, "->", status)
+    print(PAGES_BEHIND)
 else:
     for r in data["logins"]:
         print(f"{r['id']:32} {r.get('kind', ''):9} {r['status']:15} {len(r.get('jobs', []))} jobs  {r.get('note', '')[:60]}")

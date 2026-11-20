@@ -25,8 +25,9 @@ Every question this skill asks the person goes on the Questions page as it is as
    `LONG_SHOTS_PER_DAY` a day, newest first in each (the order `track.py sync` prints). Weak fits are listed with
    their score for the person, never in a batch; an unread posting waits for the next run's fit check. Every role that fits at one employer is proposed
    and applied to at the same time: an application already running there is no reason to wait. The running ones are
-   listed beside it (role, stage, next date), as information. On their OK, `/cenk-jobs:apply` (or the coordinator's
-   sessions, one per site) takes them. Refresh the dashboard.
+   listed beside it (role, stage, next date), as information. Under `APPLY=auto` the batch goes to
+   `/cenk-jobs:apply` at once (or the coordinator's sessions, one per site; with `send` in `ASK_FIRST` each stops at
+   the review page); under `APPLY=list` the batch is the list in the report. Refresh the dashboard.
 
 ## Report
 

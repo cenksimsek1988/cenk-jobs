@@ -9,7 +9,8 @@ After step 1: the handoff check, Gmail (first, never dropped) and the shared-lis
 1. Say when the run starts: "Job-search run started at 21:05 (by hand); I'll tell you when it's done." Log it with
    `usage.py log run started "<by hand|scheduled>"`. At the end: "Run finished at 21:40." plus the short report,
    and `usage.py log run ok` (or `failed` / `stopped`). The dashboard header shows the run's state from these rows.
-   "Run my job search now" starts a run at once; if one is running (a "run started" row with no end), say so instead.
+   "Run my job search now" starts a run at once; if a run started under 6 hours ago has no end row, say so instead;
+   an older one: `usage.py log run stopped`, then start.
 2. `check_setup.py`: fix or report each FAIL in one line.
 3. Each connector, one cheap read call: Gmail `search_threads` (`pageSize` 1), Google Calendar `list_calendars`,
    Google Drive (the main folder readable on disk, or the Drive connector), Claude in Chrome `tabs_context_mcp`.
@@ -34,7 +35,9 @@ employers**, **Hiring steps** and **All applications**, under the total count an
   "cenk-jobs · Job applications" (`dash/meta`), the Questions page's "cenk-jobs · Questions for you": the plugin's
   name, so a page is never just "Dashboard". Both are pinned to the claude.ai sidebar, one of the defaults setup
   offers.
-- Refresh after each change: `sessions.py sync <list.json>`, `logins.py sync`, `build_app_folders.py`, export. Upload
+- A script that changes a record the pages show prints `pages behind: refresh both`: the turn ends with
+  `export_dashboard.py --check`, and both pages are refreshed once when it names one (/cenk-jobs:coordinate).
+- Refresh: `sessions.py sync <list.json>`, `logins.py sync`, `build_app_folders.py`, export. Upload
   only the files its `upload:` line names, update each one's `source.url` and `updated`, delete the replaced
   uploads; a file under `unchanged:` gets only its dataset's `updated.at`. Then `export_dashboard.py --uploaded
   <out dir> <the files you uploaded>`: only those are recorded as on the page, and a bare `--uploaded <out dir>` is
@@ -49,12 +52,15 @@ employers**, **Hiring steps** and **All applications**, under the total count an
   write `files/index.html` from `templates/dashboard/index.html` in the same run. Example: after a plugin update the
   page still lacks the Sessions tab.
 - Every export ends with one `check:` line per mismatch between the records and the page (`export_dashboard.py
-  --check` prints them alone and writes nothing). Fix each in the same run, or name it in the run report. Example:
+  --check` prints them alone and writes nothing, with "the Questions page is behind the records" from `questions.py
+  build --check`). Fix each in the same run, or name it in the run report. Example:
   `check: to-do on an ended job: J3 (rejected 2026-11-10), 2 to-do(s) -> track.py todo J3 done all`.
 - Logins: each person's own sites and connectors live in their `LOGINS` file; the Logins tab groups them in this
   order: Needs you (a connector, or a site jobs wait on, and not signed in; a site no job waits on is Not signed
   in), Signed in, Connected, Not signed in. A job board's rows are one row on the page ("LinkedIn Easy Apply" and
-  "linkedin"), with a check line to merge them in `LOGINS`.
+  "linkedin"), with a check line to merge them in `LOGINS`; its state is the latest check, never a row `sync` made.
+  A job board is the login only for its own form (Easy Apply, Indeed Apply): a job found on a board and applied on
+  the employer's site waits with `track.py wait <id> account-needed "<what>" login="<platform> · <employer>"`.
   `sync` makes a new site row "needs sign-in" and marks an excluded employer's site `excluded` (not shown there),
   whatever its last state; Claude sets `needs-sign-up` (no account yet) and `expired` (a sign-in page where a form
   was) with `logins.py set`. Example: a Workday form at Review, then its sign-in page: `expired`.
@@ -95,8 +101,8 @@ employers**, **Hiring steps** and **All applications**, under the total count an
 - Do now's Question rows are the Questions page's open questions (`QUESTIONS`), nothing else; before the page exists,
   the employers the rules leave to the person. A job that waits on the person without a to-do or a question shows
   its note as a To do.
-- A to-do's link is the email link; a personal access link (a page that opens without a sign-in) stays in the
-  calendar and the person's folder. Pay figures and addresses never go into the exported files.
+- A hiring step's Do now row links to its email (`mail` in `PIPELINE`), never the step's own page: a personal
+  access link (a page that opens without a sign-in) stays in the calendar and the person's folder. Pay figures and addresses never go into the exported files.
 
 ## Tools
 

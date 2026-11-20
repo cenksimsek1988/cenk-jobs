@@ -289,7 +289,8 @@ const PY = `"${A.python || 'python'}" -I`
 const LETTER = `${PY} "${A.scripts}/make_letter_pdf.py" --env "${A.envFile}"`
 const slug = name => name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
 const fileOf = name => A.outDir + '/' + slug(name) + '.json'
-const label = (kind, name) => kind + ':' + name.slice(0, 20)
+// The whole name: track.py sync matches a result to its employer by it ("Acme" never takes "Acme Defence"'s result).
+const label = (kind, name) => kind + ':' + name
 
 const screenPrompt = c => `Exclusion check for the employer "${c.name}", for ${WHO}'s job applications.
 ${RULES}

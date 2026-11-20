@@ -73,9 +73,8 @@ established outlets, a court ruling, a fine, a sanctions listing or an official 
 - A category not checked stays "unknown"; never write "clear" without having looked.
 - Record every finding as found, direct, indirect or undecided, whatever the person decides: a decision never turns a finding
   into "clear", and never changes its category or level. The shared list holds findings only (category, level,
-  fact, source); decisions, settings and `own_level` stay in the person's own files. The shared blacklist keeps every sourced finding, so each person's own rules decide. The plugin's
-  developer merges their own findings with `employer.py merge --from-checks`; everyone else's reach it through the
-  weekly usage report, with their yes.
+  fact, source); decisions, settings and `own_level` stay in the person's own files. The shared blacklist keeps every sourced finding, so each person's own rules decide. Findings reach it
+  through the weekly usage report, with the person's yes.
 - Working environment: what employee reviews say, apart from the categories. `employer.py check` says in
   `has_environment` whether one is saved (`--full` shows it). When it is false and the employer is not excluded: one WebSearch (`"<name>" reviews glassdoor`;
   Glassdoor blocks WebFetch, so read the rating from the search result; Kununu or Indeed when Glassdoor has nothing),
@@ -99,7 +98,7 @@ established outlets, a court ruling, a fine, a sanctions listing or an official 
 - **A new employer, cheapest first:** the list (`employer.py check`), then the free public-data lookup
   (`employer_lookup.py`: founding, headquarters, owners, industry; no model; cached), then, where it cannot decide,
   the cheap check (the `checker` agent, at most 2 web searches; cached in the records). Whether the fit check or the
-  cheap check runs first is the person's own numbers' choice (`variants.py order`). Example: Arma AG, an arms
+  cheap check runs first is the person's own numbers' choice (`variants.py order`). Example: Acme Arms AG, an arms
   maker, with a note that excludes Western arms producers: the lookup finds the industry, the cheap check applies
   the note and excludes it.
 - **Only an excluded employer stops an application.** Unknown, warn and "discuss" go on: the jobs are prepared and

@@ -1,6 +1,6 @@
 ---
 name: search
-description: "Find and screen job postings: searches job boards and company sites under the person's locations, pay and employer rules, checks each employer and records each posting. Use for 'find me jobs', 'search for jobs', 'any new postings?', 'cerca lavoro', 'iş ara', 'Jobsuche'. Never applies."
+description: "Find and screen job postings: searches job boards and company sites under the person's locations, pay and employer rules, checks each employer and records each posting. Use for 'find me jobs', 'any new postings?', 'cerca lavoro', 'iş ara', 'Jobsuche'. Never applies."
 ---
 
 # Search: find and screen postings
@@ -78,8 +78,9 @@ tracker, and nothing is prepared or sent.
    (RULES.md, "Employer rules").
    `match` "possible" is "discuss" until Claude settles it: after the company register or the site's legal notice,
    `employer.py alias "<saved name>" "<name>"` (same employer) or `alias --not "<saved name>" "<name>"` (different);
-   unsure: the job waits (`track.py set <id> needs-person`) and the main session asks the person in the chat, since
-   `questions.py add decision` needs a category. Example: "Examplia" against the saved "Examplia Internet GmbH".
+   unsure: the job waits (`track.py set <id> needs-person`) and the page asks: `questions.py add general "Is <name>
+   the same employer as <saved name>?" job=<id> options="same:Same|other:Different"`; its answer is `alias` or
+   `alias --not`. Example: "Examplia" against the saved "Examplia Internet GmbH".
 4. The funnel, `workflows/screen-and-prepare.js` (Workflow tool), with the args `workflow_args.py --search
    <outDir>/search.json --lookup <the lookup's --out file>` builds in `<outDir>/args.json` (about 8 KB; it leaves out
    each excluded employer and names it; one jobs file per employer; the record parts, deleted after `track.py

@@ -1,5 +1,6 @@
 ---
 name: setup
+disable-model-invocation: true
 description: "First run of the job search, once: checks programs and logins, creates the main folder, reads the person's CVs into one master record, builds CV versions, creates and pins two pages. Use for 'set up my job search', 'start using cenk-jobs', 'first run', 'iş aramamı kur'. Not for daily work."
 ---
 
@@ -79,7 +80,7 @@ Show the defaults and ask: "Use these defaults? You can change any of them later
 - Open free-text questions, essays and self-ratings are never filled for you (unless you turn on the setting
   `draft_answers`: then Claude drafts each answer and fills it only after your approval): they wait for you on your
   Questions page, with every other question your records do not answer. Each answer goes into your records, so it
-  is asked once.
+  is asked once. To write one with Claude: `/cenk-jobs:write`.
 - Emails and messages are drafts; you send them.
 - Applications: by your cost choices below (`APPLY`, `ASK_FIRST`); you hear what was sent after each run. Only what
   Claude cannot do waits for you in Do now: CAPTCHAs, passwords, sign-ups, emailed codes, ID numbers, essays, pay below your
@@ -159,8 +160,8 @@ your Pro week: not known yet."
     It also logs each change of the 7-day share (`PLAN_USAGE_LOG`); after a week, `cost.py calibrate <plan>` gives
     W per 1% of the week, the figure the shares come from.
 11. Sub-sessions: Sonnet (0.6 of the Opus cost per turn; measured: apply, search and prep sessions cost about 130M
-    W in 12 days on Opus) or the main session's model. Essays and study always take the main one.
-    `SESSION_MODEL=sonnet|opus|haiku|` (empty: the main one), default sonnet.
+    W in 12 days on Opus) or Opus. Essays and study always take the main session's model.
+    `SESSION_MODEL=sonnet|opus|haiku`, default sonnet (empty counts as sonnet).
 
 ## 5. Documents
 

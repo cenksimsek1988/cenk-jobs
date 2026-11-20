@@ -2,7 +2,7 @@
 
 Every cenk-jobs skill reads this file first (`<plugin>/RULES.md`; `<plugin>` is two folders above the skill's
 folder). The skills: `setup` (first run, once), `coordinate` (the main session), `search`, `plan`, `apply`,
-`prepare`, `cheat-sheet` (one page beside a call), `schedule`. The dashboard has no skill: setup creates it and every run refreshes it.
+`prepare`, `cheat-sheet` (one page beside a call), `schedule`, `write` (one free text with the person). The dashboard has no skill: setup creates it and every run refreshes it.
 The parts in `RULES/`, beside this file, are read only when a heading below says so. Safety rules stay here.
 
 ## Where things are
@@ -75,7 +75,8 @@ Do now. Then read `RULES/run.md`.
 ## Keep learning about the person
 
 - A new fact the person states (a form answer, a preference, a correction, a decision) goes into the master record
-  at once, dated, and Claude says so in one line. Never leave a fact only in the chat; look it up before asking.
+  at once, dated (a sub-session: one fact line in its handoff, for the coordinator), and Claude says so in one
+  line. Never leave a fact only in the chat; look it up before asking (`career_view.py facts --out <file>`).
 - A fact about the person themselves goes into the profile at once instead, from any session:
   `profilelib.py set <key> <json|->`, a private value through stdin (`-`). Example:
   `set person.phone '"+39 06 0000 0000"'`. A handoff names the key, never the value.
@@ -88,8 +89,8 @@ Do now. Then read `RULES/run.md`.
   - A key under `settings` decides what sessions may do: ask the person first, showing the key, the old and the new
     value, also for a change they asked for; after their yes, `set` or `erase` with `--yes`. Example: `set
     settings.cenk-jobs.form_facts '["birth_date"]' --yes`. Without `--yes` nothing is written (exit 1).
-- One fact line per fact, never narrative or quoted chat. Example: `degree: all courses completed, final project
-  not submitted (2026-11-06)`. A decision is a value plus the date. Example: `exclude, defence, 2026-11-06`.
+- One fact line per fact, never narrative or quoted chat. Example: `notice_period: 3 months
+  (2026-11-06)`. A decision is a value plus the date. Example: `exclude, defence, 2026-11-06`.
 - The person's own words go only where the words are the content: a form answer or an essay they wrote.
 - To the person, a job is its company and role, never an id alone. Example: "Acme, Senior Java Engineer".
 
@@ -103,9 +104,10 @@ Do now. Then read `RULES/run.md`.
 - The interview study notes (`INTERVIEW_LESSONS_DIR`, /cenk-jobs:prepare "Study notes") are for study only: never
   read for the master record, CVs, letters, forms or essays, and never put in an agent's brief. Example: a weak
   Kafka answer there never becomes a CV line or a form answer.
-- An unfinished degree stays unfinished everywhere: "all courses completed; final project not submitted" on CVs and
-  letters, never entered as an awarded degree in a form's education section.
-- Every form answer must be true. If no option of a required question is true, ask; if none is true, skip the job.
+- An unfinished degree stays unfinished everywhere, in the record's own words, on CVs and letters; never entered
+  as awarded in a form's education section. Example: "BSc, 3 of 4 years completed".
+- Every form answer must be true. If no option of a required question is true, ask the person; if they confirm none is,
+  skip the job.
 - Open free-text questions, essays and self-ratings are the person's: never filled for them unless
   `draft_answers` (below) is `yes`; they go to the Questions page (see "Questions for the person").
   - The setting `draft_answers` (the profile's `settings.cenk-jobs`, `profilelib.py get cenk-jobs draft_answers`;
@@ -125,7 +127,8 @@ Do now. Then read `RULES/run.md`.
 - Never type a password, a verification code, a card number or a government ID number; never solve a CAPTCHA; never
   create an account. Stop at such a field and tell the person. One exception: with `EMAILED_CODES=on`, the code or
   confirmation link an application's site emails for the form just submitted (its own sender, within 15 minutes),
-  read in Gmail by the session and typed in the held tab. A sign-in or sign-up code stays the person's.
+  read in Gmail by the session and typed in the held tab. A sign-in or sign-up code stays the person's. A code is
+  never printed: mask it. Example: `security code: ******`.
 - Guarded items: date of birth, street address, references, criminal record, relatives at the company, health.
   Preparation never answers one: it goes into the job's needs, unless the person's setting `form_facts` (in their
   profile: `settings.cenk-jobs`, else `settings.common`) names it. Then the prepared answer is "from the profile",
@@ -133,9 +136,10 @@ Do now. Then read `RULES/run.md`.
   ["birth_date"]` lets forms answer the birth date. Never an ID number, a password or a card number, whatever the
   setting.
 - Never answer for the person about criminal record, references or relatives at the company unless `form_facts`
-  names it, and then only from their own answer (a referee only with `agreed_on`). Health, family and identity
-  questions: only from the person's own answer in the profile's `private`. Such a value goes only into a form field
-  that asks for it, never into a CV, letter, prepared answer, note or shared file; erasing one: `RULES/questions.md`.
+  names it, and then only from their own answer (a referee only with `agreed_on`). Health, family, identity and
+  military-service questions: only from the person's own answer in the profile's `private`. Such a value goes only
+  into a form field that asks for it, never into a CV, letter, prepared answer, note, handoff, brief, report or
+  shared file; erasing one: `RULES/questions.md`.
 - Consents: tick only the data-processing consent a form needs to be sent. Optional ones (talent pools, newsletters,
   job alerts, marketing, SMS, AI analysis, extra retention) stay off unless the person's settings say otherwise.
   The exception: a job alert the person said yes to for that site, made on purpose for a saved search
@@ -153,7 +157,7 @@ Do now. Then read `RULES/run.md`.
   question to the Questions page.
   Example: a form with every answer in the master record and no emailed code is sent; one with a motivation essay
   waits.
-- Pay figures go only into forms the person approved and onto their own Questions page (only they read it); the
+- Pay figures go only into a form's pay fields and onto their own Questions page (only they read it); the
   home address and the birth date only into forms. Never into a CV, letter, shared file or the dashboard.
 
 ## Urgent steps
@@ -189,7 +193,7 @@ Recording a rejection, a closed post, a decline, an exclusion or a skip: read `R
 
 ## Calendar
 
-Writing a calendar event: read `RULES/hiring-steps.md`.
+Writing a calendar event: read `RULES/hiring-steps.md`. An event is deleted only after the person's yes.
 
 ## Mail
 
@@ -212,11 +216,13 @@ connector is down. Their sign-ins are there, and a second browser loses them.
 - Chrome has profiles, each with its own sign-ins. `CHROME_PROFILE` in `job-search.env` names the one the job search
   uses; the extension acts in the profile it is connected in. A page that lives in another profile is named with
   its profile. Example: "Open the folder in Chrome, profile Work: your Google Drive is signed in there."
-- A step that needs the person in the browser (sign in, type a code, tick a CAPTCHA, press Submit): open the page in
-  Chrome or use the tab already held, title it `>>> <first name>: <company> <action> <<<`, and name it in the
-  question with how to find it (Chrome's tab search, Ctrl+Shift+A). A held form's address is never the way in (it
-  opens an empty copy); another page's is written as text marked "open in Chrome": a link clicked in the Claude
-  desktop app opens in the app's own pane, without their sign-ins.
+- A page the person only has to look at or act on (a sign-in, a posting, a booking or confirmation page): its address
+  as text marked "open in Chrome" (with the profile when it is another one), then close Claude's own tab. A tab in
+  Claude's tab group is hard to find: never the way in. A link clicked in the Claude desktop app opens in the app's
+  own pane, without their sign-ins. Example: "Open in Chrome: https://acme.example/careers/123".
+- A tab that holds a filled form waiting on the person (a code, a CAPTCHA, a Submit, their picks): a link would open
+  an empty copy. Keep the tab, title it `>>> <first name>: <company> <action> <<<`, and name it in the question with
+  how to find it (Chrome's tab search, Ctrl+Shift+A).
 - Only the session that opened a tab closes it; a tab group holding filled forms is never closed.
 - The same address goes into the job's to-do (`track.py todo ... link=<address>`); the dashboard shows it as a
   link, and every sub-session brief and handoff carries it.
