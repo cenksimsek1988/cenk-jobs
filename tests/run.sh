@@ -2933,6 +2933,7 @@ fit = lambda i, t: {"jobs": [{"id": i, "title": t, "action": "apply", "read": "f
                               "requirements": [{"text": "Testing", "place": "title", "level": "hands_on"}]}]}
 rows = [("s1", "excl-screen:Epsilon Co", {"verdict": "allow", "hits": [], "ties": [], "checks": []}),
         ("f1", "prep-fit:Epsilon Co", fit("E1", "Tester")),
+        ("v1", "excl-verify:Epsilon Co", {"verdict": "allow", "hits": [], "ties": [], "checks": []}),
         ("p1", "prep-jobs:Epsilon Co", f"Wrote and/or saved {folder}/epsilon-1.json"),
         ("f2", "prep-fit:Gamma Inc", fit("J3", "Designer")),
         ("p2", "prep-jobs:Gamma Inc", f"`{folder}/gamma-2.json`")]
@@ -2946,7 +2947,7 @@ check "sync 0.44.1: a prepared file named in a sentence is read, merged with the
     dq "$H/apply/targets.json" '[(j["prep"]["answers"][0]["answer"], j["prep"]["requirements"][0]["text"], j["status"]) for c in R["companies"] if c["name"] == "Epsilon Co" for j in c["jobs"]] == [("1 month", "Testing", "pending")]'
 check "sync 0.44.1: a job whose review is still due is held: no prep, still found, marked unreviewed" \
     dq "$H/apply/targets.json" '[(j["status"], "prep" in j, bool(j.get("unreviewed"))) for c in R["companies"] if c["name"] == "Gamma Inc" for j in c["jobs"]] == [("found", False, True)]'
-check "sync 0.44.1: an employer with a screen result is marked screened today" \
+check "sync 0.44.1: an employer whose full check completed is marked screened today" \
     dq "$H/apply/targets.json" '[c.get("screened") for c in R["companies"] if c["name"] == "Epsilon Co"] == [__import__("datetime").date.today().isoformat()]'
 CLAUDE_CONFIG_DIR="$T/no-config" "$PY" -I "$S/workflow_args.py" --screen "Epsilon Co" --screen "Gamma Inc" --out "$T/scr441" --env "$ENVF" >"$T/scr441.out" 2>&1
 check "workflow_args 0.44.1: --screen runs once per employer: a screened one is named, another is screen-only" sh -c '
@@ -3016,6 +3017,185 @@ check "rules 0.44.2: the moved parts exist and every skill points to them" sh -c
     grep -q "references/study.md" "$1/skills/prepare/SKILL.md" && grep -q "references/weekly.md" "$1/skills/search/SKILL.md" &&
     grep -q "references/saved-searches.md" "$1/skills/search/SKILL.md" && grep -q "^## Each run$" "$1/skills/coordinate/SKILL.md"' \
     _ "$S/.."
+# 0.44.3: the search scope reaches the scripts (career_view.py scope; a row's place narrows; due leaves out a row
+# outside it); a Remote Rocketship title with no page is that title's; an unread page with no text is named; sync
+# holds an apply job the form step left out and dates only a completed check; --screen runs again after 90 days.
+mkhome "$T/h443" flat
+use "$T/h443"
+"$PY" -I "$S/career_view.py" scope --set any_mode_places=Springfield remote_regions=EU --env "$ENVF" >"$T/sc443.out" 2>&1
+"$PY" -I "$S/career_view.py" scope --set colour=red --env "$ENVF" >"$T/sc443b.out" 2>&1
+echo "exit $?" >>"$T/sc443b.out"
+"$PY" -I "$S/career_view.py" scope remote_regions=Asia --env "$ENVF" >"$T/sc443c.out" 2>&1
+echo "exit $?" >>"$T/sc443c.out"
+check "scope 0.44.3: --set prints both keys; an unknown key, or a key without --set, is refused" sh -c '
+    grep -q "^any_mode_places: Springfield$" "$1" && grep -q "^remote_regions: EU$" "$1" &&
+    grep -q "^scope --set takes " "$2" && grep -q "^exit 1$" "$2" &&
+    grep -q "^scope alone prints the scope" "$3" && grep -q "^exit 1$" "$3"' _ "$T/sc443.out" "$T/sc443b.out" "$T/sc443c.out"
+check "scope 0.44.3: --set writes the master record; an older list of places stays as locations.places" \
+    dq "$H/career-records/career.json" 'R["preferences"]["locations"] == {"places": ["Rome"], "search_scope": {"any_mode_places": ["Springfield"], "remote_regions": ["EU"]}}'
+searches add "LinkedIn Berlin" "engineer" source=linkedin place=Berlin mode=any >/dev/null 2>&1
+searches add "LinkedIn Springfield" "engineer" source=linkedin place="Springfield, Illinois" mode=any >/dev/null 2>&1
+searches add "LinkedIn EU remote" "engineer" source=linkedin place="European Union" mode=remote >/dev/null 2>&1
+searches due >"$T/due443.out" 2>&1
+searches due --json >"$T/due443.json" 2>&1
+check "searches 0.44.3: due names a city row outside the scope and leaves it out; one inside it and a remote one stay" sh -c '
+    grep -q "^outside the scope: 1 LinkedIn Berlin (Berlin): ask the person to turn it off (searches.py every 1 off) or keep it (searches.py scope-ok 1)$" "$1" &&
+    grep -q "^2 LinkedIn Springfield " "$1" && grep -q "^3 LinkedIn EU remote " "$1"' _ "$T/due443.out"
+check "searches 0.44.3: due --json leaves the row outside the scope out" \
+    dq "$T/due443.json" '[r["site"] for r in R] == ["LinkedIn Springfield", "LinkedIn EU remote"]'
+searches scope-ok 1 >"$T/sok443.out" 2>&1
+searches due >"$T/due443b.out" 2>&1
+searches query 3 "staff engineer, principal engineer" >"$T/q443.out" 2>&1
+check "searches 0.44.3: scope-ok keeps a row outside the scope; query replaces a row's terms" sh -c '
+    grep -q "^1 LinkedIn Berlin: kept outside the scope$" "$1" && grep -q "^1 LinkedIn Berlin " "$2" &&
+    ! grep -q "^outside the scope" "$2" && grep -q "^3 LinkedIn EU remote: staff engineer, principal engineer$" "$3"' \
+    _ "$T/sok443.out" "$T/due443b.out" "$T/q443.out"
+check "collect 0.44.3: a row's place narrows the person's places; a remote search or posting keeps its own" "$PY" -I -c '
+import sys; sys.path.insert(0, sys.argv[1]); import collect_postings as c
+c.PLACES, c.NOT_PLACES = ["rome", "italy"], []
+assert not c.wanted({"query": "engineer", "place": "Berlin"}, "Staff Engineer", "Berlin, Germany", [], [])
+assert not c.wanted({"query": "engineer", "place": "Berlin"}, "Staff Engineer", "Berlin (Hybrid, remote 2 days)", [], [])
+assert c.wanted({"query": "engineer", "place": "Rome"}, "Staff Engineer", "Rome, Lazio, Italy", [], [])
+assert c.wanted({"query": "engineer", "place": "Berlin", "mode": "remote"}, "Staff Engineer", "Berlin, Germany", [], [])
+assert c.wanted({"query": "engineer", "place": "Berlin"}, "Staff Engineer", "Remote, Germany", [], ["germany"])
+assert c.wanted({"query": "engineer"}, "Staff Engineer", "Milan, Italy", [], [])' "$S"
+searches every linkedin off >/dev/null 2>&1
+mkdir -p "$T/rr443"
+"$PY" -I - "$T/rr443" <<'PYEOF'
+import datetime
+import json
+import os
+import sys
+
+src = sys.argv[1]
+iso = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+job = {"id": 9, "roleTitle": "Java Engineer", "company": {"name": "Sigma"}, "url": "https://jobs.example.com/sigma-9",
+       "locationType": "remote", "created_at": iso}
+page = ('<html><script id="__NEXT_DATA__" type="application/json">'
+        + json.dumps({"props": {"pageProps": {"initialJobOpenings": [job]}}}) + "</script></html>")
+for name, text in (("remoterocketship-spain.status", "404"), ("remoterocketship-spain-p2.json", page),
+                   ("remoterocketship-gone.status", "404"), ("remoterocketship-gone-p2.status", "404")):
+    with open(os.path.join(src, name), "w", encoding="utf-8") as f:
+        f.write(text)
+PYEOF
+searches add "Remote Rocketship Spain" "staff, java engineer" source=remoterocketship board=spain >/dev/null 2>&1
+searches add "Remote Rocketship Gone" "staff, lead" source=remoterocketship board=gone >/dev/null 2>&1
+track add U1 "Upsilon" "Java Engineer" "https://jobs.dover.com/upsilon/1" found_by=script:greenhouse:upsilon \
+    location="Springfield, Illinois" >/dev/null 2>&1
+"$PY" -I - "$H/apply/targets.json" <<'PYEOF'
+import json
+import sys
+
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+for j in data["jobs"]:
+    if j["id"] == "U1":
+        j["unread"] = "2026-11-19"
+json.dump(data, open(sys.argv[1], "w", encoding="utf-8"))
+PYEOF
+"$PY" -I "$S/collect_postings.py" --from "$T/rr443" --out "$T/rr443.json" --env "$ENVF" >"$T/rr443.out" 2>&1
+check "collect 0.44.3: a Remote Rocketship title with no page is skipped and named; only a row with none fails" sh -c '
+    grep -q "^no Remote Rocketship page: https://www.remoterocketship.com/country/spain/jobs/staff: drop that title or stack from search 4 " "$1" &&
+    "$2" -I "$3/dq.py" "$4" "[(r[\"site\"], r.get(\"fails\", 0)) for r in R[\"searches\"] if r.get(\"source\") == \"remoterocketship\"] == [(\"Remote Rocketship Spain\", 0), (\"Remote Rocketship Gone\", 1)]"' \
+    _ "$T/rr443.out" "$PY" "$T" "$H/apply/searches.json"
+check "collect 0.44.3: an unread posting with no saved text is named with the file it waits for" \
+    grep -q "^no text saved for unread U1 (https://jobs.dover.com/upsilon/1): save it from Chrome as .*/postings/U1.md (references/sites/dover.md)$" "$T/rr443.out"
+mkhome "$T/h443s" old
+use "$T/h443s"
+track add E2 "Epsilon Co" "Tester 2" "https://example.com/e2" >/dev/null 2>&1
+track add Z1 "Zeta AG" "Engineer" "https://example.com/z1" >/dev/null 2>&1
+mkdir -p "$T/prep443"
+"$PY" -I - "$T/journal443.jsonl" "$T/prep443" "$S" "$ENVF" <<'PYEOF'
+import json
+import sys
+
+journal, folder, scripts, envfile = sys.argv[1], sys.argv[2].replace("\\", "/"), sys.argv[3], sys.argv[4]
+sys.path.insert(0, scripts)
+import employerlib as el  # noqa: E402
+import jsenv  # noqa: E402
+
+cats = list(el.rules(jsenv.load(envfile)).get("categories") or {}) or list(el.CATEGORIES)
+clear = [{"category": c, "status": "clear", "level": "", "fact": "nothing found", "source_url": ""} for c in cats]
+fit = lambda *jobs: {"jobs": [{"id": i, "title": t, "action": "apply", "read": "full", "gaps": [], "reason": "fits",  # noqa: E731
+                               "requirements": [{"text": "Testing", "place": "title", "level": "hands_on"}]}
+                              for i, t in jobs]}
+prepared = {"company": "Epsilon Co", "jobs": [{"id": "E1", "title": "Tester", "apply_url": "https://example.com/e1/apply",
+            "action": "apply", "platform": "Greenhouse", "variant": "", "salary": 0, "setup": "remote", "cv_pdf": "",
+            "letter_pdf": "", "letter_txt": "", "answers": [], "needs": [], "notes": "", "review": "done"}]}
+with open(folder + "/epsilon-1.json", "w", encoding="utf-8") as f:
+    json.dump(prepared, f)
+# A Git Bash path (/c/...) on Windows, the plain path elsewhere.
+bash_path = "/" + folder[0].lower() + folder[2:] if folder[1:2] == ":" else folder
+rows = [("s1", "excl-screen:Epsilon Co", {"verdict": "allow", "hits": [], "ties": [], "checks": clear}),
+        ("f1", "prep-fit:Epsilon Co", fit(("E1", "Tester"), ("E2", "Tester 2"))),
+        ("p1", "prep-jobs:Epsilon Co", f"Wrote {bash_path}/epsilon-1.json"),
+        ("f2", "prep-fit:Gamma Inc", fit(("J3", "Designer"))),
+        ("p2", "prep-jobs:Gamma Inc", "Done."),
+        ("s3", "excl-screen:Zeta AG", {"verdict": "allow", "hits": [], "ties": [], "checks": [
+            {"category": cats[0], "status": "unknown", "level": "", "fact": "not checked", "source_url": ""}]})]
+with open(journal, "w", encoding="utf-8") as f:
+    for agent, label, result in rows:
+        f.write(json.dumps({"type": "started", "agentId": agent, "label": label}) + "\n")
+        f.write(json.dumps({"type": "result", "agentId": agent, "result": result}) + "\n")
+PYEOF
+track sync "$T/journal443.jsonl" >"$T/s443.out" 2>&1
+check "sync 0.44.3: a Git Bash path is read; an apply job the form step left out, or one whose step wrote no file, is held" \
+    dq "$H/apply/targets.json" '{j["id"]: (j["status"], "prep" in j, bool(j.get("unreviewed"))) for c in R["companies"] for j in c["jobs"] if j["id"] in ("E1", "E2", "J3")} == {"E1": ("pending", True, False), "E2": ("found", False, True), "J3": ("found", False, True)}'
+check "sync 0.44.3: a clean screen dates the check; a screen with an unknown and no second check does not" \
+    dq "$H/apply/targets.json" '[(c["name"], bool(c.get("screened"))) for c in R["companies"] if c["name"] in ("Epsilon Co", "Zeta AG")] == [("Epsilon Co", True), ("Zeta AG", False)]'
+"$PY" -I - "$H/apply/targets.json" <<'PYEOF'
+import datetime
+import json
+import sys
+
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+for c in data["companies"]:
+    if c["name"] == "Epsilon Co":
+        c["screened"] = (datetime.date.today() - datetime.timedelta(days=100)).isoformat()
+json.dump(data, open(sys.argv[1], "w", encoding="utf-8"))
+PYEOF
+CLAUDE_CONFIG_DIR="$T/no-config" "$PY" -I "$S/workflow_args.py" --screen "Epsilon Co" --out "$T/scr443" --env "$ENVF" >"$T/scr443.out" 2>&1
+check "workflow_args 0.44.3: a full check over 90 days old runs again before a hiring step" sh -c '
+    ! grep -q "^screened on" "$1" &&
+    "$2" -I "$3/dq.py" "$4/args.json" "[(c[\"name\"], c.get(\"screen\")) for c in R[\"companies\"]] == [(\"Epsilon Co\", True)]"' \
+    _ "$T/scr443.out" "$PY" "$T" "$T/scr443"
+track add T9 "Theta AG" "Engineer" "https://example.com/t9" >/dev/null 2>&1
+track add I1 "Iota AG" "Engineer" "https://example.com/i1" >/dev/null 2>&1
+track add K1 "Kappa AG" "Engineer" "https://example.com/k1" >/dev/null 2>&1
+"$PY" -I - "$T/jA443.jsonl" "$T/jB443.jsonl" "$T/prep443" <<'PYEOF'
+import json
+import sys
+
+older, newer, folder = sys.argv[1], sys.argv[2], sys.argv[3].replace("\\", "/")
+fit = lambda i: {"jobs": [{"id": i, "title": "Engineer", "action": "apply", "read": "full", "gaps": [], "reason": "fits",  # noqa: E731
+                           "requirements": [{"text": "Testing", "place": "title", "level": "hands_on"}]}]}
+form = lambda i, **more: {"id": i, "title": "Engineer", "apply_url": "https://example.com/" + i, "action": "apply",  # noqa: E731
+                          "platform": "Ashby", "variant": "", "salary": 0, "setup": "remote", "cv_pdf": "",
+                          "letter_pdf": "", "letter_txt": "", "answers": [], "needs": [], "notes": "", **more}
+for name, data in (("iota-1.json", {"company": "Iota AG", "jobs": [form("I2", review="done")]}),
+                   ("kappa-2.json", {"company": "Kappa AG", "jobs": [form("K1")]})):
+    with open(folder + "/" + name, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+unknown = {"verdict": "allow", "hits": [], "ties": [], "checks": [
+    {"category": "defence", "status": "unknown", "level": "", "fact": "not checked", "source_url": ""}]}
+journals = {older: [("v9", "excl-verify:Theta AG", {"verdict": "allow", "hits": [], "ties": [], "checks": []}),
+                    ("p9", "prep-jobs:Iota AG", f"Wrote {folder}/iota-1.json")],
+            newer: [("s9", "excl-screen:Theta AG", unknown),
+                    ("f9", "prep-fit:Iota AG", fit("I1")),
+                    ("f8", "prep-fit:Kappa AG", fit("K1")),
+                    ("p8", "prep-jobs:Kappa AG", f"Wrote {folder}/kappa-2.json")]}
+for path, rows in journals.items():
+    with open(path, "w", encoding="utf-8") as f:
+        for agent, label, result in rows:
+            f.write(json.dumps({"type": "started", "agentId": agent, "label": label}) + "\n")
+            f.write(json.dumps({"type": "result", "agentId": agent, "result": result}) + "\n")
+PYEOF
+track sync "$T/jA443.jsonl" "$T/jB443.jsonl" >"$T/s443b.out" 2>&1
+check "sync 0.44.3: an older run's second check dates nothing; an older form step holds nothing; no review is due" \
+    dq "$H/apply/targets.json" '[(c["name"], bool(c.get("screened")), [(j["id"], j["status"]) for j in c["jobs"]]) for c in R["companies"] if c["name"] in ("Theta AG", "Iota AG", "Kappa AG")] == [("Theta AG", False, [("T9", "found")]), ("Iota AG", False, [("I1", "pending")]), ("Kappa AG", False, [("K1", "found")])]'
+check "0.44.3 text: the Dover note, board discovery by allowed_domains, the form step checked by its file name" sh -c '
+    [ -s "$1/references/sites/dover.md" ] && grep -q "allowed_domains" "$1/references/weekly.md" &&
+    ! grep -q "site:greenhouse.io" "$1/references/weekly.md" &&
+    grep -q "fileOf(r.c.name).split(./.).pop()" "$1/workflows/screen-and-prepare.js"' _ "$S/.."
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

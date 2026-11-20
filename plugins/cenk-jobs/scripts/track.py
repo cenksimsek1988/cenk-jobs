@@ -70,8 +70,10 @@ screen-and-prepare.js writes (exclusion: excl-judge:, excl-verify:, excl-screen:
 whose result may be the path of the JSON file the agent wrote, then prep-fit:, the fit check alone, used when no
 file was written because no job fitted). The two are merged by job id: the fit check's fields, with the file's
 over them (from 0.44.1 the file holds only the jobs to apply to). A prepared job whose review is still "due" is
-held like an unread posting: no prep, "found", marked unreviewed, so the next run prepares it again. An employer
-with a screen result (excl-screen:) gets "screened": <today>, which workflow_args.py --screen reads.
+held like an unread posting: no prep, "found", marked unreviewed, so the next run prepares it again; so is an apply
+job the form step left out of its file, or every one when it wrote no readable file. An employer whose full check
+completed (a clean screen, or a second check after it) gets "screened": <today>, which workflow_args.py --screen
+reads.
 Older runs, search-result files to merge and per-company decisions
 come from the "sync" part of the TRACKER_SETTINGS file (see templates/tracker-settings-example.json).
 """
@@ -225,7 +227,8 @@ def parse(value):
 
 def as_result(value):
     """A prep agent replies with the path of the JSON file it wrote instead of the JSON itself: a whole line, quoted
-    or not, or an absolute path after a word. Example: "Wrote C:/run/acme-1.json"."""
+    or not, or an absolute path after a word; a Git Bash path counts as its Windows one. Example: "Wrote
+    C:/run/acme-1.json", or "/c/run/acme-1.json"."""
     value = parse(value)
     if isinstance(value, str):
         for line in value.splitlines():
@@ -233,9 +236,10 @@ def as_result(value):
             # Every place a path may start, so "and/or C:/run/acme-1.json" still finds the file.
             found = [m.group(1) for m in re.finditer(r"(?=((?:[A-Za-z]:[\\/]|/).*?\.json))", line)]
             for path in (line, *found):
-                if path.lower().endswith(".json") and os.path.isfile(path):
-                    with open(path, encoding="utf-8") as f:
-                        return json.load(f)
+                for candidate in (path, re.sub(r"^/([A-Za-z])/", r"\1:/", path)):
+                    if candidate.lower().endswith(".json") and os.path.isfile(candidate):
+                        with open(candidate, encoding="utf-8") as f:
+                            return json.load(f)
     return value
 
 
@@ -251,16 +255,40 @@ def results(journals):
 
 def prep_of(done, names, name, preps):
     """The prepared jobs of one employer: the fit check's result (every job, a skip too) with the prepared-jobs file's
-    fields over it, by job id. From 0.44.1 the file holds only the jobs to apply to, with the form's fields; an older
-    file holds every job, and the same merge gives the same result."""
+    fields over it, by job id. From 0.44.1 the file holds only the jobs to apply to, each with review; an older file
+    holds every job, with the fit check's fields, and the same merge gives the same result.
+    An apply job with no review is due when the same run had a form step (one after the fit check in the journal):
+    the step left it out, wrote no readable file, or wrote no review. Sync holds it for the next run. A run with no
+    form step (APPLY=list, or no job fitted) keeps the fit check's result, and an older file never holds a job."""
     file_prep = newest(done, names, name, ["prep-jobs:"])
-    fit_prep = newest(done, names, name, [p for p in preps if p != "prep-jobs:"])
-    if not (file_prep and fit_prep):
-        return file_prep or fit_prep
+    fit_kinds = [p for p in preps if p != "prep-jobs:"]
+    fit_prep = newest(done, names, name, fit_kinds)
+    if not fit_prep:
+        return file_prep
+    file_jobs = (file_prep or {}).get("jobs", [])
     jobs = {j.get("id"): j for j in fit_prep.get("jobs", [])}
-    for j in file_prep.get("jobs", []):
+    for j in file_jobs:
         jobs[j.get("id")] = {**jobs.get(j.get("id"), {}), **j}
-    return {**fit_prep, **{k: v for k, v in file_prep.items() if k != "jobs"}, "jobs": list(jobs.values())}
+    fit_at = last_at(done, name, fit_kinds)
+    form_ran = fit_at >= 0 and any(label == "prep-jobs:" + name for label, _ in done[fit_at + 1:])
+    older_file = any("requirements" in j or "score" in j or j.get("action") == "skip" for j in file_jobs)
+    if form_ran and not older_file:
+        jobs = {i: {**j, "review": "due"} if j.get("action") == "apply" and "review" not in j else j
+                for i, j in jobs.items()}
+    return {**fit_prep, **{k: v for k, v in (file_prep or {}).items() if k != "jobs"}, "jobs": list(jobs.values())}
+
+
+def last_at(done, name, prefixes):
+    """Where the newest result of these kinds for this whole name is in done (journals in the order given, then their
+    own order), or -1. Example: a second check after the screen of the same run has the higher index."""
+    return max((i for i, (label, value) in enumerate(done) if isinstance(value, dict)
+                and any(label == p + name for p in prefixes)), default=-1)
+
+
+def screen_clean(result, categories):
+    """A screen that needs no second check: no exclusion, and every category of the person's rules checked clear."""
+    checks = {k.get("category"): k.get("status") for k in result.get("checks", []) if isinstance(k, dict)}
+    return result.get("verdict") != "exclude" and all(checks.get(c) == "clear" for c in categories)
 
 
 def newest(done, names, name, prefixes):
@@ -324,6 +352,7 @@ def sync(journals):
     merge_found(data, [tuple(x) for x in rules.get("merge", [])])
     done = results(journals)
     names = {c["name"] for c in data["companies"]}
+    categories = list(el.rules(env).get("categories") or {}) or list(el.CATEGORIES)
     for company in data["companies"]:
         name = company["name"]
         if name in exclude_overrides:
@@ -334,7 +363,11 @@ def sync(journals):
         if company.get("verdict") == "exclude" and not newest(done, names, name, screens[:1]):
             continue
         x = newest(done, names, name, exclusions)
-        if newest(done, names, name, ["excl-screen:"]):
+        screen_at = last_at(done, name, ["excl-screen:"])
+        second_at = last_at(done, name, ["excl-verify:", "excl-judge:"])
+        if screen_at >= 0 and (second_at > screen_at or screen_clean(done[screen_at][1], categories)):
+            # The full check is complete: a clean screen, or a second check after it (an older run's does not
+            # count). A screen whose second check failed leaves no date, so the next --screen runs the check again.
             company["screened"] = today
         # {category: {own_level, why}}: the level under the person's own rules, beside the finding as found.
         own = {k["category"]: k for k in (newest(done, names, name, owns) or {}).get("checks", [])

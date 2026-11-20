@@ -26,9 +26,14 @@ tracker, and nothing is prepared or sent.
    - RemoteOK's Apply needs a paid plan: the fit check takes the employer's own posting, else skips the job
      (`../../references/sites/remoteok.md`).
    - The scope: `preferences.locations.search_scope` in the master record; its `remote_regions` stands for
-     `REMOTE_REGIONS` and its `any_mode_places` for `PLACES`, each when present. Those two fields are written only
-     with the person's yes. Example: `"remote_regions": ["Germany", "EU", "Worldwide"], "any_mode_places":
-     ["Springfield"]`.
+     `REMOTE_REGIONS` and its `any_mode_places` for `PLACES`, each when present. A scope the person states is written
+     in the same turn, after their yes: `career_view.py scope --set remote_regions=Germany,EU,Worldwide
+     any_mode_places=Springfield`.
+   - Its lines for the session: "outside the scope" (from `searches.py due`): one question each on the Questions
+     page, `questions.py add general "Turn off the saved search <site> (<place>)? It is outside your search scope."
+     options="off:Turn it off|keep:Keep it"`; the answer runs `searches.py every <id> off` or `searches.py scope-ok
+     <id>`. "no Remote Rocketship page": `searches.py query <id> "<the other titles>"`. "no text saved": read that
+     posting in Chrome and save its text as the file the line names (`../../references/sites/dover.md`).
 
    Then `searches.py due` for the rest (method `agent`): a run reads only these, never every
    site again. With none saved it says so: create them first ("Saved searches"). For each, the cheapest source that

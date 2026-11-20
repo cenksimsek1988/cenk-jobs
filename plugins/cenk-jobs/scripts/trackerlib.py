@@ -568,3 +568,40 @@ def split_tracker(tracker, taken=()):
     elif "jobs" in tracker:
         out["jobs"] = [job_row(j) for j in tracker["jobs"]]
     return out, files
+
+
+# Places and search terms, shared by collect_postings.py and searches.py.
+def scope_of(env):
+    """(remote regions, places for any work mode) from the master record's preferences.locations.search_scope; each
+    is None when the scope does not hold it, and then REMOTE_REGIONS or PLACES from job-search.env counts."""
+    path = env.path("MASTER_RECORD") if env.get("MASTER_RECORD") else ""
+    if not path or not os.path.isfile(path):
+        return None, None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            record = json.load(fh)
+    except ValueError as problem:
+        raise SystemExit(f"{path}: not readable JSON ({problem})")
+    prefs = record.get("preferences") if isinstance(record, dict) else None
+    locations = prefs.get("locations") if isinstance(prefs, dict) else None
+    # An older record keeps its locations as a list: no scope there.
+    scope = locations.get("search_scope") if isinstance(locations, dict) else None
+    scope = scope if isinstance(scope, dict) else {}
+
+    def field(key):
+        values = scope.get(key)
+        if not isinstance(values, list) or not values:
+            return None
+        return [str(x).strip().lower() for x in values if str(x).strip()]
+    return field("remote_regions"), field("any_mode_places")
+
+
+def terms(text):
+    return [t.strip().lower() for t in str(text or "").split(",") if t.strip()]
+
+
+def title_has(title, words):
+    """A term matches whole words of the title, a phrase as a whole: "tech lead" passes "Tech Lead, Payments" and not
+    "Lead Project Manager"; "lead" does not pass "Leadership Coach"."""
+    low = title.lower()
+    return any(re.search(r"(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", low) for w in words)

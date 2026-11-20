@@ -9,9 +9,11 @@ proposals go to the Questions page; FIT_SETTINGS changes only on the person's ye
 
 ## Board discovery
 
-At the same run: 8 web searches, the 4 board kinds (`site:greenhouse.io`, `site:jobs.ashbyhq.com`,
-`site:jobs.lever.co`, `site:apply.workable.com`) x 2 scopes (the remote regions; the person's places), each with the
-role terms. Example: `site:jobs.ashbyhq.com "backend engineer" remote Europe`.
+At the same run: 8 web searches, the 4 board kinds x 2 scopes (the remote regions; the person's places), each with
+the role terms. Each board kind goes in WebSearch's `allowed_domains`, never as `site:` in the query, which the
+search tool often ignores (seen 20 Nov): `job-boards.greenhouse.io` and `boards.greenhouse.io`; `jobs.ashbyhq.com`;
+`jobs.lever.co`; `apply.workable.com`. Example: query `"backend engineer" remote Europe`, `allowed_domains:
+["jobs.ashbyhq.com"]`.
 - The result links go into a file, one per line; `searches.py discover --file <links file>` prints each board
   not saved yet: `new <kind> <board> <link>`.
 - For each: the employer's name from its board page, `employer.py check "<name>"` and `employer_lookup.py

@@ -106,8 +106,8 @@ established outlets, a court ruling, a fine, a sanctions listing or an official 
   step, on the Questions page. The full check (screen, then the second check on a hit or an unknown) runs for an
   employer with a recorded finding to judge, a due second check or a recheck, and for one whose application reached
   a hiring step, before the person's time goes into it (`workflow_args.py --screen`, /cenk-jobs:coordinate
-  "Employer check"). Example: Acme, never checked, two fitting postings: both are sent; Acme invites to an
-  interview: the check runs before the person prepares.
+  "Employer check"): once, and again when the last full check is over 90 days old. Example: Acme, never checked, two
+  fitting postings: both are sent; Acme invites to an interview: the check runs before the person prepares.
 - **Running applications:** after a change that can move a verdict (the person's rules, a decision, new findings
   from a sync), `employer.py recheck-running` judges again every employer with a sent application that has not ended
   (rejected, closed, declined). It prints those whose verdict moved to exclude or discuss, or whose second check is

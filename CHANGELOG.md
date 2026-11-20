@@ -6,6 +6,42 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.44.3] - 2026-11-20
+
+Four lessons from the 20 Nov search, and the follow-ups of the 0.44.1 commit review.
+
+### Added
+
+- `career_view.py scope [--set remote_regions=<a,b> any_mode_places=<a,b>]`: shows and writes the search scope, so a
+  scope the person states reaches the search scripts (it never did: 89 of 103 postings of one run were out of
+  scope). An older list of places is kept as `preferences.locations.places`.
+- `searches.py scope-ok <id>` (keep a row outside the scope) and `searches.py query <id> "<terms>"` (a row's terms).
+- `references/sites/dover.md`: a Dover posting page is drawn by script; the search session saves its text from Chrome.
+
+### Changed
+
+- A search row's own place narrows the person's places, never widens them: an office or hybrid posting must also be
+  in the scope. A remote search or a remote posting keeps its own places; a place that names a hybrid or office part
+  is not remote.
+- `searches.py due` leaves out a script row whose every place is outside the scope, with an "outside the scope" line
+  for the Questions page (turn it off, or keep it).
+- Remote Rocketship: a title or stack with no page (404) is skipped with one line; the row fails only when every page
+  does. Before, one dead title marked the whole row gone after two runs.
+- `collect_postings.py` names each unread posting whose text it could not save ("no text saved"), with the file the
+  next fit check reads; the fit check reads a dover.com page without that file as "none" instead of fetching it.
+- Board discovery uses WebSearch's `allowed_domains`, one board kind per search; `site:` in the query is often ignored.
+- The full employer check before a hiring step runs again when the last is over 90 days old.
+
+### Fixed
+
+- An apply job the form step left out of its file, or every apply job when the step wrote no readable file or no
+  review, was queued without form answers or review: it is held for the next run like an unreviewed one. Only a form
+  step of the same run counts.
+- An employer was dated "screened" when its second check or judge failed: only a completed check (a clean screen, or a
+  second check after it in the same run) dates it.
+- A form step's reply with a Git Bash path (`/c/...`) counted as form-failed, and sync could not read it.
+- `--screen` for an employer with new postings and a due second check ran only that check, never the full screen.
+
 ## [0.44.2] - 2026-11-20
 
 Smaller rules and skills with one owner per fact, and a hook that holds the no-screenshot rule.

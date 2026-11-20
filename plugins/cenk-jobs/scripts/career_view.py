@@ -18,6 +18,12 @@ python -I career_view.py pay "<city>" [--set "<figure>"]
                                                  the person's pay figure for that city from PAY_TABLE (private;
                                                  default apply/pay-by-city.json); --set adds it, worked out once from
                                                  the pay rule. collect_postings.py gives each posting its city's figure.
+python -I career_view.py scope [--set <key>=<a,b> ...]
+                                                 the search scope (preferences.locations.search_scope): remote_regions
+                                                 stands for REMOTE_REGIONS and any_mode_places for PLACES in the search
+                                                 scripts, each when set. --set writes the keys given, only with the
+                                                 person's yes; an empty value removes that key. Example: scope --set
+                                                 remote_regions=EU,Worldwide any_mode_places=Springfield
 Prints the JSON, or with --out writes it and prints the path and size. Add --env <job-search.env> to pick the env file.
 """
 import json
@@ -68,6 +74,48 @@ if len(args) == 2 and args[0] == "pay":
             json.dump(table, f, ensure_ascii=False, indent=1)
     figure = next((v for k, v in table.items() if k.lower() == args[1].lower()), "")
     print(figure or f"no figure for {args[1]}: work it out from the pay rule, then --set it")
+    sys.exit(0)
+if args and args[0] == "scope":
+    # The scope a person states reaches the scripts only through these two keys (seen 20 Nov: never written, so 89 of
+    # 103 postings of one run were out of scope).
+    from trackerlib import json_indent
+    SCOPE_KEYS = ("remote_regions", "any_mode_places")
+    env = jsenv.load(env_arg, __file__)
+    path = env.path("MASTER_RECORD")
+    if not os.path.isfile(path):
+        sys.exit(f"{path}: no master record (MASTER_RECORD in job-search.env)")
+    if args[1:] and set_to is None:
+        sys.exit("scope alone prints the scope; scope --set <key>=<a,b> ... writes it")
+    with open(path, encoding="utf-8") as f:
+        record = json.load(f)
+    pairs = [set_to] + args[1:] if set_to is not None else []
+    prefs = record.setdefault("preferences", {})
+    if pairs:
+        given = dict(p.split("=", 1) for p in pairs if "=" in p)
+        if len(given) != len(pairs) or set(given) - set(SCOPE_KEYS):
+            sys.exit("scope --set takes " + " ".join(k + "=<a,b>" for k in SCOPE_KEYS))
+        if isinstance(prefs.get("locations"), list):
+            # An older record keeps its places as a list: they stay, as locations.places.
+            prefs["locations"] = {"places": prefs["locations"]}
+            print("preferences.locations was a list: kept as preferences.locations.places")
+        scope = prefs.setdefault("locations", {}).setdefault("search_scope", {})
+        for key, value in given.items():
+            values = [v.strip() for v in value.split(",") if v.strip()]
+            if values:
+                scope[key] = values
+            else:
+                scope.pop(key, None)
+        indent = json_indent(path)
+        with open(path + ".tmp", "w", encoding="utf-8", newline="\n") as f:
+            json.dump(record, f, ensure_ascii=False, indent=indent)
+            f.write("\n")
+        os.replace(path + ".tmp", path)
+    locations = prefs.get("locations")
+    scope = (locations.get("search_scope") if isinstance(locations, dict) else None) or {}
+    fallback = {"remote_regions": "REMOTE_REGIONS", "any_mode_places": "PLACES"}
+    for key in SCOPE_KEYS:
+        print(f"{key}: " + (", ".join(scope[key]) if scope.get(key) else f"not set ({fallback[key]} in job-search.env "
+                                                                          "counts)"))
     sys.exit(0)
 if args == ["cvs"]:
     import glob

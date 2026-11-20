@@ -25,6 +25,9 @@ A remote posting passes only when its place also holds one of the search's place
 REMOTE_REGIONS (job-search.env), or reads just "Remote". Example: "Remote, EU" passes with REMOTE_REGIONS=EU;
 "Remote, US" does not. Example: searches.py add "Acme jobs" "engineer, architect" source=greenhouse
 board=acme place="Rome, Italy".
+A row's own place narrows the person's places, never widens them: a posting that is not remote must also be in one
+of PLACES (or the scope's any_mode_places). Example: a LinkedIn row "Berlin" with PLACES=Rome, Italy passes nothing
+from a Berlin office.
 Feeds, 3 s apart per source; 2 refusals (429) in a row stop a source for the run, its searches stay due. New
 sources: remoterocketship (board=<country slug>, a term is a title slug, optional tech=<stack>; the 20 newest per
 page, so daily), himalayas-search (board=<country>; discovery only: apply_url is left empty with an apply_note, the
@@ -33,7 +36,10 @@ place or region of the person's). Before the funnel, each posting's own page is 
 60; Ashby and Greenhouse from their APIs): one whose every place is outside the person's places, that must be based
 in another country, or works US hours is left out. A posting whose employer and title are already in the tracker
 under another link is left out. A "team lead" title needs an engineering word. A job the last fit check could not
-read ("unread" in the tracker) gets its text saved (fetch_jd.py --posting) and passed as text_file.
+read ("unread" in the tracker) gets its text saved (fetch_jd.py --posting) and passed as text_file; one whose text
+could not be saved (a page drawn by script) is named in a "no text saved" line, for the session to save from Chrome.
+Remote Rocketship: a title or stack with no page (404) is skipped with one line; the row fails only when every page
+does.
 LinkedIn: up to 3 pages per search over the window since its start, 4.5 s between calls and a job text 6 s after
 the last call; one refusal (429) pauses 60 s and slows to 8 s, an error or a second refusal stops LinkedIn for this
 run and its remaining searches stay due. A board that answers 404 twice is marked gone (searches.py fail).
@@ -68,7 +74,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import jsenv  # noqa: E402
 import reposts  # noqa: E402
-from trackerlib import flat_jobs, pay_for, pay_table  # noqa: E402
+from trackerlib import flat_jobs, pay_for, pay_table, scope_of, terms, title_has  # noqa: E402
 from variants import runs, usage_rows  # noqa: E402
 
 UA = {"User-Agent": "Mozilla/5.0 (job-search assistant)"}
@@ -316,9 +322,49 @@ def paced_fetch(source, url):
     return fetch(url)
 
 
+def rocketship_pages(row, words, from_dir=None):
+    """Remote Rocketship: one page per title (with the row's stack). A page that answers 404 is that title's, never the
+    row's: it is skipped with one line, and the row fails (searches.py fail) only when every page does. Seen 20 Nov:
+    italy/jobs/staff?techStack=java answered 404. With --from, the n-th title reads the n-th saved page
+    (remoterocketship-<board>.json, then -p2, -p3), and a page's .status file answers with that code."""
+    out, missing, urls = [], 0, feed_urls(row, words)
+    base = os.path.join(from_dir, f"remoterocketship-{row.get('board', '')}") if from_dir else ""
+    for n, url in enumerate(urls):
+        try:
+            if from_dir:
+                page = base + ("" if n == 0 else f"-p{n + 1}")
+                code = saved_status(page)
+                if code:
+                    raise Refused(code)
+                with open(page + ".json", encoding="utf-8") as fh:
+                    out.append(fh.read())
+            else:
+                out.append(paced_fetch("remoterocketship", url))
+        except Refused as problem:
+            if problem.code == 404:
+                missing += 1
+                print(f"no Remote Rocketship page: {url}: drop that title or stack from search {row.get('id')} "
+                      f'(searches.py query {row.get("id")} "<the other titles>")')
+                continue
+            if not out:
+                raise
+            print(f"remoterocketship: {url} not read ({problem}); {len(out)} page(s) kept")
+            break
+        except (OSError, ValueError) as problem:
+            if not out:
+                raise
+            print(f"remoterocketship: {url} not read ({problem}); {len(out)} page(s) kept")
+            break
+    if urls and missing == len(urls):
+        raise Refused(404)
+    return out
+
+
 def answers(row, from_dir, queue, start, words=()):
     """The source's answer texts for this search: one for a board, up to 3 pages for LinkedIn, a feed's pages."""
     source, board = row["source"], row.get("board", "")
+    if source == "remoterocketship":
+        return rocketship_pages(row, list(words), from_dir)
     if from_dir:
         base = os.path.join(from_dir, f"{source}-{board or ('feed' if source in FEEDS else 'search')}")
 
@@ -500,52 +546,25 @@ def saved_rows(env):
     return [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
 
 
-def scope_of(env):
-    """(remote regions, places for any work mode) from the master record's preferences.locations.search_scope; each
-    is None when the scope does not hold it, and then REMOTE_REGIONS or PLACES from job-search.env counts."""
-    path = env.path("MASTER_RECORD") if env.get("MASTER_RECORD") else ""
-    if not path or not os.path.isfile(path):
-        return None, None
-    try:
-        with open(path, encoding="utf-8") as fh:
-            record = json.load(fh)
-    except ValueError as problem:
-        sys.exit(f"{path}: not readable JSON ({problem})")
-    prefs = record.get("preferences") if isinstance(record, dict) else None
-    locations = prefs.get("locations") if isinstance(prefs, dict) else None
-    # An older record keeps its locations as a list: no scope there.
-    scope = locations.get("search_scope") if isinstance(locations, dict) else None
-    scope = scope if isinstance(scope, dict) else {}
-
-    def field(key):
-        values = scope.get(key)
-        if not isinstance(values, list) or not values:
-            return None
-        return [str(x).strip().lower() for x in values if str(x).strip()]
-    return field("remote_regions"), field("any_mode_places")
-
-
-def terms(text):
-    return [t.strip().lower() for t in str(text or "").split(",") if t.strip()]
-
-
-def title_has(title, words):
-    """A term matches whole words of the title, a phrase as a whole: "tech lead" passes "Tech Lead, Payments" and not
-    "Lead Project Manager"; "lead" does not pass "Leadership Coach"."""
-    low = title.lower()
-    return any(re.search(r"(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", low) for w in words)
-
-
 PLACES, NOT_PLACES = [], []  # from job-search.env in main()
 
 
 def wanted(row, title, place, role_terms, regions):
     """A title must hold one of the search's terms (else ROLE_TERMS); the place one of its places. A remote posting
-    passes only with one of its places or REMOTE_REGIONS in the same text, or as a bare "Remote"."""
-    words, places = terms(row.get("query")) or role_terms, terms(row.get("place")) or PLACES
+    passes only with one of its places or REMOTE_REGIONS in the same text, or as a bare "Remote".
+    A row's own places narrow the person's places, never widen them: a posting that is not remote, found by a row
+    that is not a remote search, must also be in one of PLACES (the scope's any_mode_places when set). A remote
+    search's postings often name only a city. A place that names a hybrid or office part is not remote here. Seen 20
+    Nov: LinkedIn city rows the person had dropped gave 89 of 103 postings out of scope. Example: a row "Berlin" with
+    PLACES=Rome, Italy passes no "Berlin, Germany" and no "Berlin (Hybrid, remote 2 days)"."""
+    words, own = terms(row.get("query")) or role_terms, terms(row.get("place"))
     if not title_has(title, words):
         return False
-    return place_ok(place, places, regions)
+    if not place_ok(place, own or PLACES, regions):
+        return False
+    where = place.lower()
+    remote_only = "remote" in where and not re.search(r"\b(hybrid|office|on-?site)\b", where)
+    return not own or row.get("mode") == "remote" or remote_only or place_ok(place, PLACES, regions)
 
 
 def place_ok(place, places, regions):
@@ -818,6 +837,12 @@ def main():
         unread_ids = [p["id"] for p in chosen if p.get("unread")]
         if unread_ids and not opts.get("--from"):
             print(run("fetch_jd.py", *unread_ids, "--posting").strip())
+        for p in chosen:
+            # A page drawn by script (seen: jobs.dover.com) gives no text to a script or to the fit check.
+            text_file = os.path.join(postings, p["id"] + ".md")
+            if p.get("unread") and not os.path.isfile(text_file):
+                print(f"no text saved for unread {p['id']} ({p['url']}): save it from Chrome as "
+                      f"{text_file.replace(os.sep, '/')} (references/sites/dover.md)")
         for p in chosen:
             p["pay"] = pay_for(pays, p["location"])
             text_file = os.path.join(postings, p["id"] + ".md")

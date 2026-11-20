@@ -5,7 +5,9 @@
     workflow_args.py --screen "<employer>" [--screen "<employer>" ...] --out <dir>
         the full employer check before a first hiring step (RULES/employers.md): each named employer gets screen; one
         with no new posting in the run is screen_only (no fit check). An employer track.py sync has marked screened
-        prints "screened on <date>: <name>" and is left out; an excluded one is listed as left out.
+        prints "screened on <date>: <name>" and is left out while that date is at most SCREEN_AGE_DAYS (90) old; an
+        excluded one is listed as left out. An employer with new postings in the run gets the full check too, never
+        only a due second check.
         writes <outDir>/args.json and prints its size and one line per employer left out. Beside it: rules.json (the
         person's employer rules, read by the agents), and the record parts screen.json, facts.json, fit.json
         (career_view.py), and jobs/<employer>.json, one per employer with a unique name, which its entry names
@@ -35,6 +37,7 @@ import jsenv  # noqa: E402
 from trackerlib import companies as tracker_jobs  # noqa: E402
 
 KEEP = ("label", "action", "indirect", "custom", "notes")
+SCREEN_AGE_DAYS = 90  # a full check before a hiring step older than this runs again (approved 20 Nov 2026)
 
 
 def jobs_files(out_dir, found):
@@ -156,8 +159,13 @@ def main():
     # The full check before a first hiring step (--screen): once per employer, by the date track.py sync keeps.
     screened = {c.get("name"): c.get("screened") for c in tracker.get("companies", [])}
     for name in screens:
-        if screened.get(name):
-            print(f"screened on {screened[name]}: {name}")
+        when = str(screened.get(name) or "")[:10]
+        try:
+            age = (datetime.date.today() - datetime.date.fromisoformat(when)).days if when else None
+        except ValueError:
+            age = None  # an unreadable date: the check runs again
+        if age is not None and age <= SCREEN_AGE_DAYS:
+            print(f"screened on {when}: {name}")
             continue
         view = el.check_view(env, name, rule_set, employers=employers)
         if view["verdict"] == "exclude":
@@ -165,7 +173,10 @@ def main():
             continue
         entry = next((e for e in passed if e["name"] == name), None)
         if entry:
-            entry["screen"] = True  # its new postings are fit-checked first, then the employer is screened
+            # Its new postings are fit-checked first, then the full check runs: without "known", a due second check
+            # ("own") runs after the screen instead of in its place.
+            entry["screen"] = True
+            entry.pop("known", None)
             continue
         # No new posting: only the screen runs (screen_only), with what the records already hold as its starting point.
         entry = {"name": name, "screen": True, "screen_only": True}

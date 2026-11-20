@@ -35,7 +35,14 @@ python -I searches.py rates                                                     
 python -I searches.py list                                                       one line per search
 python -I searches.py due [--json]                                               the searches due today; with none
                                                                                  saved, one line that says so; --json:
-                                                                                 the due rows as one JSON list
+                                                                                 the due rows as one JSON list. A
+                                                                                 script row outside the scope (below)
+                                                                                 is left out: "outside the scope: ..."
+python -I searches.py scope-ok <id>                                              keep a row outside the scope: the
+                                                                                 person said so
+python -I searches.py query <id> "<terms>"                                       a row's terms, replaced; example: a
+                                                                                 Remote Rocketship title with no page
+                                                                                 left out
 python -I searches.py sites [--add]                                              the sites of the tracker's jobs that
                                                                                  have no saved search, most jobs first;
                                                                                  --add: a script row for each employer
@@ -55,6 +62,11 @@ python -I searches.py discover --file <links file>                              
 python -I searches.py done <id> found=<n>                                        record that a search was read
 python -I searches.py seen <url> [<url> ...]                                     says "new" or "known" per link
 python -I searches.py seen --file <links file>                                   the same, one link per line in a file
+Outside the scope: a script row of office or hybrid postings (mode not remote) whose every place is in NOT_PLACES, or,
+once the person has set the scope's any_mode_places (career_view.py scope), names none of them and is named by none,
+as whole words. Example: a LinkedIn row "Berlin" with any_mode_places Springfield. Seen 20 Nov: city rows the person
+had dropped gave 89 of 103 postings out of scope. Words only: a city inside an accepted country is named outside
+when neither names the other ("Milan" with any_mode_places Italy); the person keeps it with scope-ok.
 Add --env <job-search.env> anywhere to pick the env file; --today <YYYY-MM-DD> reads "due" as of that day.
 add also takes note="<text>". Example: searches.py add "Acme careers" "engineering" alert=no note="no alert offered, 2026-11-13"
 Example: searches.py add LinkedIn "Backend engineer, remote" alert=yes gmail="from:jobalerts-noreply@linkedin.com newer_than:2d"
@@ -68,7 +80,7 @@ import urllib.parse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jsenv  # noqa: E402
-from trackerlib import flat_jobs  # noqa: E402
+from trackerlib import flat_jobs, scope_of, terms, title_has  # noqa: E402
 
 args = sys.argv[1:]
 env_arg = None
@@ -87,7 +99,7 @@ if "--today" in args:
         sys.exit("--today takes a date, YYYY-MM-DD")
 ASK_AFTER = 20  # screened postings with no real fit before the person is asked about the search
 if not args or args[0] not in ("add", "list", "due", "done", "seen", "sites", "fail", "import", "rates", "every",
-                               "discover"):
+                               "discover", "scope-ok", "query"):
     sys.exit(__doc__)
 env = jsenv.load(env_arg, __file__)
 PATH = env.path("SEARCHES") if env.get("SEARCHES") else env.path("TRACKER") + "/../searches.json"
@@ -166,6 +178,27 @@ def is_due(row):
     if today.weekday() >= 5:  # a site search waits for Monday; an alert's emails are read at any run
         return False
     return (today - datetime.date.fromisoformat(last[:10])).days >= int(row.get("every_days") or 1)
+
+
+def outside_scope(row, not_places, scope_places):
+    """A script row of office or hybrid postings whose every place is outside the scope (the docstring says when). A
+    row the person kept (scope_ok) never is."""
+    if row.get("method") != "script" or row.get("mode") == "remote" or row.get("scope_ok"):
+        return False
+    own = terms(row.get("place"))
+
+    def out(place):
+        if title_has(place, not_places):
+            return True
+        return scope_places is not None and not (title_has(place, scope_places)
+                                                 or any(title_has(s, [place]) for s in scope_places))
+    return bool(own) and all(out(p) for p in own)
+
+
+def scope_check():
+    """outside_scope with the person's NOT_PLACES and the scope's any_mode_places (None when not set)."""
+    not_places, scope_places = terms(env.get("NOT_PLACES")), scope_of(env)[1]
+    return lambda row: outside_scope(row, not_places, scope_places)
 
 
 def host_of(url):
@@ -291,11 +324,17 @@ elif cmd == "due" and "--json" in args:
     since = args[args.index("--since") + 1] if "--since" in args else ""
     again = lambda r: (since and r.get("method") == "script" and not r.get("gone") and not r.get("off")  # noqa: E731
                        and (r.get("last_checked") or "") >= since)
-    print(json.dumps([r for r in rows if is_due(r) or again(r)], ensure_ascii=False))
+    outside = scope_check()
+    print(json.dumps([r for r in rows if (is_due(r) or again(r)) and not outside(r)], ensure_ascii=False))
 elif cmd == "due":
     if not rows:
         print("no saved search: add one per site and query (searches.py add; searches.py sites lists the tracker's sites)")
+    outside = scope_check()
     for r in filter(is_due, rows):
+        if outside(r):
+            print(f"outside the scope: {r['id']} {r['site']} ({r.get('place', '')}): ask the person to turn it off "
+                  f"(searches.py every {r['id']} off) or keep it (searches.py scope-ok {r['id']})")
+            continue
         how = f"gmail: {r['gmail']}" if r["alert"] else f"script: {r['source']}" if r.get("method") == "script" else "no alert"
         print(r["id"], r["site"], "|", r["query"], "|", how, "| last", r["last_checked"] or "never")
 elif cmd == "every":
@@ -314,6 +353,22 @@ elif cmd == "every":
             r.pop("off", None)
     save(data)
     print(f"{len(hit)} searches off" if args[2] == "off" else f"{len(hit)} searches read every {args[2]} days")
+elif cmd == "scope-ok":
+    # scope-ok <id>: the person keeps a row outside the scope; it is due again and never named outside it.
+    hit = [r for r in rows if len(args) == 2 and str(r["id"]) == args[1]]
+    if not hit:
+        sys.exit("scope-ok takes a search id; see searches.py list")
+    hit[0]["scope_ok"] = today.isoformat()
+    save(data)
+    print(f"{hit[0]['id']} {hit[0]['site']}: kept outside the scope")
+elif cmd == "query":
+    # query <id> "<terms>": the row's terms, replaced (comma-separated; a script row needs at least one, or ROLE_TERMS).
+    hit = [r for r in rows if len(args) == 3 and str(r["id"]) == args[1]]
+    if not hit:
+        sys.exit('query takes a search id and its new terms: query <id> "<terms>"; see searches.py list')
+    hit[0]["query"] = ", ".join(t.strip() for t in args[2].split(",") if t.strip())
+    save(data)
+    print(f"{hit[0]['id']} {hit[0]['site']}: {hit[0]['query'] or '(ROLE_TERMS)'}")
 elif cmd == "discover":
     # Board discovery: links from web searches, one per line in a file (never typed into a command). A board the
     # script reads that has no row (gone or off rows included) is printed once; any other link is left out.

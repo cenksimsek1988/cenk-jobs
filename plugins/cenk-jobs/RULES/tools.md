@@ -13,7 +13,8 @@ of its file) has every command and option. Run one as RULES.md, "Where things ar
 - `sessions.py`: the open sessions and the order to answer them: sync, set, order, show, lock, unlock.
 - `employer.py`: employer checks: check (`--full`), own, record, environment, decide, alias (`--not`), rules,
   recheck-running, shared-update (`--apply`), split, repair-clear, import-tracker, merge.
-- `searches.py`: saved searches: add, list, due, done, fail, sites (`--add`), seen, rates, import, every, discover.
+- `searches.py`: saved searches: add, list, due, done, fail, sites (`--add`), seen, rates, import, every, discover,
+  scope-ok, query.
 - `usage.py`: the usage log and the weekly usage report: log, due, run-due, report, mark-drafted, stats.
 - `feedback.py`: employer replies as fit clues: add, silent, clues, analyse.
 - `profilelib.py`: the person's profile through cenk-base: home, path, get, set (compare-and-set), erase, create,
@@ -36,7 +37,8 @@ of its file) has every command and option. Run one as RULES.md, "Where things ar
 
 ## Documents and pages
 
-- `career_view.py`: one part of the master record (screen, facts, fit), the CV list (cvs), the pay table (pay).
+- `career_view.py`: one part of the master record (screen, facts, fit), the CV list (cvs), the pay table (pay), the
+  search scope (scope, `--set`).
 - `build_cv.py`: every CV PDF from its JSON (`--no-photo`).
 - `make_letter_pdf.py`: one cover letter PDF, on the day it is sent; `--job-file` and `--job` take the company and
   role from a prepared file.
