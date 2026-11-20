@@ -68,7 +68,11 @@ sync reads workflow journals (rows {type: started, agentId, label} and {type: re
 label is "<kind prefix><company name>" (cut at 20 characters before 0.44.0). By default the kinds are the ones workflows/
 screen-and-prepare.js writes (exclusion: excl-judge:, excl-verify:, excl-screen:, then excl-quick:, the cheap check; own: excl-own:; prep: prep-jobs:,
 whose result may be the path of the JSON file the agent wrote, then prep-fit:, the fit check alone, used when no
-file was written because no job fitted). Older runs, search-result files to merge and per-company decisions
+file was written because no job fitted). The two are merged by job id: the fit check's fields, with the file's
+over them (from 0.44.1 the file holds only the jobs to apply to). A prepared job whose review is still "due" is
+held like an unread posting: no prep, "found", marked unreviewed, so the next run prepares it again. An employer
+with a screen result (excl-screen:) gets "screened": <today>, which workflow_args.py --screen reads.
+Older runs, search-result files to merge and per-company decisions
 come from the "sync" part of the TRACKER_SETTINGS file (see templates/tracker-settings-example.json).
 """
 import ast
@@ -220,13 +224,18 @@ def parse(value):
 
 
 def as_result(value):
-    """A prep agent may reply with the path of the JSON file it wrote instead of the JSON itself."""
+    """A prep agent replies with the path of the JSON file it wrote instead of the JSON itself: a whole line, quoted
+    or not, or an absolute path after a word. Example: "Wrote C:/run/acme-1.json"."""
     value = parse(value)
     if isinstance(value, str):
-        path = value.strip().strip('"').splitlines()[0].strip() if value.strip() else ""
-        if path.lower().endswith(".json") and os.path.isfile(path):
-            with open(path, encoding="utf-8") as f:
-                return json.load(f)
+        for line in value.splitlines():
+            line = line.strip().strip("\"'`").strip()
+            # Every place a path may start, so "and/or C:/run/acme-1.json" still finds the file.
+            found = [m.group(1) for m in re.finditer(r"(?=((?:[A-Za-z]:[\\/]|/).*?\.json))", line)]
+            for path in (line, *found):
+                if path.lower().endswith(".json") and os.path.isfile(path):
+                    with open(path, encoding="utf-8") as f:
+                        return json.load(f)
     return value
 
 
@@ -238,6 +247,20 @@ def results(journals):
         labels = {r["agentId"]: r.get("label", "") for r in rows if r.get("type") == "started"}
         done += [(labels.get(r["agentId"], ""), as_result(r.get("result"))) for r in rows if r.get("type") == "result"]
     return done
+
+
+def prep_of(done, names, name, preps):
+    """The prepared jobs of one employer: the fit check's result (every job, a skip too) with the prepared-jobs file's
+    fields over it, by job id. From 0.44.1 the file holds only the jobs to apply to, with the form's fields; an older
+    file holds every job, and the same merge gives the same result."""
+    file_prep = newest(done, names, name, ["prep-jobs:"])
+    fit_prep = newest(done, names, name, [p for p in preps if p != "prep-jobs:"])
+    if not (file_prep and fit_prep):
+        return file_prep or fit_prep
+    jobs = {j.get("id"): j for j in fit_prep.get("jobs", [])}
+    for j in file_prep.get("jobs", []):
+        jobs[j.get("id")] = {**jobs.get(j.get("id"), {}), **j}
+    return {**fit_prep, **{k: v for k, v in file_prep.items() if k != "jobs"}, "jobs": list(jobs.values())}
 
 
 def newest(done, names, name, prefixes):
@@ -311,6 +334,8 @@ def sync(journals):
         if company.get("verdict") == "exclude" and not newest(done, names, name, screens[:1]):
             continue
         x = newest(done, names, name, exclusions)
+        if newest(done, names, name, ["excl-screen:"]):
+            company["screened"] = today
         # {category: {own_level, why}}: the level under the person's own rules, beside the finding as found.
         own = {k["category"]: k for k in (newest(done, names, name, owns) or {}).get("checks", [])
                if k.get("category") and k.get("own_level") in el.OWN_LEVELS}
@@ -335,12 +360,15 @@ def sync(journals):
             if by_rules != "allow":
                 company["rule_reasons"] = reasons
             if by_rules != "exclude":
-                attach_prep(company, newest(done, names, name, preps))
+                attach_prep(company, prep_of(done, names, name, preps))
             continue
         if x and x.get("checks"):
-            # One result per category: the deciding check's, filled from the first check's for categories it left out.
-            first = newest(done, names, name, ["excl-screen:"]) or {}
-            found = {k["category"]: k for k in first.get("checks", []) if k.get("category")}
+            # One result per category: the deciding check's, and for a category it left out the second check's, then
+            # the first's (a judge returns only the categories in dispute).
+            found = {}
+            for kind in ("excl-screen:", "excl-verify:"):
+                earlier = newest(done, names, name, [kind]) or {}
+                found.update({k["category"]: k for k in earlier.get("checks", []) if k.get("category")})
             found.update({k["category"]: k for k in x["checks"] if k.get("category")})
             checks = {c: {f: k.get(f, "") for f in ("status", "level", "fact", "source_url")}
                       for c, k in found.items() if c in el.CATEGORIES}
@@ -361,7 +389,7 @@ def sync(journals):
                 company["rule_reasons"] = reasons
                 company[ties_key(x)] = x.get(ties_key(x), [])
                 if by_rules == "discuss":
-                    attach_prep(company, newest(done, names, name, preps))
+                    attach_prep(company, prep_of(done, names, name, preps))
                 continue
         if x and x.get("verdict") == "exclude":
             company["verdict"] = "exclude"
@@ -371,7 +399,7 @@ def sync(journals):
         if not s and not x:
             # Not screened in this run (the funnel screens only where it is needed): the verdict stays as recorded.
             if company.get("verdict") != "exclude":
-                attach_prep(company, newest(done, names, name, preps))
+                attach_prep(company, prep_of(done, names, name, preps))
             continue
         if not s:
             s = {"verdict": "allow", "hits": []}
@@ -390,7 +418,7 @@ def sync(journals):
             verdict = "clear" if verdict == "clear" else "allow"
         company["verdict"] = verdict
         if verdict in ("clear", "allow"):
-            attach_prep(company, newest(done, names, name, preps))
+            attach_prep(company, prep_of(done, names, name, preps))
     save(collapse(data, PATH))  # rows with a detail file go back to summary rows and their files
     queue = [(c["name"], j) for c in data["companies"] if c.get("verdict", "") in ("clear", "allow", "discuss", "")
              for j in c["jobs"] if "prep" in j and j["status"] == "pending"]
@@ -435,7 +463,15 @@ def attach_prep(company, prep):
                 if prep_job.get("grade") == "unread" and job.get("status") == "found":
                     job["unread"] = today
                     continue
+                if prep_job.get("review") == "due" and prep_job.get("action") == "apply":
+                    # The review step failed or was cut short: an unchecked letter or answer is never sent. A job not
+                    # moved on yet stays "found" with no prep, so the next run prepares it again.
+                    print(f"{job['id']}: not reviewed: held for the next run")
+                    if job.get("status") == "found":
+                        job["unreviewed"] = today
+                    continue
                 job.pop("unread", None)
+                job.pop("unreviewed", None)
                 job["prep"] = prep_job
                 if prep_job.get("grade"):
                     job["grade"] = prep_job["grade"]  # on the row, so a split tracker still counts long-shots

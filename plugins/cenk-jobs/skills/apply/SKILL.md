@@ -1,6 +1,6 @@
 ---
 name: apply
-description: "Apply to planned jobs in the person's Chrome: fills each form from their records with the right CV and a fresh letter, submits by ASK_FIRST and records it. Use for 'apply to these jobs', 'send the applications', 'candidati per me', 'başvuru yap'. Stops at codes, CAPTCHAs, passwords, essays."
+description: "Apply to planned jobs in the person's Chrome: fills each form from their records with the right CV and the prepared letter, submits by ASK_FIRST and records it. Use for 'apply to these jobs', 'send the applications', 'candidati per me', 'başvuru yap'. Stops at codes, CAPTCHAs, passwords, essays."
 ---
 
 # Apply: fill, review, send
@@ -13,10 +13,12 @@ Every question this skill asks the person goes on the Questions page as it is as
 ## Before filling
 
 - Check the posting is still open and its link lands on the employer's own form (RULES.md, "Links"). The site's
-  own notes are in `../../references/sites/<site>.md` (greenhouse, ashby, linkedin, smartrecruiters, successfactors, workday, eightfold):
+  own notes are in `../../references/sites/<site>.md` (greenhouse, ashby, linkedin, smartrecruiters, successfactors, workday, eightfold, remoteok):
   read the one for the form in hand.
-- Write a letter by `LETTERS`: `asked` (the default) only for a form with a letter field: many have none (often
-  Workable, Rippling, HiBob, Ashby, Lever); `always` for every form, attached where it takes a file; `never` none.
+- The letter is the one the funnel prepared (`track.py brief <id>`: `letter_txt`). A job without one gets it now,
+  by `LETTERS`: `asked` (the default) only for a form with a letter field (many have none: often Workable,
+  Rippling, HiBob, Ashby, Lever); `always` for every form, attached where it takes a file; `never` none. Its PDF is
+  built on the day it is sent (`../../references/filling.md`).
   Each essay question goes to the Questions page before filling.
 - Check the employer again if the last check is old (`employer.py check`).
 - Before telling the person a job "only needs a yes", read its tracker status and its `PIPELINE` entry: a job

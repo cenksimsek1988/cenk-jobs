@@ -111,7 +111,7 @@ employers**, **Hiring steps** and **All applications**, under the total count an
 | `check_setup.py` | health check of the env file, folders, profile, master record, CV versions, tracker and the dashboard key; `--needs`: what the next run waits on |
 | `init_career_folder.py` | creates the main folder and `job-search.env` for a new person (never overwrites) |
 | `build_cv.py` | builds every CV PDF from its JSON (`--no-photo` for employers that ask for none) |
-| `make_letter_pdf.py` | builds one cover letter PDF from a body file, on the day it is sent |
+| `make_letter_pdf.py` | builds one cover letter PDF from a body file, on the day it is sent; `--job-file <prepared file> --job <id>` takes the company and role from that file |
 | `track.py` | tracker: add, set, todo (add, done, list), show (`--full`), brief, list, summary, sync (merges a screening run), split (summary rows and detail files) |
 | `build_app_folders.py` | rebuilds the application folders; never deletes what the person or Claude wrote |
 | `fetch_jd.py` | saves a posting's full text as `job-description.md`; `--posting`: an unread posting's text in `POSTINGS_DIR` for the next fit check |
@@ -129,7 +129,7 @@ employers**, **Hiring steps** and **All applications**, under the total count an
 | `cost.py` | the plan cost table (`data/plan-costs.json`): table (each step's W and share of the plan's week), calibrate (W per 1% of the week, from the status line log), context (the coordinator's context: hand off or keep) |
 | `feedback.py` | employer replies as fit clues (`FEEDBACK_LOG`): add (one line per reply), silent (no reply after 14 days), clues (`FIT_CLUES`, read by the fit check), analyse (outcomes by score band, proposed `FIT_SETTINGS` grades) |
 | `reposts.py` | the postings that repeat a role already applied to or declined, or skipped for fit in 30 days (employer and title); collect leaves them out |
-| `workflow_args.py` | the funnel's args from the scripts, about 8 KB, with the rules in a file the agents read |
+| `workflow_args.py` | the funnel's args from the scripts, about 8 KB, with the rules in a file the agents read; `--screen "<name>" --out <dir>`: the full employer check before a first hiring step |
 | `variants.py` | the run's variant (model and effort per step), its models for the workflow, and each run's good-fit count |
 | `token_report.py` | tokens per run and per agent kind from this computer's transcripts; numbers only, sends nothing |
 | `searches.py` | saved searches: add, list, due (on a weekday for a site without an alert), done, fail (a board's error; two 404s: gone), sites (the tracker's sites with no saved search; `--add`: a script search for each), seen (is a posting new), rates (real fits per search), import (rows from a profile), every (how often a row or a source is read; boards weekly by default) |

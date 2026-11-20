@@ -2,6 +2,8 @@
 
 Usage: python -I make_letter_pdf.py [--env <job-search.env>] --company "Acme" --role "Engineering Manager"
            --body body.txt [--variant "<CV variant>" | --title "<headline>"] [--out-dir <folder>]
+       --job-file <prepared-jobs json> --job <id> in place of --company and --role: both from that file (the
+           workflow's agents use this, so no posting text is typed into a command)
 The body file holds the letter's paragraphs (UTF-8, blank line between paragraphs), from "Dear ..." to the sign-off
 line, without the signature block. Prints the absolute path of the PDF it wrote.
 The name, contact line and output folder come from job-search.env (NAME_ON_CV, CONTACT_LINE, PERSON_NAME,
@@ -76,8 +78,12 @@ def variant_title(variant):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--company', required=True)
-    ap.add_argument('--role', required=True)
+    ap.add_argument('--company')
+    ap.add_argument('--role')
+    # The company and the role from the prepared-jobs file, never typed into a command: a posting's text in a shell
+    # line could run as a command ("$(...)") or lose its accents (Git Bash on Windows).
+    ap.add_argument('--job-file')
+    ap.add_argument('--job')
     ap.add_argument('--body', required=True)
     ap.add_argument('--env', default=None)  # read above, before the page is built
     # The headline under the name; match it to the CV variant sent with the letter.
@@ -86,6 +92,19 @@ def main():
     # One folder per job keeps the upload's file name clean when a company has several openings.
     ap.add_argument('--out-dir', default=OUT_DIR)
     a = ap.parse_args()
+    if a.job_file or a.job:
+        if not (a.job_file and a.job) or a.company or a.role:
+            raise SystemExit('--job-file <prepared json> --job <id> together, without --company and --role')
+        with open(from_home(a.job_file), encoding='utf-8') as f:
+            prepared = json.load(f)
+        if not isinstance(prepared, dict):
+            raise SystemExit(f'{a.job_file}: not a prepared-jobs file')
+        job = next((j for j in prepared.get('jobs', []) if str(j.get('id')) == a.job), None)
+        if job is None or not prepared.get('company') or not job.get('title'):
+            raise SystemExit(f'{a.job_file}: no job {a.job!r} with a title, or no company name')
+        a.company, a.role = prepared['company'], job['title']
+    elif not (a.company and a.role):
+        raise SystemExit('--company and --role, or --job-file and --job')
     title = a.title if a.title is not None else (variant_title(a.variant) if a.variant else ENV.get('LETTER_TITLE', ''))
     with open(from_home(a.body), encoding='utf-8') as f:
         text = f.read().strip()

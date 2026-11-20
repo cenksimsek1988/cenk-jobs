@@ -1,6 +1,11 @@
 """The args of workflows/screen-and-prepare.js, built by script: small enough to pass in the Workflow call.
 
     workflow_args.py --search <outDir>/search.json [--lookup <file>] [--tag <tag>] [--person "<name>"]
+        [--screen "<employer>" ...]
+    workflow_args.py --screen "<employer>" [--screen "<employer>" ...] --out <dir>
+        the full employer check before a first hiring step (RULES/employers.md): each named employer gets screen; one
+        with no new posting in the run is screen_only (no fit check). An employer track.py sync has marked screened
+        prints "screened on <date>: <name>" and is left out; an excluded one is listed as left out.
         writes <outDir>/args.json and prints its size and one line per employer left out. Beside it: rules.json (the
         person's employer rules, read by the agents), and the record parts screen.json, facts.json, fit.json
         (career_view.py), and jobs/<employer>.json, one per employer with a unique name, which its entry names
@@ -72,24 +77,34 @@ def draft_answers(env):
 
 def main():
     args = sys.argv[1:]
-    opts = {}
-    for flag in ("--env", "--search", "--lookup", "--tag", "--person"):
+    opts, screens = {}, []
+    while "--screen" in args:
+        i = args.index("--screen")
+        if i + 1 >= len(args):
+            sys.exit("--screen takes an employer's name")
+        screens.append(args[i + 1])
+        del args[i:i + 2]
+    for flag in ("--env", "--search", "--lookup", "--tag", "--person", "--out"):
         if flag in args:
             i = args.index(flag)
             if i + 1 >= len(args):
                 sys.exit(f"{flag} takes a value")
             opts[flag] = args[i + 1]
             del args[i:i + 2]
-    if args or not opts.get("--search"):
+    if args or not (opts.get("--search") or (screens and opts.get("--out"))):
         sys.exit(__doc__)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
     env = jsenv.load(opts.get("--env"), __file__)
-    search = os.path.abspath(opts["--search"])
-    out_dir = os.path.dirname(search)
     slash = lambda p: p.replace(os.sep, "/")  # noqa: E731
-    with open(search, encoding="utf-8") as fh:
-        found = json.load(fh).get("companies", [])
+    if opts.get("--search"):
+        search = os.path.abspath(opts["--search"])
+        out_dir = os.path.dirname(search)
+        with open(search, encoding="utf-8") as fh:
+            found = json.load(fh).get("companies", [])
+    else:
+        search, out_dir, found = "", os.path.abspath(opts["--out"]), []
+        os.makedirs(out_dir, exist_ok=True)
     lookup = {}
     if opts.get("--lookup"):
         with open(opts["--lookup"], encoding="utf-8") as fh:
@@ -136,6 +151,28 @@ def main():
         titles = sorted({t for k in el.keys(name) for t in applied.get(k, [])})
         if titles:
             entry["applied_jobs"] = titles[:10]
+        passed.append(entry)
+
+    # The full check before a first hiring step (--screen): once per employer, by the date track.py sync keeps.
+    screened = {c.get("name"): c.get("screened") for c in tracker.get("companies", [])}
+    for name in screens:
+        if screened.get(name):
+            print(f"screened on {screened[name]}: {name}")
+            continue
+        view = el.check_view(env, name, rule_set, employers=employers)
+        if view["verdict"] == "exclude":
+            left.append(f"{name} | exclude | " + "; ".join(view["reasons"])[:200])
+            continue
+        entry = next((e for e in passed if e["name"] == name), None)
+        if entry:
+            entry["screen"] = True  # its new postings are fit-checked first, then the employer is screened
+            continue
+        # No new posting: only the screen runs (screen_only), with what the records already hold as its starting point.
+        entry = {"name": name, "screen": True, "screen_only": True}
+        if view["verdict"] and not view["never_checked"]:
+            entry["verdict"] = view["verdict"]
+        if view["checks"]:
+            known[name] = {"checks": view["checks"]}
         passed.append(entry)
 
     tag = opts.get("--tag") or datetime.datetime.now().strftime("r%m%d%H%M")

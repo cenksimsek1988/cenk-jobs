@@ -2915,6 +2915,54 @@ check "sync 0.44: a result labelled with another employer's shorter name is neve
     "$PY" -I "$T/q.py" "$H/apply/targets.json" companies.0.verdict eq allow
 check "sync 0.44: a 20-character name that is another employer's whole name is that employer's only" \
     dq "$H/apply/targets.json" '{c["name"]: c["verdict"] for c in R["companies"]}["Acme Defence Systems"] == "exclude" and {c["name"]: c["verdict"] for c in R["companies"]}["Acme Defence Systems GmbH"] == "allow"'
+# 0.44.1: the prepared file holds only the jobs to apply to and is merged with the fit result by job id; a reply that
+# names the file in a sentence; a job whose review is still due is held; a screened employer is marked, and --screen
+# runs once; make_letter_pdf takes the company and role from the prepared file.
+mkdir -p "$T/prep441"
+cat >"$T/prep441/epsilon-1.json" <<'EOF'
+{"company": "Epsilon Co", "jobs": [{"id": "E1", "title": "Tester", "apply_url": "https://example.com/e1/apply", "action": "apply", "platform": "Greenhouse", "variant": "", "salary": 0, "setup": "remote", "cv_pdf": "", "letter_pdf": "", "letter_txt": "", "answers": [{"question": "Notice period", "answer": "1 month"}], "needs": [], "notes": "", "review": "done"}]}
+EOF
+cat >"$T/prep441/gamma-2.json" <<'EOF'
+{"company": "Gamma Inc", "jobs": [{"id": "J3", "title": "Designer", "apply_url": "https://example.com/j3/apply", "action": "apply", "platform": "Ashby", "variant": "", "salary": 0, "setup": "remote", "cv_pdf": "", "letter_pdf": "", "letter_txt": "", "answers": [], "needs": [], "notes": "", "review": "due"}]}
+EOF
+"$PY" -I - "$T/journal441.jsonl" "$T/prep441" <<'PYEOF'
+import json
+import sys
+journal, folder = sys.argv[1], sys.argv[2].replace("\\", "/")
+fit = lambda i, t: {"jobs": [{"id": i, "title": t, "action": "apply", "read": "full", "gaps": [], "reason": "fits",  # noqa: E731
+                              "requirements": [{"text": "Testing", "place": "title", "level": "hands_on"}]}]}
+rows = [("s1", "excl-screen:Epsilon Co", {"verdict": "allow", "hits": [], "ties": [], "checks": []}),
+        ("f1", "prep-fit:Epsilon Co", fit("E1", "Tester")),
+        ("p1", "prep-jobs:Epsilon Co", f"Wrote and/or saved {folder}/epsilon-1.json"),
+        ("f2", "prep-fit:Gamma Inc", fit("J3", "Designer")),
+        ("p2", "prep-jobs:Gamma Inc", f"`{folder}/gamma-2.json`")]
+with open(journal, "w", encoding="utf-8") as f:
+    for agent, label, result in rows:
+        f.write(json.dumps({"type": "started", "agentId": agent, "label": label}) + "\n")
+        f.write(json.dumps({"type": "result", "agentId": agent, "result": result}) + "\n")
+PYEOF
+track sync "$T/journal441.jsonl" >"$T/s441.out" 2>&1
+check "sync 0.44.1: a prepared file named in a sentence is read, merged with the fit result by job id" \
+    dq "$H/apply/targets.json" '[(j["prep"]["answers"][0]["answer"], j["prep"]["requirements"][0]["text"], j["status"]) for c in R["companies"] if c["name"] == "Epsilon Co" for j in c["jobs"]] == [("1 month", "Testing", "pending")]'
+check "sync 0.44.1: a job whose review is still due is held: no prep, still found, marked unreviewed" \
+    dq "$H/apply/targets.json" '[(j["status"], "prep" in j, bool(j.get("unreviewed"))) for c in R["companies"] if c["name"] == "Gamma Inc" for j in c["jobs"]] == [("found", False, True)]'
+check "sync 0.44.1: an employer with a screen result is marked screened today" \
+    dq "$H/apply/targets.json" '[c.get("screened") for c in R["companies"] if c["name"] == "Epsilon Co"] == [__import__("datetime").date.today().isoformat()]'
+CLAUDE_CONFIG_DIR="$T/no-config" "$PY" -I "$S/workflow_args.py" --screen "Epsilon Co" --screen "Gamma Inc" --out "$T/scr441" --env "$ENVF" >"$T/scr441.out" 2>&1
+check "workflow_args 0.44.1: --screen runs once per employer: a screened one is named, another is screen-only" sh -c '
+    grep -q "^screened on .*: Epsilon Co$" "$1" &&
+    "$2" -I "$3/dq.py" "$4/args.json" "[(c[\"name\"], c.get(\"screen\"), c.get(\"screen_only\")) for c in R[\"companies\"]] == [(\"Gamma Inc\", True, True)]"' \
+    _ "$T/scr441.out" "$PY" "$T" "$T/scr441"
+"$PY" -I "$S/make_letter_pdf.py" --job-file "$T/prep441/epsilon-1.json" --job NOPE --body "$T/none.txt" --env "$ENVF" >"$T/ml441a.out" 2>&1
+"$PY" -I "$S/make_letter_pdf.py" --job-file "$T/prep441/epsilon-1.json" --job E1 --company Acme --body "$T/none.txt" --env "$ENVF" >"$T/ml441b.out" 2>&1
+printf '[]' >"$T/prep441/list.json"
+"$PY" -I "$S/make_letter_pdf.py" --job-file "$T/prep441/list.json" --job E1 --body "$T/none.txt" --env "$ENVF" >"$T/ml441c.out" 2>&1
+check "make_letter_pdf 0.44.1: --job-file finds the job by id, refuses another shape, never goes with --company" sh -c '
+    grep -q "no job .NOPE." "$1" && grep -q "together, without --company and --role" "$2" &&
+    grep -q "not a prepared-jobs file" "$3"' _ "$T/ml441a.out" "$T/ml441b.out" "$T/ml441c.out"
+check "workflow 0.44.1: whole names in labels, one file per company, the employer check before a first hiring step" sh -c '
+    grep -q "const label = (kind, name) => kind + .:. + name$" "$1" && grep -q "findIndex(c => c.name === name) + 1" "$1" &&
+    grep -q "if (c.screen_only) return" "$1" && ! grep -q "A.decided" "$1"' _ "$S/../workflows/screen-and-prepare.js"
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

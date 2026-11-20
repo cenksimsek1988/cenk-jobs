@@ -28,6 +28,9 @@ site's notes in `sites/<site>.md`. The safety rules here are `RULES.md`'s, in sh
   opens no second tab. A step below marked "(session)" is the main session's; an applier returns it as needs-person
   with the field.
 - Fill a site right after the person signs in: sign-ins expire within minutes when idle.
+- (session) Before filling, read the employer's own posting page (`fetch_jd.py`): its location and remote terms win
+  over a job board's "remote" label, and a place outside the person's places stops the job (skipped, "on-site per the
+  employer's page"). Example: a board says "Remote", the employer's page says "Hybrid, Berlin".
 - (session) Upload the CV the plan chose and the letter built today (`make_letter_pdf.py --company .. --role .. --body
   <body file> --variant "<CV variant>" --out-dir <letter folder>`). Claude in Chrome `file_upload` reads only files
   this session may read: copy both into the session's scratchpad and upload from there. Start the next upload only

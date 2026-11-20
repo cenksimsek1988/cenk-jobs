@@ -25,12 +25,13 @@
 //   rulesFile     the person's full employer rules (workflow_args.py writes it): the agents read each category's
 //                 what, state, lists and levels there; employerRules then holds only what the script decides with
 //                 (label, action, indirect, custom, notes). workflow_args.py builds every arg of this list.
-//   companies     [{name, screen?, known?, verdict?, ties?, applied_jobs?, recheck?, own?}] - screen: true runs the
-//                 employer check after the fit check (the coordinator sets it for an employer with a recorded finding
-//                 to judge, or one whose application reached a hiring step); without it the employer is not screened
-//                 here. known + verdict "allow" skips the screen; recheck: one extra question for this employer;
-//                 own: the categories whose second check is due (`employer.py check` recheck): known + own runs that
-//                 check only. An excluded employer is never passed in.
+//   companies     [{name, screen?, screen_only?, known?, verdict?, ties?, applied_jobs?, recheck?, own?}] - screen: true
+//                 runs the employer check after the fit check (workflow_args.py sets it for a due second check, and
+//                 --screen for an employer whose application reached a hiring step); without it the employer is not
+//                 screened here. screen_only: no new posting, only the screen runs. known + verdict "allow" skips the
+//                 screen; recheck: one extra question for this employer; own: the categories whose second check is due
+//                 (`employer.py check` recheck): known + own runs that check only. An excluded employer is never
+//                 passed in.
 //   order         "employer-first" or "fit-first" (`variants.py order`, from the person's own numbers): which of the
 //                 fit check and the cheap employer check runs first for a company with quick: true
 //   companies[].lookup  the free lookup's line for that employer (employer_lookup.py), what the cheap check starts from
@@ -44,7 +45,8 @@
 //   draftAnswers  true when the person's setting draft_answers is yes: the writer drafts open free-text answers for
 //                 their approval; otherwise each goes into needs.
 //   apply, applyFits, letters, writerModel, employerCheck, askFirst  the person's cost choices (`choices.py
-//                 workflow`): apply "list" stops after the fit check; applyFits "high" keeps only fits with no gap;
+//                 workflow`): apply "list" stops after the fit check (no employer check, no form); applyFits "high"
+//                 keeps only fits with no gap;
 //                 letters "asked" (where the form has or may have a field), "always" or "never"; writerModel "sonnet"
 //                 moves the writer and its review to Sonnet; employerCheck "free" runs no cheap check; askFirst with
 //                 "free_text" keeps each free-text draft for the person's approval
@@ -53,7 +55,6 @@
 //   tag           a short run tag for letter file and folder names, e.g. "v8"
 //   cvs           [{variant, file, use}] - the CV versions: variant name, CV PDF path, which roles it is for; from
 //                 `career_view.py cvs`, so every file exists
-//   decided       {excluded: [...names], cleared: [...names]} - employers already decided (not re-checked)
 //   person        the person's name, for the prompts
 //   employerRules the person's rules as they apply (`employer.py rules`): categories with action, indirect, what,
 //                 levels, lists, notes (their own rules); trigger; the general levels
@@ -90,9 +91,10 @@ const SCREEN_RECORD = A.screenRecord || MR
 const FACTS_RECORD = A.factsRecord || MR
 const FIT_RECORD = A.fitRecord || FACTS_RECORD
 const ER = A.employerRules || { categories: {} }
-// The shared categories, then the person's own filters ("custom": true in their rules).
-const CATS = ['israel', 'defence', 'animal_cruelty', 'climate', 'sexism', 'human_rights', 'working_conditions', 'sanctions',
-  ...Object.keys(ER.categories || {}).filter(c => (ER.categories[c] || {}).custom)]
+// Every category of the person's rules (workflow_args.py passes them all: the shared ones and their own filters), so a
+// category added to templates/employer-rules.json reaches every prompt and schema; the shared eight without rules.
+const CATS = Object.keys(ER.categories || {}).length ? Object.keys(ER.categories)
+  : ['israel', 'defence', 'animal_cruelty', 'climate', 'sexism', 'human_rights', 'working_conditions', 'sanctions']
 
 const LV = ER.levels || {}
 const levelText = s => {
@@ -108,9 +110,8 @@ const CATEGORY_TEXT = `${A.rulesFile ? `CATEGORIES (check EVERY one for this emp
 For each category return one check: status "flagged" (a finding that meets the trigger, with fact and source_url), "clear" (you checked and found nothing, or only what its LEVELS call no tie: say so in fact), or "unknown" (not checked). level: by that category's LEVELS only, never by ${WHO}'s own rules (a second check applies those); "undecided" only when a detailed search leaves it open between direct and indirect (say what is missing in fact): ${WHO} is asked, and nothing waits on it. A new fact that removes a finding's basis re-judges its level.
 A STATE category (one with [state]) runs in two steps, as its "what" says: its lists, then the questions from the company's own pages. For a small or new brand, first find its parent or majority owner (company registry, the site's legal notice or imprint) and run both steps on it too. When neither step finds anything, return status "unknown" with fact "nothing found: <the lists and questions checked>", never "clear": a small company's absence from the lists proves little.`
 
-const RULES = `THE RULES ARE ${WHO.toUpperCase()}'S OWN: read ${SCREEN_RECORD} (JSON) with the Read tool first: preferences.employer_rules (every rule with its date; where two rules differ, the newer one wins), any employer decisions (decisions) and the names already decided below.
+const RULES = `THE RULES ARE ${WHO.toUpperCase()}'S OWN: read ${SCREEN_RECORD} (JSON) with the Read tool first: preferences.employer_rules (every rule with its date; where two rules differ, the newer one wins) and any employer decisions (decisions).
 Decide by those rules only. verdict "exclude" needs a rule that excludes this employer AND a source you cite that states the fact about the employer itself, its corporate group or its majority owner (not a namesake). Every tie that the rules do not count as an exclusion, or that the rules say ${WHO} decides, goes into ties as one line with its source. If a rule names a list, register or database (sanctions, boycott or settlement lists, for example), check that list directly.
-Already decided (do not re-check): excluded ${((A.decided || {}).excluded || []).join(', ') || 'none'}; cleared earlier: ${((A.decided || {}).cleared || []).join(', ') || 'none'}.
 ${CATEGORY_TEXT}
 verdict: "exclude" only by a master-record rule as above; otherwise "allow" (the script applies the category settings to your checks).`
 
@@ -175,26 +176,29 @@ async function withOwn(c, final, only) {
   const missing = due.filter(k => !own[k.category]).map(k => k.category)
   return missing.length && out.verdict === 'allow' ? { ...out, verdict: 'discuss', reasons: [...out.reasons, 'second check missing: ' + missing.join(', ')] } : out
 }
+// The prepared-jobs file: only the jobs to apply to, with the form's fields. The fit check's own fields (open, reason,
+// grade, score, read, requirements, gaps) and every skipped job stay in its result, and track.py sync merges both by
+// job id, so no agent copies them. review: "due" until the reviewer has checked the job ("done"); sync holds a job
+// still "due" for the next run.
 const PREP_SCHEMA = {
   type: 'object',
   properties: {
     company: { type: 'string' },
     jobs: { type: 'array', items: { type: 'object', properties: {
       id: { type: 'string' }, title: { type: 'string' }, apply_url: { type: 'string' },
-      open: { type: 'string', enum: ['yes', 'no', 'check in browser'] },
-      action: { type: 'string', enum: ['apply', 'skip'] },
-      reason: { type: 'string' }, platform: { type: 'string' }, grade: { type: 'string' },
-      score: { type: 'integer' }, read: { type: 'string' }, requirements: { type: 'array', items: { type: 'object' } },
-      variant: { type: 'string' }, setup: { type: 'string' },
+      action: { type: 'string', enum: ['apply', 'skip'] }, reason: { type: 'string' },
+      platform: { type: 'string' }, variant: { type: 'string' }, salary: { type: 'integer' }, setup: { type: 'string' },
       cv_pdf: { type: 'string' }, letter_pdf: { type: 'string' }, letter_txt: { type: 'string' },
-      salary: { type: 'integer' },
       answers: { type: 'array', items: { type: 'object', properties: { question: { type: 'string' }, answer: { type: 'string' } }, required: ['question', 'answer'] } },
       needs: { type: 'array', items: { type: 'string' } },
-      notes: { type: 'string' },
-    }, required: ['id', 'title', 'apply_url', 'open', 'action', 'reason', 'platform', 'variant', 'setup', 'cv_pdf', 'letter_pdf', 'letter_txt', 'salary', 'answers', 'needs', 'notes'] } },
+      notes: { type: 'string' }, review: { type: 'string', enum: ['due', 'done'] },
+    }, required: ['id', 'title', 'apply_url', 'action', 'platform', 'variant', 'salary', 'setup', 'cv_pdf', 'letter_pdf', 'letter_txt', 'answers', 'needs', 'notes', 'review'] } },
   },
   required: ['company', 'jobs'],
 }
+// The way every agent here writes and changes a JSON file: Python in the shell turns accented letters into others
+// (Git Bash on Windows), the Write and Edit tools never do.
+const JSON_FILE = file => `Write the file with the Write tool and change it with the Edit tool (UTF-8), never with Python in the shell. Then prove it parses: ${PY} -c "import json,sys; json.load(open(sys.argv[1], encoding='utf-8'))" "${file}"`
 const QUESTION = { type: 'object', properties: { question: { type: 'string' }, kind: { type: 'string', enum: ['fact', 'select', 'free_text', 'pledge'] }, options: { type: 'array', items: { type: 'string' } } }, required: ['question', 'kind'] }
 const FIT_SCHEMA = {
   type: 'object',
@@ -222,13 +226,10 @@ const FIT_SCHEMA = {
 const WRITE_SCHEMA = { type: 'object', properties: { file: { type: 'string' }, letters: { type: 'integer' }, free_text: { type: 'integer' }, notes: { type: 'string' } }, required: ['file', 'letters', 'free_text', 'notes'] }
 const REVIEW_SCHEMA = { type: 'object', properties: { file: { type: 'string' }, jobs_checked: { type: 'integer' }, fixes: { type: 'array', items: { type: 'string' } }, open_issues: { type: 'array', items: { type: 'string' } } }, required: ['file', 'jobs_checked', 'fixes', 'open_issues'] }
 
-// Each step's model and effort: the run's variant (args.models), else these defaults.
-const DEFAULT_MODELS = {
-  fit: { model: 'sonnet', effort: 'low' }, quick: { model: 'sonnet', effort: 'low' }, screen: { model: 'sonnet', effort: 'medium' },
-  verify: { model: 'opus', effort: 'medium' }, judge: { model: 'opus', effort: 'high' },
-  form: { model: 'sonnet', effort: 'low' }, writer: { model: 'opus', effort: 'medium' },
-  review: { model: 'opus', effort: 'medium' }, review_plain: { model: 'sonnet', effort: 'low' },
-}
+// Each step's model and effort: the agent's own front matter (agents/<name>.md), unless the run's variant (args.models)
+// names one. Only these two steps differ from their agent's: the judge and the plain review use the verifier and the
+// reviewer on another model.
+const DEFAULT_MODELS = { judge: { model: 'opus', effort: 'high' }, review_plain: { model: 'sonnet', effort: 'low' } }
 // WRITER_MODEL=sonnet is the person's own choice: it moves the writer and its review to Sonnet over any variant.
 const modelOf = step => ({ ...DEFAULT_MODELS[step], ...(((A.models || {})[step]) || {}),
   ...(A.writerModel === 'sonnet' && ['writer', 'review'].includes(step) ? { model: 'sonnet' } : {}) })
@@ -287,8 +288,11 @@ const ASK_FREE_TEXT = !A.askFirst || A.askFirst.includes('free_text')
 
 const PY = `"${A.python || 'python'}" -I`
 const LETTER = `${PY} "${A.scripts}/make_letter_pdf.py" --env "${A.envFile}"`
-const slug = name => name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
-const fileOf = name => A.outDir + '/' + slug(name) + '.json'
+// One file per company in the run: accents dropped, never an empty name, and the company's place in the list added, so
+// "Äcme" and "Öcme" (or two names alike in their first 40 letters) never share a file.
+const slug = name => name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '-')
+  .replace(/^-|-$/g, '').slice(0, 40) || 'company'
+const fileOf = name => A.outDir + '/' + slug(name) + '-' + (A.companies.findIndex(c => c.name === name) + 1) + '.json'
 // The whole name: track.py sync matches a result to its employer by it ("Acme" never takes "Acme Defence"'s result).
 const label = (kind, name) => kind + ':' + name
 
@@ -323,7 +327,7 @@ JOBS: ${c.jobs_file ? `${c.jobs_file} (jobs[]): this employer's postings only` :
 ${WHO.toUpperCase()}'S PREFERENCES AND FACTS: read ${FIT_RECORD} (JSON) once, whole (no offset or limit): preferences (locations, work_modes, pay, availability), the profile, employment timeline, education, skills and languages. Pay figures stay in this check: never in a reason a letter could use.
 Already applied at this company: ${(c.applied_jobs || []).length ? c.applied_jobs.join('; ') : 'nothing'}. Every role that fits is proposed: an application already running there is no reason to skip.
 CV versions (pick by each one's use, as written; a job's domain alone never picks a variant): ${(A.cvs || []).map(v => v.variant + ' = ' + v.file + (v.use ? ' (' + v.use + ')' : '')).join('; ')}.
-A job with text_file: read that file first, it is the posting's saved text (read "full" when it holds the posting). A job with apply_note: find the role on the employer's own careers page and return that page's link as apply_url; none found: apply_url "" and open "check in browser".${A.fitClues ? `
+A job with text_file: read that file first, it is the posting's saved text (read "full" when it holds the posting). A job with apply_note: find the role on the employer's own careers page and return that page's link as apply_url; none found: apply_url "" and open "check in browser". A job whose link is on remoteok.com: Apply there needs a paid plan, so find the role on the employer's own careers page or board and return that link as apply_url; none found: action "skip", reason "applies only through RemoteOK (paid)".${A.fitClues ? `
 EARLIER REPLIES: ${A.fitClues} (read once): outcomes of earlier applications by role type and requirement. Clues for the reason line, never a reason to skip a job.` : ''}
 FOR EACH JOB: is it open (the board's public API: Greenhouse boards-api.greenhouse.io/v1/boards/<board>/jobs/<id>?questions=true, Lever api.lever.co/v0/postings/<company>/<id>, Ashby api.ashbyhq.com/posting-api/job-board/<board>, else the page); does it fit (location and work mode, eligibility, required languages, posted pay against the pay rule, the role against the profile): action "apply" or "skip" with a one-line reason; the CV variant; salary by the pay rule for THIS job's own city and work mode, never another job's (0 when the form asks none); the CV variant and its file exactly as in the list below; the platform; must_haves: the posting's must-haves (experience, skills, languages, degree, seniority), each in the posting's own words; read: "full" when you read the posting's whole text (its API, its page, or its saved text file), "summary" when only a listing's summary, "none" when nothing; requirements: every requirement of the posting, for every job, a skip too, each with text (the posting's words), place ("title": the skill or role in the job title; "must_years": a must-have that asks years; "must": another must-have; "nice": a nice-to-have, plus or bonus), years_asked and years_held (numbers, from the employment timeline; 0 when the posting asks none), level ("hands_on": held in real work; "adjacent": awareness, or a neighbouring skill; "absent"), and for an industry-domain requirement closest (${WHO}'s closest real fact, or "none"); the role's level is a requirement too: an engineering-manager role of one team, a lead or a senior role is the profile's own level (hands_on), while senior or group EM, managers of managers, staff or principal, head or director are "adjacent" (scope is never a skip); gaps: only the hard ones, kind "hard" (an excluded place, a work mode or eligibility ${WHO} lacks, a required language ${WHO} lacks, a security clearance, pay more than 10% under the pay rule), [] when none; action "skip" only for a hard gap or a closed posting (the score and grade are computed from the requirements, never by you); the reason line names the requirements that miss and, for a domain one, its closest fact or "none"${CHANNEL_NOTES ? `, and the channel note for the job's place when one matches (${CHANNEL_NOTES})` : ''}; whether the form has a letter or cover-letter field (yes or no only when you read the form's fields; unknown otherwise, never a guess); for a posting found on LinkedIn, follow its apply link to the employer's own form and read that form's questions from its board's API when it has one; and the form's questions from the API, each with its kind (fact: answered from the record; select: with its options; free_text: an essay or motivation answer; pledge: a statement to tick).
 RETURN the schema, one item per job.`
@@ -335,32 +339,35 @@ Judge the employer itself, its group and its majority owner: where it was founde
 RETURN the schema: verdict exclude only with a sourced exclude-level finding (by the rules or ${WHO}'s notes); every category checked, flagged (fact, source_url, level), clear only for what you checked, else unknown.`
 
 const formPrompt = (c, fit) => `Prepare the easy form answers of ${WHO}'s applications to "${c.name}". Filling and submitting happen later in the main session, so no browser now, and NO WebSearch: WebFetch only.
-THE FIT CHECK (keep its decisions, carry every job over, skipped ones too): ${JSON.stringify((fit || {}).jobs || [])}
+THE JOBS TO APPLY TO (from the fit check; its skipped jobs and its own fields stay in its result): ${JSON.stringify(((fit || {}).jobs || []).filter(j => j.action === 'apply').map(j => ({ id: j.id, title: j.title, apply_url: j.apply_url, platform: j.platform, variant: j.variant, salary: j.salary, letter_field: j.letter_field, questions: j.questions || [] })))}
+CV versions: ${(A.cvs || []).map(v => v.variant + ' = ' + v.file).join('; ')}.
 ${FACTS}
-FOR EACH JOB WITH action "apply" (a skipped one is carried over as the fit check left it):
-1. setup: the city and mode, with the assumptions the pay rule needs. Keep the fit check's variant, salary, platform, grade, score, read and requirements exactly (the score's evidence stays with each job, a skip too): never change a salary or a CV file, and cv_pdf is the file the CV list gives for that variant.
+FOR EACH OF THESE JOBS:
+1. setup: the city and mode, with the assumptions the pay rule needs. Keep its id, title, apply_url, platform, variant and salary exactly as given: never change a salary or a CV file, and cv_pdf is the file the CV versions give for that variant.
 2. Answers: every question of kind fact or select, and every other field the form shows (CV upload, years of experience, language levels, notice period, work authorisation and the like), answered from the record; a select only with one of its own options. Anything the record does not answer truthfully goes into needs (never invent). A pledge is never answered: it goes into needs as "pledge: <the statement>".
 3. Leave the letter and the free text to the writer: letter_pdf and letter_txt ""; each question of kind free_text goes into needs word for word as "essay: <the question>"; notes say "no letter field" when the fit check found none. If the site needs a candidate account or a platform sign-in (not LinkedIn), say so in needs.
 platform = Ashby, Greenhouse, Lever, Recruitee, SmartRecruiters, Workable, Personio, Teamtailor, HiBob, BambooHR, LinkedIn Easy Apply, LinkedIn to company site, Workday, SuccessFactors, a freelance platform's name, email, or the site's name.
-OUTPUT: do NOT put the result as JSON in your reply and do not call a StructuredOutput tool. Build the result in Python as a dict with exactly the fields of this JSON schema: ${JSON.stringify(PREP_SCHEMA)}
-Write it with json.dump(result, open(path, 'w', encoding='utf-8'), ensure_ascii=False, indent=1) to ${fileOf(c.name)} (create the folder if needed; use forward slashes in every path you store). Re-open the file with json.load to prove it parses. Then reply with one line: the file path.`
+OUTPUT: do NOT put the result as JSON in your reply and do not call a StructuredOutput tool. Write ONLY these jobs, each with action "apply", review "due", letter_pdf "" and letter_txt "", as JSON with exactly the fields of this schema: ${JSON.stringify(PREP_SCHEMA)}
+The file: ${fileOf(c.name)} (forward slashes in every path you store). ${JSON_FILE(fileOf(c.name))}. Then reply with one line: the file path.`
 
 const writePrompt = c => `Write the cover letters${A.draftAnswers ? ' and the free-text answers' : ''} of ${WHO}'s applications to "${c.name}" in ${fileOf(c.name)}. No browser, NO WebSearch: WebFetch only, to read a posting.
 ${FACTS}
 FOR EACH JOB WITH action "apply":
 1. ${LETTERS === 'never' ? `No cover letter (${WHO} chose none): letter_pdf and letter_txt stay ""; a form that requires one: "letter: required by the form" in needs. 
-` : `Cover letter, ${LETTERS === 'always' ? 'for every job, also one without a letter field (attached where the form takes a file)' : 'unless notes say "no letter field"'}: 150-230 words, first person, plain and specific, no hype, for THIS posting, true facts from the record only; in the posting's language when ${WHO} speaks it at C1 or better (languages in the record), otherwise in English. Write it as UTF-8 text to ${A.bodiesDir}/${A.tag}-<job id>.txt (paragraphs separated by a blank line, from the greeting to the sign-off line such as "Kind regards,", no signature), then run: ${LETTER} --company "<Company>" --role "<Role title>" --body "<that txt path>" --variant "<the CV variant>" --out-dir "${A.lettersDir}/${A.tag}-<job id>" ; it prints the PDF path, or fails loudly if it could not write it. Put both paths into letter_txt and letter_pdf.`}
+` : `Cover letter, ${LETTERS === 'always' ? 'for every job, also one without a letter field (attached where the form takes a file)' : 'unless notes say "no letter field"'}: 150-230 words, first person, plain and specific, no hype, for THIS posting, true facts from the record only; in the posting's language when ${WHO} speaks it at C1 or better (languages in the record), otherwise in English. Write it with the Write tool as UTF-8 text to ${A.bodiesDir}/${A.tag}-<job id>.txt (paragraphs separated by a blank line, from the greeting to the sign-off line such as "Kind regards,", no signature), then run: ${LETTER} --job-file "${fileOf(c.name)}" --job "<job id>" --body "<that txt path>" --variant "<the CV variant>" --out-dir "${A.lettersDir}/${A.tag}-<job id>" (the company and the role come from that file: never type them into the command); it prints the PDF path, or fails loudly if it could not write it. Put both paths into letter_txt and letter_pdf.`}
 ${A.draftAnswers ? `2. Free text: for each "essay: <question>" in needs, write the answer from the record (a fact it does not hold stays in needs as a question for ${WHO}), move it to answers with the question and ${ASK_FREE_TEXT ? `"draft: " before the answer, so ${WHO} approves it before filling` : `the answer as it is: ${WHO} chose to have it filled without asking`}. An employer that asks for no AI help: the draft opens with one warning line quoting that rule. A pledge stays in needs.
 ` : `2. Free text stays ${WHO}'s: leave every "essay: ..." in needs.
-`}Correct the JSON in Python (json.load, edit, json.dump with ensure_ascii=False, indent=1; re-open to prove it parses). Never change a job's action, answers you did not write, or the needs you did not answer.
+`}${JSON_FILE(fileOf(c.name))}. Never change a job's action or review, answers you did not write, or the needs you did not answer.
 RETURN the schema: the file, how many letters and how many free-text drafts you wrote, and notes.`
 
-const reviewPrompt = c => `Review the prepared applications for "${c.name}" in ${fileOf(c.name)} before they are submitted for ${WHO}.
-${FACTS}
+const reviewPrompt = (c, writerFailed) => `Review the prepared applications for "${c.name}" in ${fileOf(c.name)} before they are submitted for ${WHO}.
+${writerFailed ? `THE WRITER FAILED for this employer: no letter or draft was written. Keep review "due" on every job that wants a letter or a draft; track.py sync holds those jobs for the next run.
+` : ''}${FACTS}
 FOR EACH JOB WITH action "apply":
 1. Letter (read letter_txt; none when it is empty or notes say "no letter field"): only true facts from the record, nothing on a never-claim list or marked pending, no pay figure, 150-230 words, first person, plain and specific to this posting (WebFetch the posting if you need it), in the right language, and a real gap named plainly when the posting leans on it. The greeting addresses the right company; the role title is right.
 2. Answers and needs: nothing invented; each guarded item above is in needs, or answered "from the profile" with no value when form_facts names it; salary follows the pay rule for the role's city and mode; the CV variant fits the role.
-FIX what is wrong: rewrite the body .txt and rebuild the PDF with ${LETTER} --company "<Company>" --role "<Role title>" --body "<txt path>" --variant "<the CV variant>" --out-dir "<the same out-dir>", and correct the JSON in Python (json.load, edit, json.dump with ensure_ascii=False, indent=1; re-open to prove it parses). Do not change a job's action unless the posting is closed or clearly fails the rules (then set action "skip" with the reason).
+FIX what is wrong: rewrite the body .txt with the Write tool and rebuild the PDF with ${LETTER} --job-file "${fileOf(c.name)}" --job "<job id>" --body "<txt path>" --variant "<the CV variant>" --out-dir "<the same out-dir>", and correct the JSON. ${JSON_FILE(fileOf(c.name))}. Do not change a job's action unless the posting is closed or clearly fails the rules (then set action "skip" with the reason).
+3. Once a job is checked (and fixed where needed), set its review to "done". A job you could not check keeps "due".
 No browser, no WebSearch. RETURN the schema: the file, how many jobs you checked, each fix as one line, and anything still open for ${WHO}.`
 
 const opts = (step, kind, name, phase, more) => ({ label: label(kind, name), phase, ...modelOf(step), ...more })
@@ -371,10 +378,13 @@ const results = await pipeline(
   // that stops the most per token first. An exclusion from the cheap check stops the company before any fit check;
   // with fit first, a company with no fitting posting costs no employer check.
   async c => {
+    // An employer with no new posting, at its first hiring step: only the full check below runs.
+    if (c.screen_only) return { c, screenOnly: true, fits: 0 }
     const quick = async () => {
-      if (!c.quick || A.employerCheck === 'free') return null
+      if (!c.quick || A.employerCheck === 'free' || A.apply === 'list') return null
       const q = await agent(quickPrompt(c), opts('quick', 'excl-quick', c.name, 'Fit', { schema: EXCL_SCHEMA, agentType: 'cenk-jobs:checker' }))
-      return q ? decide(c.name, q) : null
+      // A failed cheap check settled nothing: it counts as a run (variants.py), never as "not needed".
+      return q ? decide(c.name, q) : { verdict: '', hits: [], ties: [], checks: [], notes: 'cheap check failed', failed: true }
     }
     const fitOf = async () => {
       const raw = await agent(fitPrompt(c), opts('fit', 'prep-fit', c.name, 'Fit', { schema: FIT_SCHEMA, agentType: 'cenk-jobs:fitter' }))
@@ -386,7 +396,7 @@ const results = await pipeline(
       const q = await quick()
       if (q && q.verdict === 'exclude') return { c, final: q, route: 'quick-excluded' }
       const f = await fitOf()
-      return f ? { c, ...f, quick: q } : { c, final: null, route: 'fit-failed' }
+      return f ? { c, ...f, quick: q } : { c, quick: q, final: null, route: 'fit-failed' }
     }
     const f = await fitOf()
     if (!f) return { c, final: null, route: 'fit-failed' }
@@ -398,7 +408,10 @@ const results = await pipeline(
   async r => {
     const c = r.c
     if (r.route === 'quick-excluded') return r
-    if (!r.fit || !r.fits) return { ...r, final: { verdict: c.verdict || '', hits: [], ties: c.ties || [], checks: [], notes: 'no fitting posting' }, route: r.fit ? 'no-fit' : r.route }
+    if (!r.screenOnly && (!r.fit || !r.fits)) return { ...r, final: { verdict: c.verdict || '', hits: [], ties: c.ties || [], checks: [], notes: 'no fitting posting' }, route: r.fit ? 'no-fit' : r.route }
+    // APPLY=list: the fitting jobs are the result; no employer check runs (a screen-only entry still does).
+    if (A.apply === 'list' && !r.screenOnly) return { ...r, final: { verdict: c.verdict || '', hits: [], ties: c.ties || [], checks: [], notes: 'list run: no employer check' }, route: 'listed' }
+    if (r.quick && r.quick.failed && !c.screen) return { ...r, final: { verdict: c.verdict || '', hits: [], ties: c.ties || [], checks: [], notes: 'cheap check failed' }, route: 'quick-failed' }
     if (r.quick && !c.screen) return { ...r, final: r.quick, route: 'quick-checked' }
     if (c.known && (c.own || []).length && !c.recheck) {
       // Screened earlier; only the second check is due, on the findings already known.
@@ -408,8 +421,11 @@ const results = await pipeline(
     if (!c.screen || (c.known && c.verdict === 'allow' && !c.recheck)) {
       return { ...r, final: { verdict: c.verdict || '', hits: [], ties: c.ties || [], checks: [], notes: c.screen ? 'screened earlier' : 'not screened: no recorded finding, no hiring step' }, route: c.screen ? 'known' : 'not-screened' }
     }
-    const s = await agent(screenPrompt(c), opts('screen', 'excl-screen', c.name, 'Screen', { schema: EXCL_SCHEMA, agentType: 'cenk-jobs:screener' }))
-    if (!s) return { ...r, final: null, route: 'screen-failed' }
+    const first = await agent(screenPrompt(c), opts('screen', 'excl-screen', c.name, 'Screen', { schema: EXCL_SCHEMA, agentType: 'cenk-jobs:screener' }))
+    if (!first) return { ...r, final: null, route: 'screen-failed' }
+    // A category the check left out is unknown, never clean: it sends the employer to the second check.
+    const s = { ...first, checks: [...(first.checks || []), ...CATS.filter(cat => !(first.checks || []).some(k => k.category === cat))
+      .map(category => ({ category, status: 'unknown', level: '', fact: 'not returned by the check', source_url: '' }))] }
     // The second check only on a hit or an unknown: a clean result needs no second Opus check.
     const open = s.verdict === 'exclude' || (s.checks || []).some(k => k.status === 'flagged' || k.status === 'unknown')
     if (!open) return { ...r, final: await withOwn(c, decide(c.name, s)), route: 'screened-clean' }
@@ -417,16 +433,23 @@ const results = await pipeline(
     if (!v) return { ...r, final: await withOwn(c, decide(c.name, s)), route: 'verify-failed' }
     // The second check's category results stand (it saw the first's); the first's fill categories it left out.
     const checks = [...(v.checks || []), ...(s.checks || []).filter(k => !(v.checks || []).some(x => x.category === k.category))]
-    if (v.verdict === s.verdict) return { ...r, final: await withOwn(c, decide(c.name, { verdict: v.verdict, hits: v.verdict === 'exclude' ? v.hits : [], ties: [...new Set([...(s.ties || []), ...(v.ties || [])])], checks, notes: s.notes + ' | second check: ' + v.notes })), route: 'verified' }
+    // The second check's ties are the list that stands (its prompt says so; track.py sync keeps only them too).
+    if (v.verdict === s.verdict) return { ...r, final: await withOwn(c, decide(c.name, { verdict: v.verdict, hits: v.verdict === 'exclude' ? v.hits : [], ties: v.ties || [], checks, notes: s.notes + ' | second check: ' + v.notes })), route: 'verified' }
     const j = await agent(judgePrompt(c, s, v), opts('judge', 'excl-judge', c.name, 'Verify', { schema: EXCL_SCHEMA, agentType: 'cenk-jobs:verifier' }))
-    return { ...r, final: await withOwn(c, decide(c.name, j ? { ...j, checks: (j.checks || []).length ? j.checks : checks } : { ...s, checks })), route: 'judged' }
+    if (!j) return { ...r, final: null, route: 'judge-failed' }
+    // A judge returns the categories in dispute: the others keep the merged checks' result.
+    const judged = [...(j.checks || []), ...checks.filter(k => !(j.checks || []).some(x => x.category === k.category))]
+    return { ...r, final: await withOwn(c, decide(c.name, { ...j, checks: judged })), route: 'judged' }
   },
   // 3. The easy form answers. Only an excluded employer stops; allow, warn, discuss and unscreened go on.
   async r => {
     // APPLY=list: the fitting jobs are the result; nothing is filled.
     if (!r.fits || !r.final || r.final.verdict === 'exclude' || A.apply === 'list') return r
     const reply = await agent(formPrompt(r.c, r.fit), opts('form', 'prep-jobs', r.c.name, 'Prepare', { agentType: 'cenk-jobs:former' }))
-    return { ...r, prepReply: String(reply || '').slice(0, 300) }
+    // The reply names the file it wrote; without it the writer and the review have nothing to work on.
+    const norm = text => String(text || '').replace(/\\/g, '/').toLowerCase()
+    if (!norm(reply).includes(norm(fileOf(r.c.name)))) return { ...r, route: 'form-failed' }
+    return { ...r, prepReply: String(reply).slice(0, 300) }
   },
   // 4. Letters and free text: the writer.
   async r => {
@@ -440,7 +463,7 @@ const results = await pipeline(
   async r => {
     if (!r.prepReply) return r
     const step = r.written && (r.written.letters || r.written.free_text || r.written.failed) ? 'review' : 'review_plain'
-    const review = await agent(reviewPrompt(r.c), opts(step, 'review-jobs', r.c.name, 'Review', { schema: REVIEW_SCHEMA, agentType: 'cenk-jobs:reviewer' }))
+    const review = await agent(reviewPrompt(r.c, !!(r.written && r.written.failed)), opts(step, 'review-jobs', r.c.name, 'Review', { schema: REVIEW_SCHEMA, agentType: 'cenk-jobs:reviewer' }))
     return { ...r, review }
   },
 )

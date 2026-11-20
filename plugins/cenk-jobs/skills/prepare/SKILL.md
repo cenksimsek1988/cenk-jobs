@@ -27,6 +27,12 @@ also `questions.py add job "Which slot for Acme?" job=J7 options="tue:Tuesday 10
 4. Each message whose action is done gets the label `GMAIL_DONE_LABEL` (RULES.md, "Mail"). A reply waiting as a
    draft gets it on the run that finds the person's sent reply.
 
+## Employer check first
+
+A first hiring step at an employer: its full employer check runs before any prep (/cenk-jobs:coordinate,
+"Employer check"); the prep waits for its sync. Example: Acme invites to a first interview: the check runs, then
+the prep.
+
 ## Prep notes
 
 For each new step, in its step folder: `prep.md` (from the posting and the master record only), `cheat-sheet.md`

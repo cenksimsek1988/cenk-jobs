@@ -13,10 +13,10 @@ Every question this skill asks the person goes on the Questions page as it is as
 1. Take the open jobs from the tracker (`track.py list`): cleared by the screen, waiting on the person, or ready to
    send. Leave out excluded, skipped, closed and declined ones.
 2. Order them: deadline first, then fit, then the sites the person is signed in to (`logins.py show`).
-3. For each job, the CV version that fits the role (`CV_VERSIONS_DIR`) and its letter template; the letter itself is
-   written now (`LETTER_BODIES_DIR`) by `LETTERS` (`asked`: only for a form with a letter field, `apply`, "Before
-   filling"; `always`; `never`), and its PDF
-   built on the day it is sent (`make_letter_pdf.py`).
+3. For each job, the CV version that fits the role (`CV_VERSIONS_DIR`) and the letter the funnel prepared
+   (`track.py brief <id>`: `letter_txt`). A job without one where `LETTERS` asks for one gets it now
+   (`LETTER_BODIES_DIR`; `asked`: only for a form with a letter field, `apply`, "Before filling"; `always`;
+   `never`). Its PDF is built on the day it is sent (`make_letter_pdf.py`).
 4. Group by sign-in: one group per site or hiring system. A group needs the person signed in before it can start.
 5. List what only the person can do, per job, as to-do items in the tracker (`track.py todo <id> add <kind>
    "<text>" link=<form>`): sign-ins (`click`), answers and essays (`todo`). Open free-text questions are never

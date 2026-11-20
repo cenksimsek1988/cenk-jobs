@@ -180,6 +180,7 @@ sessions; `/cenk-jobs:schedule`).
 | Prepare one step | `/cenk-jobs:prepare` prep notes for one hiring step, in its own folder. | `prep-acme-18nov` |
 | Study for one step | `/cenk-jobs:prepare` studying: brief, weak points, practice, with the person. | `study-acme-6nov` |
 | Search sweep | `/cenk-jobs:search`; one row per posting. | `search-2026-11-06` |
+| Employer check | Before an employer's first hiring step: `workflow_args.py --screen "<name>" --out <dir>` (it prints "screened on <date>" when the check already ran), the workflow on that `args.json`, and the journal's path in the handoff; the coordinator runs `track.py sync <journal>`. | `check-acme` |
 | Essays round | `/cenk-jobs:write` with the person, one question or letter at a time: the company and role, their background and gaps, a draft in their voice, revised together. | `write-acme-why` |
 
 An essays round, and every session that drafts answers for a form, checks that the posting is still open at the

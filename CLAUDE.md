@@ -83,6 +83,9 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
   `sys.stdout.reconfigure(errors="replace")` first: a cp1252 console raises otherwise.
 - An edit that holds a backslash (a regex, `\n` in a test) is made with the Edit tool or a script file, never a
   Python heredoc in the Bash tool: the escape can reach the file as a control character (seen: `\b` as 0x08).
+- A `\uXXXX` escape is the exception: the Edit and Write tools write the character itself (seen: a regex range of
+  combining accents). Write it with a script that builds the backslash from `chr(92)`, then check the line with
+  `ascii()`.
 - The page: `python -m http.server <port>` on a made-up export with a stub of the Dashboard runtime, read as text;
   the built-in browser shows a `file://` page as a static snapshot. Stop the server afterwards.
 - The Dashboard runtime gives the page a row's list field (`apps`, `also`) as JSON text: page code reads a list with

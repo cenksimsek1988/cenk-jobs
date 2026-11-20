@@ -6,6 +6,51 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.44.1] - 2026-11-20
+
+Four lessons from the job search, the workflow fixes from the workbench review, and the full employer check before a
+first hiring step.
+
+### Added
+
+- The full employer check before an employer's first hiring step (RULES/employers.md promised it; nothing called it):
+  `workflow_args.py --screen "<name>" --out <dir>`, the coordinator's "Employer check" piece, and prepare waits for
+  it. An employer with no new posting runs only the screen (`screen_only`). `track.py sync` marks each screened
+  employer with the date, so the check runs once.
+- `make_letter_pdf.py --job-file <prepared file> --job <id>`: the company and the role come from the file.
+- `references/sites/remoteok.md`.
+
+### Changed
+
+- The prepared-jobs file holds only the jobs to apply to, with the form's fields; `track.py sync` merges it with the
+  fit check's result by job id. The form step no longer copies every job's requirements, which saves output tokens and
+  copy errors.
+- A letter is written once, by the funnel's writer: plan and apply use the prepared one, and only a job without one
+  gets it then. Its PDF is still built on the day it is sent.
+- The workflow's agents write and change JSON with the Write and Edit tools; Python in the shell mangled accented
+  letters (Git Bash on Windows).
+- Each step's model comes from its agent's front matter; the workflow names only the judge's and the plain review's.
+- A RemoteOK posting is applied to on the employer's own page (Apply there needs a paid plan), else skipped. Before
+  filling, the employer's own posting page wins over a job board's "remote" label.
+- Workday: a page is never reloaded (a reload can sign the tab out; the saved draft keeps only steps 1 and 2), and
+  the go-on-without-AI choice goes to the person at once.
+
+### Fixed
+
+- The writer's and reviewer's letter command took the company and role from posting text inside a shell line, where
+  a `$(...)` would run.
+- Any reply from the form step counted as a written file; now the reply must name the file, else the route is
+  `form-failed`. A reply such as "Wrote <path>" is read by `track.py sync` too.
+- A failed writer or reviewer left an unchecked job queued: a job keeps `review: "due"` until the reviewer marks it
+  "done", and sync holds a due one for the next run.
+- Two companies could share one prepared file (accents, or names alike in their first 40 letters).
+- A failed cheap check read as "not needed"; a fit check that failed after it dropped its result.
+- The employer prompts carried an argument no caller built (`decided`); the categories were hard-coded instead of
+  read from the person's rules.
+- `apply: list` still ran the employer checks.
+- In the full check: a category the screen left out counted as clean; a judge's partial answer dropped the other
+  categories; the verified route merged ties the second check had dropped. A failed judge is `judge-failed`.
+
 ## [0.44.0] - 2026-11-20
 
 Write free texts with the person, plain links instead of hidden tabs, both pages kept current, five fixes to the

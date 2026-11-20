@@ -26,6 +26,8 @@ tracker, and nothing is prepared or sent.
      only: the funnel applies on the employer's own careers page. Boards and `workable-search` are read weekly
      (`every=7`, their default; older rows: `searches.py every greenhouse 7`).
    - Each feed 3 s between calls; 2 refusals (429) in a row stop it for the run, its rows stay due.
+   - RemoteOK's Apply needs a paid plan: the fit check takes the employer's own posting, else skips the job
+     (`../../references/sites/remoteok.md`).
    - Before the funnel, each posting's own page (Ashby and Greenhouse locations, the page text): every place
      outside the person's places, "must be based in" another country, or US hours: left out, no tokens spent.
      Seen 19 Nov: 32 of 40 "Europe" postings were single-country elsewhere.
