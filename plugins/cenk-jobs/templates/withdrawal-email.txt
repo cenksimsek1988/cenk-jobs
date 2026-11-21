@@ -2,7 +2,8 @@ Withdrawal mail for an employer the person's rules exclude, once the person appl
 automatic confirmation (an invitation, a task, a recruiter's mail) or offered a job (RULES/employers.md). A mail is
 optional: first ask the person whether to send one at all and whether to give the reason. Two versions below: with
 the reason and without it (facts only). Claude fills the fields, writes a Gmail draft to the sender (a no-reply
-sender: the address RULES/employers.md names), and the person sends it. Everything above the first line of dashes is
+sender: the address RULES/employers.md names) by the draft rules of RULES/hiring-steps.md, "Mail" (no links; read
+back with get_draft), and the person sends it. Everything above the first line of dashes is
 for Claude; each version starts at "Subject:".
 
 Fields:

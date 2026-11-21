@@ -15,11 +15,12 @@ nobody asked for.
 ## Steps
 
 1. The job and the question: `track.py show <id>`, the question's exact words and its limit. Example: "Acme,
-   Backend Engineer: 'Why Acme?' (at most 1,000 characters)". The posting still open (`fetch_jd.py <link>`); closed:
-   say so and stop.
-2. The employer's AI rule, in one line, before anything else: quoted from the posting or the form, or "none found".
-   The person decides; under a rule against AI the job waits for them. Example: "The form says 'answers must be your
-   own work, without AI tools': write it yourself, or go on?"
+   Backend Engineer: 'Why Acme?' (at most 1,000 characters)". The posting still open (`fetch_jd.py <id> --force`:
+   the job's id, never a link; `--force` reads the live page where its folder keeps a copy); closed: say so and stop.
+2. The employer's AI rule, in one line, before anything else: read the posting, the form and the employer's own page
+   on AI in hiring (its careers site), and quote what they allow, or "none found". Claude does only that (RULES.md).
+   Example: "Acme's AI page says 'you may use AI to refine your own draft, not to write it': you write the first
+   draft, I refine it." The form's Yes/No on the AI policy stays the person's.
 3. The company and the role in at most 6 lines: what it makes, its size, remote work and culture, the role's work,
    the hiring steps. Sources: the posting, the employer's records (`employer.py check "<name>"`) and at most 3 web
    pages, each line with its source. Employee reviews only after the person's yes, looked up once (RULES.md,
@@ -34,8 +35,8 @@ nobody asked for.
    childhood items, and ones they only took part in.
 7. A starting draft in their voice: calm and experienced, no essay words, no praise of the employer's product,
    within the limit. A gap goes mid-paragraph, never last; the text ends on a strength. Example: "I led two
-   migrations like yours", not "I am passionate about your innovative platform". A person who writes it themselves
-   gets this feedback on their text instead of a draft.
+   migrations like yours", not "I am passionate about your innovative platform". A person who writes it themselves,
+   or whose employer's AI rule allows only refining (step 2), gets this feedback on their text instead of a draft.
 8. Revise with them: after the first full draft, only the changed sentences. Their wording wins; in text they wrote,
    fix only English and grammar. Before each round of approvals, check again that the posting is open.
 

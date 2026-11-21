@@ -3734,6 +3734,49 @@ check "searches suggest 0.46.2: a row left with no title is turned off, never em
     ! grep -q "\"core\"" "$2"' _ "$T/r462-nofit.out" "$T/r462-suggest.out"
 check "searches suggest 0.46.2: a wrong option is refused with its usage" sh -c '
     "$1" -I "$2/searches.py" suggest --days x --env "$3" 2>&1 | grep -q "^suggest \[--days <n>\] \[--from <dir>\]$"' _ "$PY" "$S" "$ENVF"
+# --- 0.46.3: seven lessons of 20-21 Nov (letters, paid plans, drafts, bot checks, refused Submit, AI rule) --------
+if command -v node >/dev/null 2>&1; then
+    cat >"$T/letter463.js" <<'EOF'
+const fs = require('fs')
+const head = 'const wantsLetter = j => '
+const line = fs.readFileSync(process.argv[2], 'utf8').split('\n').find(l => l.startsWith(head))
+const wants = new Function('LETTERS', 'j', 'return (' + line.slice(head.length) + ')')
+const out = []
+for (const L of ['asked', 'always', 'never']) {
+  for (const f of ['yes', 'no', 'unknown']) out.push(`${L} ${f} ${wants(L, { letter_field: f })}`)
+}
+console.log(out.join('\n'))
+EOF
+    node "$T/letter463.js" "$S/../workflows/screen-and-prepare.js" >"$T/letter463.out" 2>&1
+    check "workflow 0.46.3: a letter only where the fit check read a field that takes one" sh -c '
+        [ "$(grep -c " true$" "$1")" = 2 ] && grep -q "^asked yes true$" "$1" &&
+        grep -q "^always yes true$" "$1" && grep -q "^always unknown false$" "$1" &&
+        grep -q "^asked unknown false$" "$1" && grep -q "^never yes false$" "$1"' _ "$T/letter463.out"
+else
+    echo "SKIP letters in JS: no node"
+fi
+check "workflow 0.46.3: the writer gets the ids that take a letter; an email application takes one" sh -c '
+    grep -q "writePrompt(r.c, letterIds)" "$1" && grep -q "Cover letter, only for the jobs \${letterIds" "$1" &&
+    grep -q "and yes for an application by email" "$1"' _ "$S/../workflows/screen-and-prepare.js"
+check "0.46.3 text: no paid plan; drafts read back; no update_draft on a draft with files" sh -c '
+    grep -q "^- Never buy or start a plan, subscription, trial or credits" "$1/RULES.md" &&
+    grep -q "applies only through <the board> (paid plan)" "$1/workflows/screen-and-prepare.js" &&
+    grep -q "applies only through freelancermap (paid plan)" "$1/references/sites/freelancermap.md" &&
+    grep -q "read the stored draft back (.get_draft.)" "$1/RULES/hiring-steps.md" &&
+    grep -q "never changed with .update_draft." "$1/RULES/hiring-steps.md" &&
+    grep -q "hiring-steps.md, \"Mail\"" "$1/templates/withdrawal-email.txt" &&
+    grep -q "A posting that applies by email" "$1/skills/apply/SKILL.md"' _ "$S/.."
+check "0.46.3 text: bot checks, refused Submits and missing letters are the person's; a vanished form is looked up" sh -c '
+    grep -q "blocked \"<what it shows>\"" "$1/RULES.md" &&
+    grep -q "blocked \"<what it shows>\"" "$1/references/filling.md" &&
+    grep -q "needs-person. \"Submit refused\"" "$1/agents/applier.md" &&
+    grep -q "needs-person. \"letter\"" "$1/agents/applier.md" && grep -q "no .submit()." "$1/references/filling.md" &&
+    grep -q "A held form whose tab is gone" "$1/references/filling.md"' _ "$S/.."
+check "0.46.3 text: the employer's AI rule is followed; the write skill reads the live page by job id" sh -c '
+    grep -q "on AI in hiring (its careers site)" "$1/skills/write/SKILL.md" &&
+    grep -q "fetch_jd.py <id> --force" "$1/skills/write/SKILL.md" &&
+    ! grep -q "the draft is still written" "$1/RULES.md" &&
+    ! grep -q "asks for no AI help" "$1/workflows/screen-and-prepare.js"' _ "$S/.."
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

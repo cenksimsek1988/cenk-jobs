@@ -12,12 +12,14 @@ waits on the person.
 ## Before filling
 
 - Check the posting is still open and its link lands on the employer's own form (RULES.md, "Links"). The site's
-  own notes are in `../../references/sites/<site>.md` (greenhouse, ashby, linkedin, smartrecruiters, successfactors, workday, eightfold, remoteok):
+  own notes are in `../../references/sites/<site>.md` (greenhouse, ashby, linkedin, smartrecruiters, successfactors,
+  workday, eightfold, remoteok, freelancermap):
   read the one for the form in hand.
-- The letter is the one the funnel prepared (`track.py brief <id>`: `letter_txt`). A job without one gets it now,
-  by `LETTERS`: `asked` (the default) only for a form with a letter field (many have none: often Workable,
-  Rippling, HiBob, Ashby, Lever); `always` for every form, attached where it takes a file; `never` none. Its PDF is
-  built on the day it is sent (`../../references/filling.md`).
+- The letter is the one the funnel prepared (`track.py brief <id>`: `letter_txt`); the funnel writes one only for a
+  form whose fields it read with a letter field. A job without one gets it now, only when the open form shows a
+  field, by `LETTERS`: `asked` (the default) a cover-letter field (many have none: often Workable, Rippling, HiBob,
+  Ashby, Lever, Easy Apply); `always` also a file field that takes one; `never` none. An application by email counts
+  as a letter field. Its PDF is built on the day it is sent (`../../references/filling.md`).
   Each essay question goes to the Questions page before filling.
 - Check the employer again if the last check is old (`employer.py check`).
 - Before telling the person a job "only needs a yes", read its tracker status and its `PIPELINE` entry: a job
@@ -60,8 +62,12 @@ never take a screenshot.
   sends it <<<"), with its plain link and the site's draft fact (`Held:` in `filling.md`). A change asked later
   waits until the person confirms they have not pressed Submit. After a
   go-ahead, read the page first: a form already sent is recorded as sent, never changed.
-- If the permission check refuses a submit click: retitle the tab for the person, say so in one line, and try no
+- If the permission check refuses a submit click: it is the person's step (`../../references/filling.md`); try no
   other way.
+- A posting that applies by email: a draft to the address the posting names, the role and its reference in the
+  subject, the CV and the letter PDF attached, by the draft rules (RULES/hiring-steps.md, "Mail"); the person sends
+  it. Recorded as submitted once the sent mail is in the thread. Example: "Application: Engineering Manager (ref.
+  1234)".
 - `EMAILED_CODES=on` (`choices.py show`): after a Submit that emails a code or a confirmation link, this session reads
   it in Gmail (the site's own sender, within 15 minutes, this form only) and types it in the held tab or opens it. A
   sign-in or sign-up code, a CAPTCHA and a password stay the person's.

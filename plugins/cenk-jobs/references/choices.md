@@ -35,7 +35,8 @@ week: not known yet."
    The fit check's model: Sonnet (about 60k W an employer), Opus at medium effort (about 100k W, estimated), which
    reads the requirements against the record closer, or Opus at max effort (about 150-300k W, estimated; up to 30M W
    on a day of 100 employers). `FIT_MODEL=sonnet|opus|opus-max`, default sonnet.
-5. Cover letters: where the form has or may have a field, always, or never; about 68k W a letter with its review.
+5. Cover letters: where the form shows a cover-letter field, also where a file field takes one, or never; about 68k W
+   a letter with its review. A form not read (Easy Apply) gets one only when it is open and shows a field.
    `LETTERS=asked|always|never`, default asked.
 6. What waits for the person (only with `APPLY=auto`), one answer per step: sending an application (`send`); a
    free-text answer Claude drafted under `draft_answers` (`free_text`); booking an interview slot (`interview`).

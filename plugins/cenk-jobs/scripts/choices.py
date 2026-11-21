@@ -23,8 +23,9 @@ Keys (default first):
     FIT_MODEL       sonnet | opus | opus-max the fit check's model: Sonnet (about 60k tokens an employer), Opus at
                                              medium effort (about 100k), which reads the requirements closer, or
                                              Opus at max effort (about 150-300k, estimated)
-    LETTERS         asked | always | never   a letter where the form has or may have a field (an optional field
-                                             gets it too), always, or never
+    LETTERS         asked | always | never   a letter where the form shows a cover-letter field (an optional one
+                                             too), also where a file field takes one, or never; a form not read
+                                             (Easy Apply) gets one only once open and showing a field
     EMAILED_CODES   off | on                 on: the session reads an application's emailed code or confirmation
                                              link in Gmail (the form just submitted, its own sender, 15 minutes);
                                              sign-in and sign-up codes, CAPTCHAs and passwords stay the person's

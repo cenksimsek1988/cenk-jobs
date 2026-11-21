@@ -14,9 +14,9 @@ Read `../../RULES.md` first. This skill writes the plan into the tracker; it sen
 2. Order them in the apply order's three groups (RULES.md): those that need nothing from the person, then those
    that need only a sign-in (`logins.py show`), then the rest; inside each, deadline first, then fit.
 3. For each job, the CV version that fits the role (`CV_VERSIONS_DIR`) and the letter the funnel prepared
-   (`track.py brief <id>`: `letter_txt`). A job without one where `LETTERS` asks for one gets it now
-   (`LETTER_BODIES_DIR`; `asked`: only for a form with a letter field, `apply`, "Before filling"; `always`;
-   `never`). Its PDF is built on the day it is sent (`make_letter_pdf.py`).
+   (`track.py brief <id>`: `letter_txt`). A job without one gets it when its open form shows a field `LETTERS`
+   fills (`LETTER_BODIES_DIR`; `apply`, "Before filling"). Its PDF is built on the day it is sent
+   (`make_letter_pdf.py`).
 4. Group by sign-in: one group per site or hiring system. A group needs the person signed in before it can start.
 5. List what only the person can do, per job, as to-do items in the tracker (`track.py todo <id> add <kind>
    "<text>" link=<form>`): sign-ins (`click`), answers and essays (`todo`). Open free-text questions are never

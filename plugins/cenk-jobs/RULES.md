@@ -102,19 +102,23 @@ The run's order is /cenk-jobs:coordinate's "Each run" list; the health check and
     as a specific question, never guessed. A self-rating stays theirs. With `free_text` left out of `ASK_FIRST`, a
     drafted answer is filled without that approval (`choices.py show`: "essays: auto"). A number the person recalled
     with no record behind it never goes into a written answer.
-  - An employer that asks candidates not to use AI: the draft is still written, and it opens with one warning line
-    that quotes the employer's rule; the person chooses, and the job waits for them even with essays on "auto".
-    Example: "Warning: the posting says 'answers must be your own work, without AI tools'."
-  - A form question on whether AI was used is answered truthfully: Claude drafted, the person edited. A pledge that
-    means "I did not, or will not, use AI" is never ticked by Claude: warn with the policy's words; the tick and
-    the Submit are the person's.
-  - Text the person wrote themselves and asks to have fixed: fix the English and the wording at once, under that
-    one warning line where it applies; never hand back a fact check in its place.
+  - An employer's AI rule (its posting, its form, or its own page on AI in hiring) is quoted in one line and
+    followed: Claude does only what it allows, and the job waits for the person even with essays on "auto".
+    Example: "you may use AI to refine your own draft, not to write it": the person writes, Claude refines. A rule
+    against any AI help: no draft at all.
+  - A form question on whether AI was used is answered truthfully: Claude drafted, the person edited. A Yes/No on the
+    employer's AI policy, and a pledge that means "I did not, or will not, use AI", are the person's: never ticked
+    by Claude; warn with the policy's words; the tick and the Submit are theirs.
+  - Text the person wrote themselves and asks to have fixed: fix the English and the wording at once where the
+    employer's AI rule allows it (else quote the rule); never hand back a fact check in its place.
 - Never type a password, a verification code, a card number or a government ID number; never solve a CAPTCHA; never
   create an account. Stop at such a field and tell the person. One exception: with `EMAILED_CODES=on`, the code or
   confirmation link an application's site emails for the form just submitted (its own sender, within 15 minutes),
   read in Gmail by the session and typed in the held tab. A sign-in or sign-up code stays the person's. A code is
   never printed: mask it. Example: `security code: ******`.
+- Never buy or start a plan, subscription, trial or credits on any site. A job that applies only through one is
+  skipped: `track.py set <id> skipped "applies only through <board> (paid plan)"`. Example: RemoteOK's and
+  freelancermap's Apply (`references/sites/`).
 - Guarded items: date of birth, street address, references, criminal record, relatives at the company, health.
   Preparation never answers one: it goes into the job's needs, unless the person's setting `form_facts` (their
   profile's `settings.cenk-jobs`, else `settings.common`) names it; then the prepared answer is "from the profile",
@@ -195,7 +199,9 @@ Writing a calendar event: read `RULES/hiring-steps.md`. An event is deleted only
 
 ## Mail
 
-Handling job-search mail: read `RULES/hiring-steps.md`. Never remove the person's own labels, never archive a message, mark it read or move it to another tab.
+Handling job-search mail, and every draft (a reply, a withdrawal, an application by email): read
+`RULES/hiring-steps.md`. Never remove the person's own labels, never archive a message, mark it read or move it to
+another tab.
 
 ## Claude in Chrome
 
@@ -209,6 +215,9 @@ Never read a screenshot, in any browser: no `computer` with `screenshot` or `zoo
   `max_chars` 5000), `javascript_tool` returning JSON, or `fetch_jd.py`; `get_page_text` has no cap, so only on a
   short page. A booking page: `find` or `read_page`. Example: `find` "Submit" to click it.
 - A page only a picture can show (a CAPTCHA, a form drawn on a canvas) stops for the person.
+- A bot check ("verify you are human", a security page before the site) is the person's, never solved by Claude:
+  `logins.py set "<site>" blocked "<what it shows>"`, asked in the sign-in round; once they pass it in the same
+  Chrome profile, the session tries again there.
 
 One browser, the person's Chrome, for everything: applying, reading a posting, making a job alert, mail when its
 connector is down. Their sign-ins are there, and a second browser loses them.

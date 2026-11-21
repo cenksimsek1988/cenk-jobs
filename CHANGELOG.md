@@ -6,6 +6,39 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.46.3] - 2026-11-21
+
+Seven of the ten lessons of 20-21 Nov: letters only where a form takes one, no paid plans, drafts read back, bot
+checks and refused Submits left to the person, a vanished form checked in the mail first, and the employer's AI rule
+followed.
+
+### Changed
+
+- Letters: the funnel writes one only for a form whose fields the fit check read with a field that takes one (a
+  cover-letter field; with `LETTERS=always` a file field too); "unknown" (Easy Apply, a form not read) gets none, and
+  the apply session writes one only when the open form shows a field. An application by email counts as a letter
+  field. The writer is given the ids of the jobs that take one (its file holds no `letter_field`), and an applier
+  that meets a letter field with no letter returns `needs-person` "letter". Before, `always` and "unknown" wrote
+  letters no form took.
+- Paid plans: never bought or started on any site (RULES.md); a job that applies only through one is skipped
+  "applies only through <board> (paid plan)". The fit check's rule covers RemoteOK and freelancermap
+  (`references/sites/freelancermap.md`).
+- Drafts (RULES/hiring-steps.md, "Mail"): a posting named by company, role and reference, never by a link (the Gmail
+  connector rewrites links); after `create_draft`, the stored draft is read back (`get_draft`) for its links and
+  attached files; a draft with files is never changed with `update_draft` (it drops them). The apply skill gets the
+  path for applying by email; the withdrawal template points to the rule.
+- A bot check is the person's: `logins.py set "<site>" blocked`, asked in the sign-in round, tried again in the
+  same Chrome profile after they pass it.
+- A refused Submit click is the person's step: the tab stays held with that step in its title, its plain link and
+  the draft fact; never the Enter key, a script click, `submit()` or another tab. The applier returns
+  `needs-person` "Submit refused".
+- A held form whose tab is gone: Gmail is searched for the employer's confirmation since it was held before any
+  refill; found: `track.py set <id> submitted`.
+- The employer's AI rule (posting, form, its own AI-in-hiring page) is quoted and followed: Claude does only what
+  it allows (example: the person writes, Claude refines); a Yes/No on the AI policy stays the person's. The write
+  skill reads the three sources and checks the live page with `fetch_jd.py <id> --force`; the writer writes no
+  draft a rule forbids.
+
 ## [0.46.2] - 2026-11-21
 
 Remote Rocketship searches read only real title pages, and `searches.py suggest` proposes the titles and countries

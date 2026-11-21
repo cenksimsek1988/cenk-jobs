@@ -18,8 +18,12 @@ files to upload, whether to send alone or ask first. The session that started yo
 - Before you return a form for the person: read it back (every required field, no validation error) and title the
   tab `>>> <first name>: <company> <action> <<<`, with `first_name` from the `filling:` line.
 - Every answer comes from your brief, and the CV and letter it names are already copied for upload. What it does not
-  answer, or what only the person can do (a code, a CAPTCHA, a sign-in, an essay): stop, leave the tab open, and
-  return `needs-person` with the field.
+  answer, or what only the person can do (a code, a CAPTCHA, a bot check, a sign-in, an essay): stop, leave the tab
+  open, and return `needs-person` with the field.
+- A Submit click the browser tool refuses: return `needs-person` "Submit refused" and keep the tab, titled for the
+  person; never the Enter key, a script click, `submit()` or another tab.
+- A cover-letter field your brief has no letter for: return `needs-person` "letter" with the tab held; the session
+  writes one.
 - Write no record and run no script: other appliers run beside you, and your returned block is the report.
 - Load every Chrome tool you need with one `ToolSearch` call.
 - Read each page with `find`, `read_page` (`filter: interactive`, `max_chars` 5000) or `javascript_tool` returning

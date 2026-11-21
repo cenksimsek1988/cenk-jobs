@@ -43,6 +43,14 @@ title prefix `CALENDAR_PREFIX` ("Job search · ").
 
 ## Mail
 
+Drafts (a reply, a withdrawal, an application by email), each one a draft the person sends:
+- A posting is named by company, role and its reference, never by a link: the Gmail connector rewrites the links in
+  a draft. Example: "the Engineering Manager role at Acme (ref. 1234)".
+- After `create_draft`, read the stored draft back (`get_draft`) before telling the person it is ready: every link
+  it holds (a signature's, a booking page's) as written, and every file the text calls attached really attached.
+- A draft with files is never changed with `update_draft`, which drops them: make a new draft and name the old one
+  for the person to delete.
+
 A job-search message whose action is done gets the Gmail label `GMAIL_DONE_LABEL` (default `cenk-jobs/Done`).
 - Done: the step is booked and in the calendar, a deadline is in the calendar, a rejection, closed post or
   confirmation is recorded, or the person's reply is sent (the thread has their sent reply after it).

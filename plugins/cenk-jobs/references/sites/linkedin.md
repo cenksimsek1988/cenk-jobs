@@ -3,6 +3,8 @@
 Read by the applier, and by a session that fills this site's form, with `../filling.md`.
 
 - Draft: no draft known; a held Easy Apply dialog is lost when its tab closes.
+- An Easy Apply form's fields show only once it is open: the funnel prepares no letter for it, and the session writes
+  one only when the open form shows a cover-letter field (`../filling.md`, `LETTERS`).
 - LinkedIn Easy Apply fills screening answers saved from earlier applications (example: 3 years of a skill, where the
   record says 6): check every prefilled number against the record before Review. Its salary fields take a number
   only: `50000`, not "EUR 50,000 a year" ("Invalid input").
