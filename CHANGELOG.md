@@ -6,6 +6,26 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.46.2] - 2026-11-21
+
+Remote Rocketship searches read only real title pages, and `searches.py suggest` proposes the titles and countries
+the rows lack.
+
+### Added
+
+- `searches.py suggest [--days <n>]`: for the Remote Rocketship rows, one page each (at most 60, 3 s apart): each
+  row's titles with no title page on its own country, the titles of the last n days' fits (default 30) that no row
+  searches, and the countries of the scope's remote regions that no row reads (EU: european-union, EMEA: europe,
+  anywhere: worldwide). It prints the `searches.py query`, `add` and `every <id> off` (a row left with no title)
+  commands, with titles in letters, digits and & + . # - only, and changes nothing: each waits for the person's yes.
+  Example: "add country: europe (31 new a week for "engineering manager")".
+
+### Fixed
+
+- A title Remote Rocketship does not know answers 200 with the country's generic list (the 20 newest remote jobs of
+  any title), not a 404 (seen 21 Nov: germany/jobs/tech-lead): `collect_postings.py` now skips such a page like a
+  404, with a line naming the title to drop, instead of reading it as that title's postings.
+
 ## [0.46.1] - 2026-11-21
 
 A form held for the person is never lost with its session, and `track.py reopen` brings back only fits inside the

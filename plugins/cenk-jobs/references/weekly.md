@@ -7,6 +7,13 @@ Read by the search session at the first run of the week.
 `feedback.py silent --add`, `feedback.py clues` (the fit check reads it next run), and `feedback.py analyse`. Its
 proposals go to the Questions page; FIT_SETTINGS changes only on the person's yes. Scripts only, no model.
 
+## Remote Rocketship rows
+
+`searches.py suggest`: the rows' titles with no title page, and the fits' titles and the scope's countries the rows
+lack, each checked on one page (about 2 minutes, no model). Each printed `searches.py query` or `add` command runs
+only after the person's yes. Example: "add country: europe (31 new a week for "engineering manager")". Seen 19 Nov:
+12 of 14 fits came from 2 Remote Rocketship rows.
+
 ## Board discovery
 
 At the same run: 8 web searches, the 4 board kinds x 2 scopes (the remote regions; the person's places), each with

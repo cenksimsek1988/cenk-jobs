@@ -59,6 +59,16 @@ python -I searches.py discover --file <links file>                              
                                                                                  (web search results); prints each
                                                                                  board a script reads that has no
                                                                                  row yet: "new <kind> <board> <link>"
+python -I searches.py suggest [--days <n>] [--from <dir>]                        Remote Rocketship, checked one page
+                                                                                 each: the rows' titles with no title
+                                                                                 page (the generic list comes back),
+                                                                                 the titles of the last n days' fits
+                                                                                 (default 30) and the countries of the
+                                                                                 scope's remote regions the rows lack;
+                                                                                 prints the query and add commands,
+                                                                                 changes nothing (the person's yes
+                                                                                 first); --from: saved pages
+                                                                                 (rocketship-<country>-<title>.html)
 python -I searches.py done <id> found=<n>                                        record that a search was read
 python -I searches.py seen <url> [<url> ...]                                     says "new" or "known" per link
 python -I searches.py seen --file <links file>                                   the same, one link per line in a file
@@ -101,7 +111,7 @@ if "--today" in args:
         sys.exit("--today takes a date, YYYY-MM-DD")
 ASK_AFTER = 20  # screened postings with no real fit before the person is asked about the search
 if not args or args[0] not in ("add", "list", "due", "done", "seen", "sites", "fail", "import", "rates", "every",
-                               "discover", "scope-ok", "query"):
+                               "discover", "scope-ok", "query", "suggest"):
     sys.exit(__doc__)
 env = jsenv.load(env_arg, __file__)
 PATH = env.path("SEARCHES") if env.get("SEARCHES") else env.path("TRACKER") + "/../searches.json"
@@ -372,6 +382,132 @@ elif cmd == "query":
     hit[0]["query"] = ", ".join(t.strip() for t in args[2].split(",") if t.strip())
     save(data)
     print(f"{hit[0]['id']} {hit[0]['site']}: {hit[0]['query'] or '(ROLE_TERMS)'}")
+elif cmd == "suggest":
+    # Remote Rocketship gave 12 of 14 fits on 19 Nov, from 2 country rows: it finds more with more countries and
+    # titles. A title it does not know gives the country's generic list (collect_postings.rocketship_title_page), so
+    # each row's titles are checked on its own country's page, each fit title and new country on one page,
+    # SOURCE_GAP apart, at most SUGGEST_PAGES pages (about 3 minutes).
+    import time
+    import collect_postings as cp
+    opts = dict(zip(args[1::2], args[2::2]))
+    if len(args) % 2 == 0 or set(opts) - {"--days", "--from"} or not str(opts.get("--days", "30")).isdigit():
+        sys.exit("suggest [--days <n>] [--from <dir>]")
+    days, from_dir, SUGGEST_PAGES = int(opts.get("--days", "30")), opts.get("--from"), 60
+    REGION_BOARDS = {"eu": "european-union", "european union": "european-union", "emea": "europe",
+                     "anywhere": "worldwide", "global": "worldwide", "uk": "united-kingdom", "us": "united-states",
+                     "usa": "united-states"}  # each page checked 21 Nov; emea and anywhere have none
+
+    def slug(text):  # a title's page, as collect_postings.feed_urls makes it
+        return re.sub(r"[^a-z0-9]+", "-", str(text).lower()).strip("-")
+
+    def safe(text):
+        """A title as a printed command holds it: letters, digits, spaces and & + . # - only, so a posting's quote,
+        $ or backtick never reaches a shell. Example: 'Lead "Core" Engineer' -> "lead core engineer"."""
+        return " ".join(re.sub(r"[^a-z0-9 &+.#-]", " ", str(text).lower()).split())
+
+    def title_words(title):
+        """A posting title as a search term: the part before a dash, bar, comma or bracket, without seniority and
+        work-mode words. Example: "Senior Engineering Manager, Payments (Remote)" -> "engineering manager"."""
+        core = re.split(r"\s[-–|/]\s|,|\(|\[", str(title))[0]
+        return safe(re.sub(r"(?i)\b(senior|sr|junior|jr|remote|hybrid|i{1,3}|iv)\b\.?", " ", core))
+
+    pages = {}
+
+    def page(board, title):
+        """(state, weekly new) of one page, checked once: "title", "generic" (the list of every remote job), "none"
+        (404 or no saved page), "error ..." or "unchecked" (over SUGGEST_PAGES)."""
+        key = (board, slug(title))
+        if key not in pages:
+            text, state = None, "none"
+            if from_dir:
+                path = os.path.join(from_dir, f"rocketship-{key[0]}-{key[1]}.html")
+                if os.path.isfile(path):
+                    with open(path, encoding="utf-8") as fh:
+                        text = fh.read()
+            elif sum(1 for s, _ in pages.values() if s != "unchecked") >= SUGGEST_PAGES:
+                state = "unchecked"
+            else:
+                if pages:
+                    time.sleep(cp.SOURCE_GAP)
+                try:
+                    text = cp.fetch(cp.FEED_API["remoterocketship"].format(board=key[0], slug=key[1]))
+                except cp.Refused as problem:
+                    state = "none" if problem.code == 404 else f"error {problem.code}"
+                except OSError as problem:
+                    state = f"error {type(problem).__name__}"
+            weekly = None
+            if text is not None:
+                try:
+                    data = cp.next_data(text)
+                    state, weekly = ("generic" if data["generic"] else "title"), data.get("weekly")
+                except ValueError:
+                    state = "error: no page data"
+            pages[key] = (state, weekly)
+        return pages[key]
+
+    rr = [r for r in rows if r.get("source") == "remoterocketship" and not r.get("off") and not r.get("gone")]
+    boards = list(dict.fromkeys(str(r.get("board") or "").lower() for r in rr if r.get("board")))
+    regions = scope_of(env)[0]
+    regions = regions if regions is not None else terms(env.get("REMOTE_REGIONS"))
+    countries = list(dict.fromkeys(boards + [REGION_BOARDS.get(x.lower(), slug(x)) for x in regions if slug(x)]))
+    since = (today - datetime.timedelta(days=days)).isoformat()
+    with open(env.path("TRACKER"), encoding="utf-8") as f:
+        jobs = flat_jobs(json.load(f))
+    first = lambda j: min((str(h.get("date", ""))[:10] for h in j.get("history") or []),  # noqa: E731
+                          default=str(j.get("date") or ""))
+    fits = [j for j in jobs if (j.get("prep") or {}).get("grade") in ("high", "normal") and first(j) >= since]
+    known, words = {}, {}  # a title's page -> the rows that search it, and the title as a row spells it
+    for r in rr:
+        for t in terms(r.get("query")):
+            known.setdefault(slug(t), []).append(r)
+            words.setdefault(slug(t), t)
+    counts = {}
+    for j in fits:
+        t = title_words(j.get("title", ""))
+        if t and slug(t) not in known:
+            counts[t] = counts.get(t, 0) + 1
+    wanted = sorted(counts, key=lambda t: -counts[t])
+    probe = (boards or countries or ["europe"])[0]
+    board_of = lambda r: str(r.get("board") or probe).lower()  # noqa: E731
+    # Each row's titles on its own country's page: a title one country does not know may have a page in another.
+    drops = {r["id"]: [t for t in terms(r.get("query")) if page(board_of(r), t)[0] in ("generic", "none")] for r in rr}
+    kept = [s for s in known if any(page(board_of(r), s)[0] == "title" for r in known[s])]
+    add_titles = [t for t in wanted[:10] if page(probe, t)[0] == "title"]
+    base = (kept + [slug(t) for t in add_titles])[:1]
+    add_countries = [(c, page(c, base[0])[1]) for c in countries if c not in boards and base
+                     and page(c, base[0])[0] == "title"]
+    tech = {r.get("tech") or "" for r in rr}
+    tech = tech.pop() if len(tech) == 1 else ""
+    shown = lambda n: "?" if n is None else n  # noqa: E731  (a page without its weekly count)
+    print(f"Remote Rocketship: {len(rr)} rows, {len(known)} titles; {len(fits)} fits in the last {days} days, "
+          f"{len(wanted)} of their titles not searched; {len(pages)} pages checked")
+    for r in rr:
+        for t in drops[r["id"]]:
+            print(f'drop: "{safe(t)}" in search {r["id"]}: no title page on {board_of(r)} '
+                  f"({page(board_of(r), t)[0]}: the generic list of every remote job, or none)")
+    for t in add_titles:
+        print(f'add title: "{t}" ({counts[t]} fit{"" if counts[t] == 1 else "s"}; {shown(page(probe, t)[1])} new a '
+              f"week on {probe})")
+    for c, weekly in add_countries:
+        print(f'add country: {c} ({shown(weekly)} new a week for "{safe(words.get(base[0], base[0]))}")')
+    titles = [safe(words[t]) for t in kept] + add_titles
+    commands = []
+    for r in rr:
+        mine = [safe(t) for t in terms(r.get("query")) if t not in drops[r["id"]]]
+        new = [t for t in add_titles if slug(t) not in {slug(x) for x in mine}]
+        if not mine + new:
+            print(f"off: search {r['id']}: none of its titles has a page")
+            commands.append(f"searches.py every {r['id']} off")
+        elif new or drops[r["id"]]:
+            commands.append(f'searches.py query {r["id"]} "{", ".join(mine + new)}"')
+    for c, _ in add_countries:
+        commands.append(f'searches.py add "Remote Rocketship {c.replace("-", " ").title()}" "{", ".join(titles)}" '
+                        f"source=remoterocketship board={c} mode=remote" + (f" tech={tech}" if tech else ""))
+    for line in commands:
+        print(line)
+    unchecked = sum(1 for s, _ in pages.values() if s == "unchecked" or s.startswith("error"))
+    print(f"{len(commands)} commands; nothing was changed: each waits for the person's yes"
+          + (f"; {unchecked} pages not checked (run it again later)" if unchecked else ""))
 elif cmd == "discover":
     # Board discovery: links from web searches, one per line in a file (never typed into a command). A board the
     # script reads that has no row (gone or off rows included) is printed once; any other link is left out.

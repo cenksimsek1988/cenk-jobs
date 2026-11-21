@@ -259,12 +259,23 @@ def keep_text(url, markup):
 
 
 def next_data(text):
-    """A Remote Rocketship page's postings: {"jobs": props.pageProps.initialJobOpenings} of its __NEXT_DATA__."""
+    """A Remote Rocketship page's postings: {"jobs": props.pageProps.initialJobOpenings} of its __NEXT_DATA__, and
+    "generic": True when the page is the country's list of every remote job, not a title's (rocketship_title_page)."""
     m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', text, re.S)
     if not m:
         raise ValueError("no __NEXT_DATA__ on the page")
-    props = (json.loads(m.group(1)).get("props") or {}).get("pageProps") or {}
-    return {"jobs": props.get("initialJobOpenings") or []}
+    data = json.loads(m.group(1))
+    props = (data.get("props") or {}).get("pageProps") or {}
+    return {"jobs": props.get("initialJobOpenings") or [], "generic": not rocketship_title_page(data),
+            "weekly": props.get("initialWeeklyNewCount")}
+
+
+def rocketship_title_page(data):
+    """False when a Remote Rocketship page is the generic list a title it does not know falls back to: its
+    __NEXT_DATA__ query names no title (jobsInput). Seen 21 Nov: germany/jobs/tech-lead and germany/jobs/xyz gave the
+    same 20 newest remote jobs of any title, query {}; germany/jobs/engineering-manager gave query {"jobsInput":
+    "entwicklungsleiter"}. A page without a query (an older saved answer) counts as a title page."""
+    return "query" not in data or bool((data.get("query") or {}).get("jobsInput"))
 
 
 def feed_postings(source, data, board=""):
@@ -371,8 +382,10 @@ def paced_fetch(source, url):
 def rocketship_pages(row, words, from_dir=None):
     """Remote Rocketship: one page per title (with the row's stack). A page that answers 404 is that title's, never the
     row's: it is skipped with one line, and the row fails (searches.py fail) only when every page does. Seen 20 Nov:
-    italy/jobs/staff?techStack=java answered 404. With --from, the n-th title reads the n-th saved page
-    (remoterocketship-<board>.json, then -p2, -p3), and a page's .status file answers with that code."""
+    italy/jobs/staff?techStack=java answered 404. A title Remote Rocketship does not know gives the country's generic
+    list of every remote job (0.46.2): skipped like a 404, never read as that title's postings. With --from, the n-th
+    title reads the n-th saved page (remoterocketship-<board>.json, then -p2, -p3), and a page's .status file answers
+    with that code."""
     out, missing, urls = [], 0, feed_urls(row, words)
     base = os.path.join(from_dir, f"remoterocketship-{row.get('board', '')}") if from_dir else ""
     for n, url in enumerate(urls):
@@ -383,9 +396,20 @@ def rocketship_pages(row, words, from_dir=None):
                 if code:
                     raise Refused(code)
                 with open(page + ".json", encoding="utf-8") as fh:
-                    out.append(fh.read())
+                    text = fh.read()
             else:
-                out.append(paced_fetch("remoterocketship", url))
+                text = paced_fetch("remoterocketship", url)
+            try:
+                generic = next_data(text)["generic"]
+            except ValueError:
+                generic = False  # no __NEXT_DATA__: the page's own error comes when it is read
+            if generic:
+                missing += 1
+                print(f"no Remote Rocketship page for that title: {url} gave the generic list of every remote job: "
+                      f'drop that title from search {row.get("id")} (searches.py query {row.get("id")} "<the other '
+                      'titles>"; searches.py suggest names them)')
+                continue
+            out.append(text)
         except Refused as problem:
             if problem.code == 404:
                 missing += 1

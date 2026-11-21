@@ -3661,6 +3661,79 @@ check "choices 0.46.0: FIT_MODEL sonnet by default; opus and opus-max move the f
     "$1" -I "$2/choices.py" workflow --env "$3" | grep -q "\"fitModel\": \"opus-max\"" &&
     grep -q "^const FIT_MODELS = { opus: { model: .opus., effort: .medium. }, .opus-max.: { model: .opus., effort: .max. } }$" "$2/../workflows/screen-and-prepare.js" &&
     ! "$1" -I "$2/choices.py" set FIT_MODEL=haiku --env "$3" >/dev/null 2>&1' _ "$PY" "$S" "$ENVF"
+# --- 0.46.2: Remote Rocketship's generic list is no title's page; searches.py suggest ---------------------------------
+mkhome "$T/r462" flat
+use "$T/r462"
+echo "REMOTE_REGIONS=Europe, Worldwide" >>"$ENVF"
+mkdir -p "$T/r462-src" "$T/r462-pages"
+"$PY" -I - "$T/r462-src" "$T/r462-pages" "$H/apply/targets.json" <<'PYEOF'
+import datetime
+import json
+import os
+import sys
+
+src, pages, tracker = sys.argv[1:4]
+now = datetime.datetime.now(datetime.timezone.utc)
+
+
+def page(query, title, n):
+    jobs = [{"id": n, "roleTitle": title, "company": {"name": "Acme"}, "url": f"https://jobs.example.com/acme-{n}",
+             "locationType": "remote", "created_at": now.strftime("%Y-%m-%dT%H:%M:%SZ")}]
+    data = {"props": {"pageProps": {"initialJobOpenings": jobs, "initialWeeklyNewCount": 7}}, "query": query}
+    return '<html><script id="__NEXT_DATA__" type="application/json">' + json.dumps(data) + "</script></html>"
+
+
+# collect: the row's first title gives the generic list (a Tech Lead posting among any titles), the second its page
+for name, text in (("remoterocketship-europe.json", page({}, "Tech Lead, Payments", 1)),
+                   ("remoterocketship-europe-p2.json", page({"jobsInput": "engineering-manager"}, "Engineering Manager", 2))):
+    with open(os.path.join(src, name), "w", encoding="utf-8") as f:
+        f.write(text)
+# suggest: one saved page per country and title
+for name, query in (("europe-tech-lead", {}), ("europe-engineering-manager", {"jobsInput": "engineering-manager"}),
+                    ("europe-platform-lead", {"jobsInput": "platform-lead"}),
+                    ("europe-lead-core-engineer", {"jobsInput": "lead-core-engineer"}),
+                    ("worldwide-engineering-manager", {"jobsInput": "engineering-manager"})):
+    with open(os.path.join(pages, f"rocketship-{name}.html"), "w", encoding="utf-8") as f:
+        f.write(page(query, "Engineering Manager", 3))
+today = now.date().isoformat()
+
+
+def fit(i, title):
+    return {"id": i, "company": "Beta", "title": title, "url": f"https://example.com/{i}", "status": "submitted",
+            "applied": today, "prep": {"action": "apply", "grade": "high", "reason": "fit"},
+            "history": [{"date": today, "status": "found", "note": "found"}]}
+
+
+with open(tracker, "w", encoding="utf-8") as f:
+    json.dump({"jobs": [fit("R1", "Senior Platform Lead (Remote)"), fit("R2", 'Lead "Core" Engineer, Data')]}, f)
+PYEOF
+searches add "Remote Rocketship Europe" "tech lead, engineering manager" source=remoterocketship board=europe >/dev/null 2>&1
+"$PY" -I "$S/collect_postings.py" --since 2026-11-01 --from "$T/r462-src" --out "$T/r462.json" --env "$ENVF" >"$T/r462.out" 2>&1
+check "collect 0.46.2: a Remote Rocketship title it does not know gives the generic list: skipped like a 404, never read" sh -c '
+    grep -q "^no Remote Rocketship page for that title: https://www.remoterocketship.com/country/europe/jobs/tech-lead gave the generic list" "$1" &&
+    "$2" -I "$3/dq.py" "$4" "[j[\"title\"] for c in R[\"companies\"] for j in c[\"jobs\"]] == [\"Engineering Manager\"]"' \
+    _ "$T/r462.out" "$PY" "$T" "$T/r462.json"
+searches add "Remote Rocketship Europe old" "tech lead" source=remoterocketship board=europe >/dev/null 2>&1
+cp "$H/apply/searches.json" "$T/r462-before.json"
+searches suggest --from "$T/r462-pages" >"$T/r462-suggest.out" 2>&1
+check "searches suggest 0.46.2: drops a title with no page, adds fits' titles and a scope country, changes nothing" sh -c '
+    [ "$(grep -c "^drop: \"tech lead\" in search [0-9]*: no title page on europe (generic" "$1")" = 2 ] &&
+    grep -q "^add title: \"platform lead\" (1 fit; 7 new a week on europe)$" "$1" &&
+    grep -q "^add title: \"lead core engineer\" (1 fit; 7 new a week on europe)$" "$1" &&
+    grep -q "^add country: worldwide (7 new a week for \"engineering manager\")$" "$1" &&
+    grep -q "^searches.py query [0-9]* \"engineering manager, platform lead, lead core engineer\"$" "$1" &&
+    grep -q "^searches.py add \"Remote Rocketship Worldwide\" \"engineering manager, platform lead, lead core engineer\" source=remoterocketship board=worldwide mode=remote$" "$1" &&
+    grep -q "^3 commands; nothing was changed" "$1" && cmp -s "$2" "$3"' _ "$T/r462-suggest.out" "$T/r462-before.json" "$H/apply/searches.json"
+cp "$H/apply/targets.json" "$T/r462-fits.json"
+echo '{"jobs": []}' >"$H/apply/targets.json"
+searches suggest --from "$T/r462-pages" >"$T/r462-nofit.out" 2>&1
+cp "$T/r462-fits.json" "$H/apply/targets.json"
+check "searches suggest 0.46.2: a row left with no title is turned off, never emptied; a quote in a title never reaches a command" sh -c '
+    grep -q "^off: search [0-9]*: none of its titles has a page$" "$1" && grep -q "^searches.py every [0-9]* off$" "$1" &&
+    grep -q "^searches.py query [0-9]* \"engineering manager\"$" "$1" && ! grep -q "^searches.py query [0-9]* \"\"$" "$1" &&
+    ! grep -q "\"core\"" "$2"' _ "$T/r462-nofit.out" "$T/r462-suggest.out"
+check "searches suggest 0.46.2: a wrong option is refused with its usage" sh -c '
+    "$1" -I "$2/searches.py" suggest --days x --env "$3" 2>&1 | grep -q "^suggest \[--days <n>\] \[--from <dir>\]$"' _ "$PY" "$S" "$ENVF"
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]
