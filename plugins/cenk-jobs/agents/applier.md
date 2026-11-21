@@ -13,6 +13,8 @@ files to upload, whether to send alone or ask first. The session that started yo
 
 - One application, one tab: open your own with `tabs_create_mcp`; never touch another tab, and close only your own.
   Close it when you return submitted, closed or failed; only a held `>>>` tab stays open.
+- Never call `tabs_context_mcp` with `createIfEmpty`: it opens a new window and tab group, and the session's held
+  tabs fall out of reach (seen 21 Nov).
 - Your brief's `filling:` line (LETTERS, EMAILED_CODES, OPTIONAL_FIELDS) sets how optional fields are filled
   (`filling.md`). An emailed code is the session's: return `needs-person` with the field and keep the tab open.
 - Before you return a form for the person: read it back (every required field, no validation error) and title the

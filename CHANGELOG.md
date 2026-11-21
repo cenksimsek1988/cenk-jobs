@@ -6,6 +6,33 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.46.7] - 2026-11-21
+
+The rest of the catch-up's lessons of 21 Nov: applying and records.
+
+### Changed
+
+- The same job under two links: a title's "Stack" names nothing of the role, so "Engineering Manager (Java/Kotlin
+  Stack)" and "Engineering Manager (Java/Kotlin)" are one job (`reposts.title_key`).
+- `track.py set --file` writes every line it can and names each one it cannot (an unknown id, an id on two rows, no
+  such status), instead of stopping all; with none writable it changes nothing.
+- `build_app_folders.py`: of the applications whose names cut to one folder name (case aside), the first by id keeps
+  that folder, so nothing is left behind in the person's Drive, and each other one gets its job id at the end
+  (example: "... - Engin (I1121b07)"); every other folder keeps its name.
+- `track.py set --file` ends with a count when it leaves lines out ("3 lines written, 1 not changed").
+- `check_setup.py` warns when `draft_answers` is not set: unset, the funnel drafts no essay.
+- Applying: an employer's stated application limit ("up to 3 applications in 60 days") is kept, best-graded roles
+  first, each role left out recorded with the limit; a pay band only the form shows, more than 10% under the pay
+  rule, is a hard pay gap recorded as a fit skip.
+- A sub-session asks the person nothing in chat before the apply order's last round: its questions go to the
+  coordinator for the Questions page; a form held for that round is titled `>>> Jane: Acme end list <<<`.
+- The applier never calls `tabs_context_mcp` with `createIfEmpty` (it opens a new window and tab group).
+- Site notes: Himalayas (403 to scripts, texts saved from Chrome; its Apply opens the employer's form: that is the
+  apply_url), Indeed (one-click apply sends the stored CV: never used), BambooHR (pages drawn by script: texts saved
+  from Chrome), Dover (Turnstile on Apply is the person's; a channel group that toggles together), SmartRecruiters
+  (combobox fields need an option click; ";" refused in text).
+- The tests use made-up places only.
+
 ## [0.46.6] - 2026-11-21
 
 More fits from the catch-up's lessons of 21 Nov, and fewer fit checks spent on postings the person cannot take.

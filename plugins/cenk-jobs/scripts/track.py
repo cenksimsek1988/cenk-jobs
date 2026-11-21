@@ -843,6 +843,21 @@ elif cmd == "set" and args[1:2] == ["--file"]:
     bad = [n for n, ln in enumerate(lines, 1) if len(ln) < 2]
     if bad:
         sys.exit(f"set --file: line {bad[0]} needs id, status and note, tab-separated")
+    # A line whose id is unknown (or on two rows) or whose status is not one is named and left out; the others are
+    # written (0.46.7; seen 21 Nov: one unknown id stopped every line of a catch-up's file).
+    rows_of = collections.Counter(job["id"] for _, job in companies(data))
+    for n, ln in enumerate(lines, 1):
+        why = ("no such job" if not rows_of.get(ln[0]) else f"the id is on {rows_of[ln[0]]} rows"
+               if rows_of[ln[0]] > 1 else f"no status {ln[1]!r}" if ln[1] not in STATUSES else "")
+        if why:
+            print(f"set --file: line {n}, {ln[0]}, not changed: {why}")
+    skipped = len(lines)
+    lines = [ln for ln in lines if rows_of.get(ln[0]) == 1 and ln[1] in STATUSES]
+    skipped -= len(lines)
+    if not lines:
+        sys.exit("set --file: no line could be written; nothing was changed")
+    if skipped:
+        print(f"set --file: {len(lines)} lines written, {skipped} not changed (named above)")
     ready()
     for ln in lines:
         set_one(data, ln[0], ln[1], ln[2] if len(ln) > 2 else "", [])

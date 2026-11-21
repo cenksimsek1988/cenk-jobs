@@ -157,6 +157,8 @@ The open applications go in three rounds; nothing of rounds 2 and 3 is asked bef
 
 A form that needs the person beyond a sign-in is filled as far as it goes and held for round 3. Example: 12 open
 jobs: 7 sent alone, 3 after one sign-in round, 2 asked about at the end.
+A sub-session asks the person nothing in chat before round 3: each question goes to the coordinator, which puts it on
+the Questions page as a task; a form held for round 3 is titled `>>> Jane: Acme end list <<<`.
 
 ## Urgent steps
 

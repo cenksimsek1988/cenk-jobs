@@ -13,7 +13,7 @@ waits on the person.
 
 - Check the posting is still open and its link lands on the employer's own form (RULES.md, "Links"). The site's
   own notes are in `../../references/sites/<site>.md` (greenhouse, ashby, linkedin, smartrecruiters, successfactors,
-  workday, eightfold, remoteok, freelancermap):
+  workday, eightfold, remoteok, freelancermap, himalayas, indeed, bamboohr, dover):
   read the one for the form in hand.
 - The letter is the one the funnel prepared (`track.py brief <id>`: `letter_txt`); the funnel writes one only for a
   form whose fields it read with a letter field. A job without one gets it now, only when the open form shows a
@@ -34,7 +34,9 @@ waits on the person.
   the site offers it, and to keep Chrome's "clear cookies when you close all windows" off. A sign-in that expired
   before its site's turn is asked again in the last list.
 - Every fitting role at one employer is applied to at the same time: never wait for one application there to
-  finish before sending the next.
+  finish before sending the next. An employer that states an application limit (its careers page or form: "up to
+  3 applications in 60 days"): count its sent jobs in that window, apply to the best-graded roles within it, and
+  record each role left out: `track.py set <id> skipped "<employer>'s limit: 3 applications in 60 days"`.
 - Several applications at once: one `cenk-jobs:applier` subagent per application, started together, one tab each,
   at most `APPLY_PARALLEL` at once (default 2), never two on the same site. A subagent cannot ask the person: its
   brief holds every answer, names the CV and letter, already copied for upload, the `filling:` line of `track.py

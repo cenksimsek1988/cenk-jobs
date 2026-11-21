@@ -44,6 +44,7 @@ so; an entry with "same_as" and no stage of its own takes the stage, date and re
 A step's link is its own page (meeting, test, booking, interview) and mail the Gmail link of the email that set it;
 the overview's step line links both.
 """
+import collections
 import datetime
 import filecmp
 import functools
@@ -303,6 +304,36 @@ for company, job in companies(data):
         stage = stage if stage in STAGES else "pending"
         folders[job["id"]] = (stage, safe(f"{applied(job)} {company['name']} - {job.get('title') or ''}"))
 
+
+def unique(names):
+    """{job id: folder name}: of the jobs whose names cut to one folder name (case aside, as Windows and Drive read
+    it), the first by id keeps it, so a folder that exists keeps its owner and nothing is left behind, and each other
+    one gets its id at the end (0.46.7; seen 21 Nov: four roles at one employer in one folder). Every other name stays.
+    Example: "2026-11-21 Acme Holding ... - Engineer" and "2026-11-21 Acme Holding ... - Engin (I1121b07)"."""
+    first = {}
+    for jid in sorted(names):
+        first.setdefault(names[jid].lower(), jid)
+    return {jid: name if first[name.lower()] == jid else f"{safe(name, max(0, 70 - len(jid) - 3))} ({jid})"
+            for jid, name in names.items()}
+
+
+def title_of(company, job):
+    """The title the folder names: the job's, else its prepared one (the main loop's own rule, on the merged row)."""
+    company, job = full(company, job)
+    prep = job.get("prep") or ({} if COMPANY_SHAPE else job)
+    return company, job.get("title") or prep.get("title") or ""
+
+
+sent_names = unique({jid: name for jid, (_, name) in folders.items()})
+folders = {jid: (stage, sent_names[jid]) for jid, (stage, _) in folders.items()}
+# The not-applied folders, named the same way: the jobs the loop below keeps (open, the employer not ruled out).
+pending_names = unique({
+    job["id"]: safe(f"{merged['name']} - {title}")
+    for company, job in companies(data)
+    if job.get("status") != "submitted" and open_label(job.get("status", ""))
+    and (company.get("verdict") or job.get("verdict") or "allow") in ("allow", "clear", "discuss")
+    for merged, title in [title_of(company, job)]})
+
 rows = {s: [] for s in STAGES}
 open_rows, upcoming = [], []
 for company, job in companies(data):
@@ -325,7 +356,7 @@ for company, job in companies(data):
         stage, folder = folders[job["id"]]
         path = place_folder(folder, os.path.join(out, stage))
     else:
-        stage, folder = "not-applied", safe(f"{company['name']} - {title}")
+        stage, folder = "not-applied", pending_names.get(job["id"]) or safe(f"{company['name']} - {title}")
         path = os.path.join(pending_dir, folder)
         os.makedirs(path, exist_ok=True)
 

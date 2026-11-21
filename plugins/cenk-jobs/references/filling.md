@@ -62,6 +62,11 @@ site's notes in `sites/<site>.md`. The safety rules here are `RULES.md`'s, in sh
   year or longer, the day rate x the working days of a year / 12 for a month; about six months, the day rate x the
   working days of a month; no length, or only some hours a day, the hourly rate x the posting's hours. Always
   round up. Example: 500 a day, 220 working days, 12 months: 500 x 220 / 12 = 9,167 a month, typed 9,500.
+- A pay band only the form shows (a salary field's range, a select of bands): more than 10% under the pay rule's
+  figure is a hard pay gap: stop; (session) `track.py set <id> skipped "fit: a hard gap: pay: the form's band is
+  <range>"`, so a repost of the job is not screened again within `FIT_CACHE_DAYS` (30). Up to 10% under: fill the
+  form as usual, at the rule's figure.
+  Example: a form band of EUR 1,200-1,700 a month against a rule of EUR 4,500 a month.
 - Every pay figure typed into a form, current pay included, is rounded up until its significant part ends in 0 or 5:
   the figure counted in its currency's salary unit (thousands a year, hundreds a month, tens a day, ones an hour;
   others where that currency counts otherwise, `paylib.py`: TRY thousands a month too, JPY ten thousands), rounded up

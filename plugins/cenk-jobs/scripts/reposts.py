@@ -29,7 +29,9 @@ from trackerlib import companies  # noqa: E402
 
 FIT_CACHE_DAYS = 30  # a fit skip this recent stands for the same employer and title found again
 TAGS = re.compile(r"(?i)\(?\b[mfwdx]\s*/\s*[mfwdx](\s*/\s*[mfwdx])?\b\)?|\ball genders\b")
-FILLER = {"and", "the", "of", "for", "in", "at", "a", "an", "to", "with"}
+# "stack" names nothing of the role: "Engineering Manager (Java/Kotlin Stack)" and "Engineering Manager (Java/Kotlin)"
+# are the same job under two links (0.46.7; seen 21 Nov).
+FILLER = {"and", "the", "of", "for", "in", "at", "a", "an", "to", "with", "stack"}
 
 
 def title_key(title):

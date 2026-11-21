@@ -10,3 +10,6 @@ applies to one.
 - The search session reads the posting in the person's Chrome (`navigate`, then `get_page_text`: a posting is a
   short page) and saves the text as that file (`<job id>.md` in `POSTINGS_DIR`); the next fit check reads it. Never
   a screenshot. Example: two Dover postings left "unread" on 20 Nov: their texts saved, the next run checks them.
+- A Cloudflare Turnstile on Apply is a bot check: the person's (`../filling.md`), never passed by Claude.
+- A channel checkbox group ("How did you hear about us") can tick and untick as one: tick the one channel, and when
+  the group toggles together, put the channel in the details field instead. Seen 21 Nov.

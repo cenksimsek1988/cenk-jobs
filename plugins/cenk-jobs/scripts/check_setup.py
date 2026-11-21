@@ -96,6 +96,12 @@ def profile_checks():
         if copied:
             out.append(("WARN", "job-search.env repeats the profile", f"{', '.join(copied)}: remove the line; "
                         "letters and file names read the profile (profilelib.person)"))
+        if pl.setting(prof, "draft_answers") is None:
+            # Unset reads as "no": the funnel drafts no essay and each waits for the person (seen 21 Nov: a catch-up
+            # ran the writer by hand). Asked once, at setup.
+            out.append(("WARN", "Setting draft_answers", "not set, so no essay is drafted: ask the person (yes: Claude "
+                        "drafts each essay from the records for their approval), then profilelib.py set "
+                        "settings.cenk-jobs.draft_answers yes|no --yes"))
         unknown = pl.form_facts(prof)[1]
         if unknown:
             out.append(("WARN", "Setting form_facts", f"not items forms may fill: {', '.join(unknown)} (allowed: "

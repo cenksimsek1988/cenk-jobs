@@ -21,8 +21,8 @@ tracker, and nothing is prepared or sent.
    - Remote Rocketship, one row per country: `searches.py add "Remote Rocketship Italy" "<titles>"
      source=remoterocketship board=italy` (a title becomes its page, `tech=Java` adds a stack filter), read daily.
      Himalayas (`himalayas-search board=Italy`) finds postings only: the funnel applies on the employer's own
-     careers page. Boards and `workable-search` are read weekly (`every=7`, their default; older rows:
-     `searches.py every greenhouse 7`).
+     careers page (`../../references/sites/himalayas.md`: its texts are saved from Chrome). Boards and
+     `workable-search` are read weekly (`every=7`, their default; older rows: `searches.py every greenhouse 7`).
    - RemoteOK's Apply needs a paid plan: the fit check takes the employer's own posting, else skips the job
      (`../../references/sites/remoteok.md`).
    - The scope: `preferences.locations.search_scope` in the master record; its `remote_regions` stands for

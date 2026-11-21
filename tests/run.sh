@@ -2276,7 +2276,7 @@ json.dump({"low": "junior", "level": "staff|principal|lead|architect", "no": "sa
           open(os.path.join(home, "apply", "search-rules.json"), "w", encoding="utf-8"))
 career = json.load(open(os.path.join(home, "career-records", "career.json"), encoding="utf-8"))
 career["preferences"]["locations"] = {"base": "made up", "search_scope": {
-    "text": "made up", "remote_regions": ["Europe", "Worldwide", "Italy"], "any_mode_places": ["Istanbul"]}}
+    "text": "made up", "remote_regions": ["Europe", "Worldwide", "Italy"], "any_mode_places": ["Lisbon"]}}
 json.dump(career, open(os.path.join(home, "career-records", "career.json"), "w", encoding="utf-8"))
 tracker = json.load(open(os.path.join(home, "apply", "targets.json"), encoding="utf-8"))
 tracker["jobs"].append({"id": "S1", "company": "Delta GmbH", "title": "Staff Engineer", "url": "https://example.com/s1",
@@ -2319,7 +2319,7 @@ check "0.38 searches rates: real fits per row; 20 screened and none asks the per
     grep -q "^2 remoteok | engineer, architect | found 4 | screened 1 | real fits 1 | 100%$" "$1" &&
     grep -q "^ask the person whether to drop.*3 LinkedIn Italy | staff engineer java, principal architect: 20 screened, 0 real fits$" "$1"' _ "$T/s38-rates.out"
 cat >"$T/s38-profile.json" <<'EOF'
-{"linkedin": [{"location": "Istanbul", "remote": false, "queries": ["java architect", "staff engineer java"]}],
+{"linkedin": [{"location": "Lisbon", "remote": false, "queries": ["java architect", "staff engineer java"]}],
  "boards": [{"source": "ashby", "board": "examplia", "site": "Examplia"}], "feeds": ["remotive", "nofeed"]}
 EOF
 searches import "$T/s38-profile.json" >"$T/s38-imp1.out" 2>&1
@@ -3980,6 +3980,52 @@ check "0.46.6 text: the search stop rule, the title stack in the fit prompt and 
     grep -q "is \"absent\", never \"adjacent\": example, C#/.NET in the title" "$1/workflows/screen-and-prepare.js" &&
     grep -q "a C#/.NET role for a Java record is a long-shot" "$1/references/choices.md" &&
     grep -q "^python -I track.py reopen \[--weak\]" "$1/scripts/track.py"' _ "$S/.."
+# --- 0.46.7: the catch-up's lessons on applying and records -------------------------------------------------------
+check "reposts 0.46.7: a title's Stack names nothing of the role: two links of one job match" "$PY" -I -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+import reposts
+assert reposts.title_key("Engineering Manager (Java/Kotlin Stack)") == reposts.title_key("Engineering Manager (Java/Kotlin)")
+assert reposts.title_key("Engineering Manager (Java)") != reposts.title_key("Engineering Manager (Go)")
+' "$S"
+mkhome "$T/r467" flat
+use "$T/r467"
+"$PY" -I - "$H/apply/targets.json" <<'PYEOF'
+import json
+import sys
+
+long_name = "Omega Holding International Banking and Payments Services Group"
+def job(i, title, status, applied=""):
+    return {"id": i, "company": long_name, "title": title, "url": f"https://example.com/{i}", "status": status,
+            "note": "sent" if status == "submitted" else "found", "applied": applied,
+            "history": [{"date": "2026-11-21", "status": status, "note": "x"}]}
+
+jobs = [job("X1", "Engineering Manager, Payments", "submitted", "2026-11-21"),
+        job("X2", "Engineering Manager, Lending", "submitted", "2026-11-21"),
+        job("Y1", "Data Lead", "found")]
+json.dump({"jobs": jobs}, open(sys.argv[1], "w", encoding="utf-8"))
+PYEOF
+"$PY" -I -c 'import sys; open(sys.argv[1], "w", encoding="utf-8").write("Y1\tskipped\tnot now\nZZ\tskipped\tgone\nX1\tbogus\tz\n")' "$T/r467-lines.tsv"
+track set --file "$T/r467-lines.tsv" >"$T/r467-set.out" 2>&1
+check "track set --file 0.46.7: the lines it can are written; an unknown id and a wrong status are named, not fatal" sh -c '
+    grep -q "^set --file: line 2, ZZ, not changed: no such job$" "$1" &&
+    grep -q "^set --file: line 3, X1, not changed: no status .bogus.$" "$1" &&
+    "$2" -I "$3/dq.py" "$4" "[j[\"status\"] for j in R[\"jobs\"] if j[\"id\"] == \"Y1\"] == [\"skipped\"]"' \
+    _ "$T/r467-set.out" "$PY" "$T" "$H/apply/targets.json"
+"$PY" -I "$S/build_app_folders.py" --env "$ENVF" >"$T/r467-build.out" 2>&1
+check "build_app_folders 0.46.7: of two roles whose names cut to one folder, the first keeps it, the other gets its id" sh -c '
+    [ "$(ls "$1"/pending | wc -l)" -eq 2 ] && ls "$1"/pending | grep -q " (X2)$" && ! ls "$1"/pending | grep -q " (X1)$"' \
+    _ "$H/job-applications"
+"$PY" -I "$S/check_setup.py" --env "$ENVF" >"$T/r467-setup.out" 2>&1
+check "check_setup 0.46.7: an unset draft_answers is named, with the command that sets it" \
+    grep -q "Setting draft_answers - not set, so no essay is drafted" "$T/r467-setup.out"
+check "0.46.7 text: application limits, a form-only pay band, the end-list title, no createIfEmpty, the new site notes" sh -c '
+    grep -q "states an application limit" "$1/skills/apply/SKILL.md" &&
+    grep -q "A pay band only the form shows" "$1/references/filling.md" &&
+    grep -q "Jane: Acme end list" "$1/RULES.md" && grep -q "Never call .tabs_context_mcp. with .createIfEmpty." "$1/agents/applier.md" &&
+    for f in himalayas indeed bamboohr; do grep -q "^- Draft: " "$1/references/sites/$f.md" || exit 1; done &&
+    grep -q "Turnstile on Apply" "$1/references/sites/dover.md" && grep -q "comboboxes" "$1/references/sites/smartrecruiters.md"' \
+    _ "$S/.."
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]
