@@ -12,7 +12,9 @@ python -I track.py todo <id> add <kind> "<text>" [key=value ...]          add a 
                                                                            due=<date>, link, login, session=<session id>,
                                                                            since=<date>, today when left out)
 python -I track.py todo <id> done <n>|all|kind=<kind>|session=<id>        remove to-dos: the one `list` numbers <n>, all,
-                                                                           or every one of a kind or a session
+                                                                           or every one of a kind or a session; when it
+                                                                           removes nothing, it says where they are (the
+                                                                           job's history, another row at the employer)
 python -I track.py todo <id> list                                         the job's to-dos, numbered
 python -I track.py wait <id> needs-person|needs-captcha|account-needed "<what>" [link=<url>] [login=<site>]
                                                                            a wait on the person, recorded where the
@@ -161,9 +163,14 @@ def ready():
 
 
 def find(data, job_id):
-    for company, job in companies(data):
-        if job["id"] == job_id:
-            return company, job
+    """The one row with this id; an id on two rows is refused, so a change never lands on the wrong one."""
+    hits = [(company, job) for company, job in companies(data) if job["id"] == job_id]
+    if len(hits) > 1:
+        sys.exit(f"job {job_id} is on {len(hits)} rows ("
+                 + "; ".join(f"{c.get('name', '') or j.get('company', '')}: {title_of(j)[:40]}" for c, j in hits)
+                 + "): an id names one job; give one of them a new id in the tracker before changing it")
+    if hits:
+        return hits[0]
     sys.exit(f"no job {job_id} in {PATH}")
 
 
@@ -903,6 +910,17 @@ elif cmd == "todo":
     if todo_command(row, args[2], args[3:]):
         save(data, [args[1]])
         print(PAGES_BEHIND)
+    elif args[2] == "done":
+        # Nothing removed: say where the to-dos went, so nobody looks for them in the wrong place (lesson 21 Nov).
+        drops = [h for h in expand_row(PATH, row).get("history") or [] if h.get("todo_dropped")]
+        if drops and not row.get("todo"):
+            print(f"{len(drops[-1]['todo_dropped'])} to-do(s) of {args[1]} were dropped into its history on "
+                  f"{drops[-1].get('date', '')}, when it became {drops[-1].get('status', '')}")
+        name = company.get("name", "") or row.get("company", "")
+        others = [r["id"] for c, r in companies(data) if name and r is not row and r.get("todo")
+                  and (c.get("name", "") or r.get("company", "")) == name]
+        if others:
+            print(f"to-dos at {name} are on: {', '.join(others)} (track.py todo <id> list)")
 elif cmd in ("step", "outcome"):
     # PIPELINE changes only here: the tracker is read for the job, never written.
     if len(args) < 3:
@@ -913,14 +931,17 @@ elif cmd in ("step", "outcome"):
     recordlib.save(env, "pipeline", pipeline, pipeline_base, "track.py", [pid])
     print(PAGES_BEHIND)
 elif cmd == "show":
-    company, job = find(data, [a for a in args[1:] if a != "--full"][0])
-    row = {"company": company.get("name", "")}
-    if is_company_shape(data):
-        row["verdict"] = company.get("verdict")  # the company's screening verdict, which a job's own row lacks
-        if company.get(DETAILS):
-            row["company_details"] = company[DETAILS]
-    row.update(expand_row(PATH, job) if "--full" in args else job)
-    print(json.dumps(row, ensure_ascii=False, indent=1))
+    # Read only: an id on two rows shows both, so the person can see which one to give a new id (find refuses it).
+    wanted = [a for a in args[1:] if a != "--full"][0]
+    hits = [(c, j) for c, j in companies(data) if j["id"] == wanted] or [find(data, wanted)]
+    for company, job in hits:
+        row = {"company": company.get("name", "")}
+        if is_company_shape(data):
+            row["verdict"] = company.get("verdict")  # the company's screening verdict, which a job's own row lacks
+            if company.get(DETAILS):
+                row["company_details"] = company[DETAILS]
+        row.update(expand_row(PATH, job) if "--full" in args else job)
+        print(json.dumps(row, ensure_ascii=False, indent=1))
 elif cmd == "split":
     split_tracker_files(data, "--apply" in args)
 elif cmd == "brief":

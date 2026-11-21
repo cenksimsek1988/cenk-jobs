@@ -6,6 +6,23 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.46.4] - 2026-11-21
+
+The last two of the ten lessons of 20-21 Nov: the tracker's ids and to-dos, and a faster folders build.
+
+### Changed
+
+- `track.py` refuses an id that is on two rows, naming both, and writes nothing: a change never lands on the wrong
+  job. Example: "job D7 is on 2 rows (Eta: Lead; Iota: Manager)".
+- `track.py todo <id> done` that removes nothing says where the to-dos are: dropped into the job's history when it
+  was sent or ended (with the date), or on another row at the same employer.
+- `build_app_folders.py` reads a row's detail file only for a job that gets a folder, indexes the CV and letter
+  folders once instead of once per file, looks up each employer's working environment once, and writes a file only
+  when its text changed, so an unchanged one keeps its time and Google Drive syncs nothing. Example: a tracker of
+  1,400 rows of which 300 make a folder reads 300 detail files, not 1,400. Not yet: skipping the jobs that did not
+  change since the last build.
+- `track.py show <id>` prints every row that holds the id, so a duplicate can be looked at before it is fixed.
+
 ## [0.46.3] - 2026-11-21
 
 Seven of the ten lessons of 20-21 Nov: letters only where a form takes one, no paid plans, drafts read back, bot

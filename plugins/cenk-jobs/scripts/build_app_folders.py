@@ -12,8 +12,10 @@ Layout under APPLICATIONS_DIR:
   not-applied/    prepared or found but not sent, with what blocks each one (and its own README.md)
   _cv-versions/   only with SENT_CVS_DIR: the CVs sent before the current ones in CVS_DIR, as they were sent
 Every application folder holds overview.md (read by export_dashboard.py), role.md, company.md, prep.md and the cover
-letter. Reruns rewrite those four files and the README files only. Files written later (job-description.md, notes.md
-and every file inside a step folder) are never overwritten, and a folder whose stage changed is moved, not recreated.
+letter. Reruns rewrite those four files and the README files only, and only where their text changed (an unchanged
+file keeps its time, so Google Drive syncs nothing); a row's detail file is read only for a job that gets a folder.
+Files written later (job-description.md, notes.md and every file inside a step folder) are never overwritten, and a
+folder whose stage changed is moved, not recreated.
 A step folder gets a feedback.md form once; Claude writes prep.md and cheat-sheet.md there before the step, and the
 overview links them once they exist. A sent job's CV and letter are copied into its folder once, so the folder keeps
 what was really sent. When a not-applied job is sent or dropped, the files the person or Claude wrote in its folder
@@ -44,6 +46,7 @@ the overview's step line links both.
 """
 import datetime
 import filecmp
+import functools
 import json
 import os
 import re
@@ -54,14 +57,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import employerlib as el  # noqa: E402
 import jsenv  # noqa: E402
 import profilelib  # noqa: E402
-from trackerlib import (applied_on, companies, expand, is_company_shape, load_settings, needs_of, note_key,  # noqa: E402
-                        pipeline_entry, step_done, waits_on_person)
+from trackerlib import (applied_on, companies, expand_company, expand_row, is_company_shape,  # noqa: E402
+                        load_settings, needs_of, note_key, pipeline_entry, step_done, waits_on_person)
 
 args = sys.argv[1:]
 env = jsenv.load(args[args.index("--env") + 1] if "--env" in args else None, __file__)
 out = env.path("APPLICATIONS_DIR")
 with open(env.path("TRACKER"), encoding="utf-8") as fh:
-    data = expand(json.load(fh), env.path("TRACKER"))  # a split tracker: every detail merged back (prep, ties, history)
+    data = json.load(fh)  # summary rows: a row's detail (prep, history, ties) is read only for a job the run keeps
 pipeline = {}
 if os.path.isfile(env.path("PIPELINE")):
     with open(env.path("PIPELINE"), encoding="utf-8") as fh:
@@ -70,6 +73,21 @@ settings = load_settings(env)
 today = datetime.date.today().isoformat()
 NOTE = note_key(data)
 COMPANY_SHAPE = is_company_shape(data)
+# id of a summary row -> the row with its detail merged back, each detail file read once. The ids stay valid: the
+# rows live in data for the whole run (a flat tracker's company dict is made per call, so it is never a key).
+_FULL = {}
+
+
+def full(company, job):
+    """The company and the job with their details merged back (a split tracker; an unsplit one gives them as they
+    are). Only the jobs a run keeps are read."""
+    if COMPANY_SHAPE and id(company) not in _FULL:
+        _FULL[id(company)] = expand_company(env.path("TRACKER"), company)
+    if id(job) not in _FULL:
+        _FULL[id(job)] = expand_row(env.path("TRACKER"), job)
+    return (_FULL[id(company)] if COMPANY_SHAPE else company), _FULL[id(job)]
+
+
 WHO = profilelib.person(env)  # the name: the profile's person.name, unless job-search.env sets PERSON_NAME
 CV_PREFIX = env.file_prefix(WHO["name"]) + "-CV-"
 FIRST_NAME = WHO["first"]
@@ -165,8 +183,9 @@ def line(label, value):
 EMPLOYERS_SHARED, EMPLOYERS_OWN = el.blacklist(), el.checks_file(env)
 
 
+@functools.lru_cache(maxsize=None)
 def environment_section(name):
-    """company.md's section on what employee reviews say, or "" when nobody has looked yet."""
+    """company.md's section on what employee reviews say, or "" when nobody has looked yet; once per employer."""
     found = el.environment_of(env, name, EMPLOYERS_SHARED, EMPLOYERS_OWN)
     if not found:
         return ""
@@ -220,6 +239,13 @@ def step_folder(n, step):
 
 
 def write(path, text):
+    """The file, written only when its text changed: an unchanged one keeps its time, so Google Drive syncs nothing."""
+    try:
+        with open(path, encoding="utf-8", newline="") as f:
+            if f.read() == text:
+                return
+    except (OSError, UnicodeDecodeError):
+        pass
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
 
@@ -271,6 +297,7 @@ before = set(os.listdir(pending_dir))
 folders = {}  # job id -> (stage, folder), for links between applications that share one process
 for company, job in companies(data):
     if job.get("status") == "submitted":
+        company, job = full(company, job)
         # An application that shares another's process ("same_as") is in that one's stage unless it has its own.
         stage = pipeline_entry(pipeline, job["id"]).get("stage", "pending")
         stage = stage if stage in STAGES else "pending"
@@ -285,6 +312,7 @@ for company, job in companies(data):
     # "discuss": an employer rule flagged it and the person decides; its jobs stay visible until then.
     if not sent and not (label and (not verdict or verdict in ("allow", "clear", "discuss"))):
         continue
+    company, job = full(company, job)
     # The older tracker keeps what was prepared in "prep"; a flat job row holds those fields itself.
     prep = job.get("prep") or ({} if COMPANY_SHAPE else job)
     info = pipeline_entry(pipeline, job["id"])
@@ -466,15 +494,20 @@ SOURCES = [env.path("LETTERS_DIR") if env.get("LETTERS_DIR") else "", LIVE_CVS, 
            os.path.join(out, "_cv-versions")] + SENT_BEFORE
 
 
+TWINS = {}  # file name -> its paths in SOURCES, indexed once, at the first has_twin
+
+
 def has_twin(path):
     """True when a byte-identical copy of this file exists in a folder the copies come from (letters, CVs)."""
+    if not TWINS:
+        for base in SOURCES:
+            for here, _, names in os.walk(base) if base and os.path.isdir(base) else []:
+                for n in names:
+                    TWINS.setdefault(n, []).append(os.path.join(here, n))
+        TWINS.setdefault("", [])  # indexed, even when the sources are empty
     name, size = os.path.basename(path), os.path.getsize(path)
-    for base in SOURCES:
-        for here, _, names in os.walk(base) if base and os.path.isdir(base) else []:
-            twin = os.path.join(here, name)
-            if name in names and os.path.getsize(twin) == size and filecmp.cmp(path, twin, shallow=False):
-                return True
-    return False
+    return any(os.path.getsize(twin) == size and filecmp.cmp(path, twin, shallow=False)
+               for twin in TWINS.get(name, []))
 
 
 def regenerable(folder, name):

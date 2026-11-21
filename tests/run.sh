@@ -3777,6 +3777,51 @@ check "0.46.3 text: the employer's AI rule is followed; the write skill reads th
     grep -q "fetch_jd.py <id> --force" "$1/skills/write/SKILL.md" &&
     ! grep -q "the draft is still written" "$1/RULES.md" &&
     ! grep -q "asks for no AI help" "$1/workflows/screen-and-prepare.js"' _ "$S/.."
+# --- 0.46.4: an id on two rows refused; to-dos found; the folders build reads only what it keeps ---------------------
+mkhome "$T/r464" flat
+use "$T/r464"
+"$PY" -I - "$H/apply/targets.json" <<'PYEOF'
+import json
+import sys
+
+hist = [{"date": "2026-11-18", "status": "found", "note": "found"},
+        {"date": "2026-11-19", "status": "submitted", "note": "sent",
+         "todo_dropped": [{"kind": "todo", "text": "upload the CV", "since": "2026-11-18"}]}]
+jobs = [{"id": "Z1", "company": "Zeta", "title": "Platform Lead", "url": "https://example.com/z1",
+         "status": "submitted", "applied": "2026-11-19", "outcome": "sent", "history": hist},
+        {"id": "Z2", "company": "Zeta", "title": "Data Lead", "url": "https://example.com/z2", "status": "found",
+         "outcome": "found", "todo": [{"kind": "todo", "text": "sign in", "since": "2026-11-20"}]},
+        {"id": "Q1", "company": "Theta", "title": "Engineer", "url": "https://example.com/q1", "status": "skipped",
+         "outcome": "fit: a hard gap", "details": "details/jobs/Q1.json"},
+        {"id": "D7", "company": "Eta", "title": "Lead", "url": "https://example.com/d7", "status": "found",
+         "outcome": ""},
+        {"id": "D7", "company": "Iota", "title": "Manager", "url": "https://example.com/d7b", "status": "found",
+         "outcome": ""}]
+json.dump({"jobs": jobs}, open(sys.argv[1], "w", encoding="utf-8"))
+PYEOF
+cp "$H/apply/targets.json" "$T/r464-before.json"
+track set D7 skipped "not now" >"$T/r464-dup.out" 2>&1
+check "track 0.46.4: an id on two rows is refused, naming both, and nothing is written" sh -c '
+    grep -q "^job D7 is on 2 rows (Eta: Lead; Iota: Manager): an id names one job" "$1" && cmp -s "$2" "$3"' \
+    _ "$T/r464-dup.out" "$T/r464-before.json" "$H/apply/targets.json"
+track show D7 >"$T/r464-show.out" 2>&1
+check "track show 0.46.4: an id on two rows shows both rows (read only)" sh -c '
+    [ "$(grep -c "\"id\": \"D7\"" "$1")" = 2 ] && grep -q "\"company\": \"Eta\"" "$1" &&
+    grep -q "\"company\": \"Iota\"" "$1"' _ "$T/r464-show.out"
+track todo Z1 done all >"$T/r464-todo.out" 2>&1
+check "track todo done 0.46.4: nothing removed says where the to-dos went: the history, another row" sh -c '
+    grep -q "^removed 0 to-do(s)$" "$1" &&
+    grep -q "^1 to-do(s) of Z1 were dropped into its history on 2026-11-19, when it became submitted$" "$1" &&
+    grep -q "^to-dos at Zeta are on: Z2 (track.py todo <id> list)$" "$1"' _ "$T/r464-todo.out"
+"$PY" -I "$S/build_app_folders.py" --env "$ENVF" >"$T/r464-build.out" 2>&1
+check "build_app_folders 0.46.4: a skipped row's detail is never read (its missing file stops nothing)" sh -c '
+    ! grep -q "does not exist beside" "$1" && [ -n "$(ls "$2"/pending 2>/dev/null)" ]' \
+    _ "$T/r464-build.out" "$H/job-applications"
+OV=$(ls "$H"/job-applications/pending/*/overview.md 2>/dev/null | head -n 1)
+"$PY" -I -c 'import os, sys, time; os.utime(sys.argv[1], (1, 1))' "$OV"
+"$PY" -I "$S/build_app_folders.py" --env "$ENVF" >/dev/null 2>&1
+check "build_app_folders 0.46.4: an unchanged file is not written again" \
+    "$PY" -I -c 'import os, sys; sys.exit(0 if os.path.getmtime(sys.argv[1]) == 1 else 1)' "$OV"
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]
