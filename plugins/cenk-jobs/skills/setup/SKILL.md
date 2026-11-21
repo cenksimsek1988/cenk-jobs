@@ -32,9 +32,10 @@ by step. Read each page in Chrome with `find` or `read_page` (`max_chars` 5000);
     `job-search.env` names.
   - Ask how they want to be referred to, and save it: `set person.pronouns`.
 - The main folder: ask where it should be, suggesting `<cenk folder>/jobs/` (the cenk folder: `profilelib.py home`),
-  then `init_career_folder.py "<main folder>" "<Full Name>"`. Say where it was created. An existing main folder
-  stays where it is.
-- Fill `CONTACT_LINE`, `LETTER_TITLE`, the accounts and `PHOTO` in `job-search.env` with the person.
+  then `init_career_folder.py "<main folder>"`. Say where it was created. An existing main folder stays where it is.
+- Fill `LETTER_TITLE`, the accounts and `PHOTO` in `job-search.env` with the person. The name and contact line on
+  letters come from the profile (`person.name`, `location`, `phone`, `email`, `links.linkedin`): set the missing ones;
+  `CONTACT_LINE` in `job-search.env` only when the person wants another wording.
 - On their OK, add `JOB_SEARCH_ENV=<main folder>/job-search.env` to the `env` block of `~/.claude/settings.json`;
   it takes effect in sessions started after the change.
 

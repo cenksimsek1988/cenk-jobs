@@ -91,15 +91,20 @@ def append_line(row):
 
 
 def masker():
-    """A function that removes the person's identity from a string."""
-    exact = [env.get(k, "") for k in ("PERSON_NAME", "NAME_ON_CV", "GMAIL_ACCOUNT", "CALENDAR_ACCOUNT",
-                                      "DRIVE_ACCOUNT")]
-    exact += [p.strip() for p in env.get("CONTACT_LINE", "").split("·")]
+    """A function that removes the person's identity from a string: every spelling of the name and contact, from
+    job-search.env and the profile together (profilelib.identity), and the accounts. With no name known it stops:
+    a report it cannot mask is never written."""
+    import profilelib
+    names, lines = profilelib.identity(env)
+    if not names:
+        sys.exit("usage report: no name to mask (person.name in the profile, or PERSON_NAME in job-search.env): "
+                 "nothing was written")
+    exact = names + [env.get(k, "") for k in ("GMAIL_ACCOUNT", "CALENDAR_ACCOUNT", "DRIVE_ACCOUNT")]
+    exact += [p.strip() for line in lines for p in line.split("·")]
     exact = sorted({e for e in exact if len(e) >= 4}, key=len, reverse=True)
     # Each part of the name on its own, with its ASCII spelling ("Öztürk" and "Ozturk"), as a whole word: hyphens
     # count as part of a word, so a name inside "name-jobs" stays.
-    parts = {p for k in ("PERSON_NAME", "NAME_ON_CV") for w in env.get(k, "").split() if len(w) >= 3
-             for p in (w, w.translate(jsenv.ASCII))}
+    parts = {p for n in names for w in n.split() if len(w) >= 3 for p in (w, w.translate(jsenv.ASCII))}
     name = re.compile(r"(?i)(?<![\w-])(" + "|".join(map(re.escape, sorted(parts))) + r")(?![\w-])") if parts else None
     pairs = []
     if env.get("REDACT_FILE") and os.path.exists(env.path("REDACT_FILE")):

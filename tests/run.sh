@@ -3393,6 +3393,69 @@ check "0.45.0 text: records only by their scripts, STALE means run again, PIPELI
     grep -q "Keeps the shared records" "$1/skills/coordinate/SKILL.md" &&
     ! grep -q "Is the only writer of the shared records" "$1/skills/coordinate/SKILL.md" &&
     grep -q "records.py" "$1/RULES/tools.md"' _ "$S/.."
+# --- 0.45.1: the person's name and contact line from the profile; job-search.env's lines only override ------------
+mkhome "$T/h451" flat
+use "$T/h451"
+grep -v -e '^PERSON_NAME=' -e '^NAME_ON_CV=' -e '^CONTACT_LINE=' "$ENVF" >"$ENVF.tmp" && mv "$ENVF.tmp" "$ENVF"
+"$PY" -I - "$H/profile/profile.json" <<'PYEOF'
+import json
+import sys
+p = sys.argv[1]
+data = json.load(open(p, encoding="utf-8"))
+data["person"]["location"] = {"city": "Rome", "country": "Italy"}
+data["person"]["links"] = {"linkedin": "https://www.linkedin.com/in/jane-example/"}
+with open(p, "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=1)
+PYEOF
+check "profilelib 0.45.1: with no lines in job-search.env, the name, the name on top and the contact line come from the profile" "$PY" -I -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+import jsenv, profilelib
+env = jsenv.load(sys.argv[2])
+who = profilelib.person(env)
+assert (who["name"], who["first"], who["name_on_cv"]) == ("Jane Doe", "Jane", "JANE DOE"), who
+assert who["contact_line"].split(" " + chr(183) + " ") == ["Rome", "+39 06 0000 0000", "jane@example.com",
+                                                          "linkedin.com/in/jane-example"], who
+assert env.file_prefix(who["name"]) == "Jane-Doe"
+' "$S" "$ENVF"
+printf 'CONTACT_LINE=Rome, jane@example.com\nPERSON_NAME=Jane Doe\n' >>"$ENVF"
+check "profilelib 0.45.1: a job-search.env line overrides the profile" "$PY" -I -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+import jsenv, profilelib
+assert profilelib.person(jsenv.load(sys.argv[2]))["contact_line"] == "Rome, jane@example.com"
+' "$S" "$ENVF"
+"$PY" -I "$S/check_setup.py" --env "$ENVF" >"$T/cs451.out" 2>&1
+check "check_setup 0.45.1: a line that repeats the profile is named, another wording is not; none of the three is required" sh -c '
+    grep -q "job-search.env repeats the profile - PERSON_NAME: remove the line" "$1" &&
+    ! grep -q "repeats the profile - .*CONTACT_LINE" "$1" && ! grep -q -E "empty or missing: .*(NAME_ON_CV|CONTACT_LINE)" "$1"' \
+    _ "$T/cs451.out"
+"$PY" -I "$S/init_career_folder.py" "$T/i451" >"$T/i451.out" 2>&1
+check "init_career_folder 0.45.1: no name needed; job-search.env sets no name (the profile holds it)" sh -c '
+    [ -f "$1/job-search.env" ] && ! grep -q "^PERSON_NAME=" "$1/job-search.env" && grep -q "^#PERSON_NAME=$" "$1/job-search.env"' \
+    _ "$T/i451"
+grep -v -e '^PERSON_NAME=' -e '^CONTACT_LINE=' "$ENVF" >"$ENVF.tmp" && mv "$ENVF.tmp" "$ENVF"
+employer record "Acme Corp" defence flagged level=direct fact="Jane Doe and +39 06 0000 0000 named in a filing" \
+    source=https://example.com/f451 >/dev/null 2>&1
+"$PY" -I "$S/usage.py" report --out "$T/r451.json" --env "$ENVF" >"$T/r451.out" 2>&1
+check "usage 0.45.1: the report masks the name and the phone that only the profile holds" sh -c '
+    [ -s "$1" ] && grep -q "named in a filing" "$1" && ! grep -q -i -e "jane" -e "doe" -e "0000 0000" "$1"' _ "$T/r451.json"
+"$PY" -I - "$H/profile/profile.json" <<'PYEOF'
+import json
+import sys
+p = sys.argv[1]
+data = json.load(open(p, encoding="utf-8"))
+data["person"].pop("name", None)
+with open(p, "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=1)
+PYEOF
+"$PY" -I "$S/usage.py" report --out "$T/r451n.json" --env "$ENVF" >"$T/r451n.out" 2>&1
+rc1=$?
+"$PY" -I "$S/make_letter_pdf.py" --env "$ENVF" >"$T/l451n.out" 2>&1
+rc2=$?
+check "usage and letters 0.45.1: with no name known, no report is written and no letter is made" sh -c '
+    [ "$1" -eq 1 ] && grep -q "no name to mask" "$2" && [ ! -e "$3" ] && [ "$4" -eq 1 ] && grep -q "no name for the letter" "$5"' \
+    _ "$rc1" "$T/r451n.out" "$T/r451n.json" "$rc2" "$T/l451n.out"
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

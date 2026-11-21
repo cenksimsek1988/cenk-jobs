@@ -86,8 +86,16 @@ def profile_checks():
         out.append(("OK", "Profile (the person's own facts)", prof["path"]))
         if prof["old"]:
             out.append(("WARN", "Profile in the cenk folder", pl.move_message(prof)))
-        if not (prof["data"].get("person") or {}).get("name"):
+        own = prof["data"].get("person") if isinstance(prof["data"].get("person"), dict) else {}
+        if not own.get("name"):
             out.append(("WARN", "Profile has person.name", "missing: ask the person, then profilelib.py set person.name"))
+        # A job-search.env line that only repeats the profile is a second copy: it stays only for another wording.
+        named = str(own.get("name") or "").strip()  # as profilelib.person reads it
+        copied = [k for k, theirs in (("PERSON_NAME", named), ("NAME_ON_CV", named.upper()),
+                                      ("CONTACT_LINE", pl.contact_line(own))) if env.get(k) and env.get(k) == theirs]
+        if copied:
+            out.append(("WARN", "job-search.env repeats the profile", f"{', '.join(copied)}: remove the line; "
+                        "letters and file names read the profile (profilelib.person)"))
         unknown = pl.form_facts(prof)[1]
         if unknown:
             out.append(("WARN", "Setting form_facts", f"not items forms may fill: {', '.join(unknown)} (allowed: "
@@ -140,7 +148,8 @@ results = []
 REQUIRED_DIRS = ("RECORDS_DIR", "CVS_DIR", "CV_VERSIONS_DIR", "CERTIFICATES_DIR", "APPLICATIONS_DIR", "LETTERS_DIR",
                  "LETTER_BODIES_DIR")
 OPTIONAL_DIRS = ("DOCUMENTS_INBOX_DIR", "DIPLOMAS_DIR", "PORTFOLIO_DIR")
-REQUIRED_KEYS = ("PERSON_NAME", "NAME_ON_CV", "CONTACT_LINE", "MASTER_RECORD", "TRACKER", "PIPELINE") + REQUIRED_DIRS
+# PERSON_NAME, NAME_ON_CV and CONTACT_LINE are optional: the profile holds the name and contact (profilelib.person).
+REQUIRED_KEYS = ("MASTER_RECORD", "TRACKER", "PIPELINE") + REQUIRED_DIRS
 
 
 def report(level, what, detail=""):

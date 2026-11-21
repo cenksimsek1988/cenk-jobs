@@ -144,6 +144,45 @@ def form_facts(profile):
     return [n for n in names if n in FORM_FACTS], [n for n in names if n not in FORM_FACTS]
 
 
+NAME_LINES = ("PERSON_NAME", "NAME_ON_CV", "CONTACT_LINE")
+
+
+def person(env):
+    """The person's name facts for letters, CV and letter file names, form briefs and usage-report redaction:
+    {name, first, name_on_cv, contact_line}. A job-search.env line overrides (PERSON_NAME, NAME_ON_CV, CONTACT_LINE),
+    for a person who wants another one; else the profile: person.name, that name in capitals, and the contact line
+    "<city> · <phone> · <email> · <LinkedIn>" (person.location, phone, email, links.linkedin; never the home address).
+    Example: "Rome · +39 06 0000 0000 · jane@example.com · linkedin.com/in/jane-doe". The profile is read only when a
+    line is missing; without cenk-base its facts stay empty."""
+    own = {}
+    if not all(env.get(k) for k in NAME_LINES):
+        data = load(env).get("data") or {}
+        own = data.get("person") if isinstance(data.get("person"), dict) else {}
+    name = env.get("PERSON_NAME") or str(own.get("name") or "").strip()
+    return {"name": name, "first": (name.split() or [""])[0], "name_on_cv": env.get("NAME_ON_CV") or name.upper(),
+            "contact_line": env.get("CONTACT_LINE") or contact_line(own)}
+
+
+def identity(env):
+    """(names, contact lines): every spelling of the person's name and contact, job-search.env's lines and the
+    profile's facts together, for a masker. Redaction reads this, never person(): the two may differ ("Jane Doe" in
+    job-search.env, "Jane A. Doe" in the profile), and a mask must cover every spelling where a letter shows one."""
+    data = load(env).get("data") or {}
+    own = data.get("person") if isinstance(data.get("person"), dict) else {}
+    names = sorted({n for n in (env.get("PERSON_NAME"), env.get("NAME_ON_CV"), str(own.get("name") or "").strip())
+                    if n})
+    return names, sorted({c for c in (env.get("CONTACT_LINE"), contact_line(own)) if c})
+
+
+def contact_line(own):
+    """The letters' contact line from the profile's person facts (see person)."""
+    where = own.get("location")
+    city = where.get("city") if isinstance(where, dict) else str(where or "").split(",")[0].strip()
+    links = own.get("links") if isinstance(own.get("links"), dict) else {}
+    linkedin = re.sub(r"^https?://(www\.)?", "", str(links.get("linkedin") or "")).rstrip("/")
+    return " · ".join(str(x) for x in (city, own.get("phone"), own.get("email"), linkedin) if x)
+
+
 def move_backups(env):
     """The backups move_to_profile.py --remove-old left beside the old records: they may still hold an erased value."""
     if env is None:

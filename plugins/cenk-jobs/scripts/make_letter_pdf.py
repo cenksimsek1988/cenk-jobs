@@ -6,9 +6,10 @@ Usage: python -I make_letter_pdf.py [--env <job-search.env>] --company "Acme" --
            workflow's agents use this, so no posting text is typed into a command)
 The body file holds the letter's paragraphs (UTF-8, blank line between paragraphs), from "Dear ..." to the sign-off
 line, without the signature block. Prints the absolute path of the PDF it wrote.
-The name, contact line and output folder come from job-search.env (NAME_ON_CV, CONTACT_LINE, PERSON_NAME,
-LETTERS_DIR, CHROME), so the script is the same for every person. The date is today's: build the PDF on the day it is
-sent.
+The name, the name on top and the contact line come from the person's profile (profilelib.person: person.name, in
+capitals, and "<city> · <phone> · <email> · <LinkedIn>"), unless job-search.env sets PERSON_NAME, NAME_ON_CV or
+CONTACT_LINE; the output folder and Chrome from job-search.env (LETTERS_DIR, CHROME). The script is the same for every
+person. A letter with no name known stops (exit 1). The date is today's: build the PDF on the day it is sent.
 The headline under the name: --title, else the title of the CV version named by --variant (match the CV sent with the
 letter: "Backend Lead", "2 Backend Lead.json" or "<First>-<Last>-CV-Backend-Lead.pdf"), else LETTER_TITLE.
 A relative --out-dir or --body is taken from the main folder (JOB_SEARCH_HOME), like every path in job-search.env.
@@ -29,11 +30,16 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jsenv  # noqa: E402  (jsenv.py sits next to this script)
+import profilelib  # noqa: E402
 
 _ARGS = sys.argv[1:]
 ENV = jsenv.load(_ARGS[_ARGS.index('--env') + 1] if '--env' in _ARGS else None, __file__)
-PERSON = ENV['PERSON_NAME']
-FILE_PREFIX = ENV.file_prefix()
+WHO = profilelib.person(ENV)
+if not WHO['name']:
+    sys.exit('no name for the letter: set person.name in the profile (profilelib.py set person.name \'"<name>"\'), '
+             'or PERSON_NAME in job-search.env')
+PERSON = WHO['name']
+FILE_PREFIX = ENV.file_prefix(PERSON)
 
 CHROME = ENV.get('CHROME') or r'C:\Program Files\Google\Chrome\Application\chrome.exe'
 OUT_DIR = ENV.path('LETTERS_DIR')
@@ -111,8 +117,8 @@ def main():
     paras = [p.strip() for p in re.split(r'\n\s*\n', text) if p.strip()]
     body = '\n'.join('<p>' + html.escape(p).replace('\n', '<br>') + '</p>' for p in paras)
     page = PAGE.format(date=datetime.date.today().strftime('%d %B %Y'), title=html.escape(title), company=html.escape(a.company),
-                       role=html.escape(a.role), body=body, name_on_cv=html.escape(ENV['NAME_ON_CV']),
-                       contact=html.escape(ENV['CONTACT_LINE']), person=html.escape(PERSON))
+                       role=html.escape(a.role), body=body, name_on_cv=html.escape(WHO['name_on_cv']),
+                       contact=html.escape(WHO['contact_line']), person=html.escape(PERSON))
     out_dir = from_home(a.out_dir)
     os.makedirs(out_dir, exist_ok=True)
     slug = re.sub(r'[^A-Za-z0-9]+', '-', a.company).strip('-')[:40] or 'Company'

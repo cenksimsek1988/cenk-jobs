@@ -191,8 +191,12 @@ if cmd == "merge":
         # The developer's own checks, shaped like a usage report: the checks only, never their decisions, and every
         # part of their name in a fact replaced (seen: a fact naming the developer, 6 Nov 2026).
         dev_env = jsenv.load(env_arg, __file__)
-        parts = {p for k in ("PERSON_NAME", "NAME_ON_CV") for w in (dev_env.get(k) or "").split() if len(w) >= 3
-                 for p in (w, w.translate(jsenv.ASCII))}
+        import profilelib  # every spelling of the developer's name: job-search.env's lines and the profile's
+        names = profilelib.identity(dev_env)[0]
+        if not names:
+            sys.exit("merge --from-checks: no name to mask (person.name in the profile, or PERSON_NAME in "
+                     "job-search.env): nothing was written")
+        parts = {p for n in names for w in n.split() if len(w) >= 3 for p in (w, w.translate(jsenv.ASCII))}
         person = re.compile(r"(?i)(?<![\w-])(" + "|".join(map(re.escape, sorted(parts))) + r")(?![\w-])") if parts else None
 
         def unnamed(check):

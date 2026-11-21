@@ -21,7 +21,8 @@ what was really sent. When a not-applied job is sent or dropped, the files the p
 but files this script writes again; otherwise it stays and the run names it. Nothing else is ever deleted, and a
 folder is moved only onto a name that does not exist yet.
 
-Reads TRACKER (either shape, see trackerlib.py), PIPELINE, CVS_DIR and PERSON_NAME, and these optional keys:
+Reads TRACKER (either shape, see trackerlib.py), PIPELINE, CVS_DIR and the person's name (profilelib.person: the
+profile's person.name, or PERSON_NAME where set), and these optional keys:
   SENT_CVS_DIR          CVs sent before the ones now in CVS_DIR: each is copied once into _cv-versions/, and a sent
                         job without its own "cv" path links its CV there.
   SENT_CVS_BEFORE_DIRS  ';'-separated folders with earlier copies of some of those CVs; a copy found there is the one
@@ -52,6 +53,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import employerlib as el  # noqa: E402
 import jsenv  # noqa: E402
+import profilelib  # noqa: E402
 from trackerlib import (applied_on, companies, expand, is_company_shape, load_settings, needs_of, note_key,  # noqa: E402
                         pipeline_entry, step_done, waits_on_person)
 
@@ -68,8 +70,9 @@ settings = load_settings(env)
 today = datetime.date.today().isoformat()
 NOTE = note_key(data)
 COMPANY_SHAPE = is_company_shape(data)
-CV_PREFIX = env.file_prefix() + "-CV-"
-FIRST_NAME = (env.get("PERSON_NAME") or "").split(" ")[0]
+WHO = profilelib.person(env)  # the name: the profile's person.name, unless job-search.env sets PERSON_NAME
+CV_PREFIX = env.file_prefix(WHO["name"]) + "-CV-"
+FIRST_NAME = WHO["first"]
 STAGES = ("pending", "approved", "rejected", "closed", "declined")
 # Why the person declined: one of these, so the reasons can be counted.
 DECLINED_WHY = ("ethics", "relocation", "pay", "other")
@@ -481,7 +484,8 @@ def regenerable(folder, name):
     if name in GENERATED:
         return True
     # A CV or letter copy goes only when its source still holds the very same file.
-    return bool(re.fullmatch(re.escape(env.file_prefix()) + r"-(CV|Cover-Letter)-.+\.pdf", name)) and has_twin(path)
+    return bool(re.fullmatch(re.escape(env.file_prefix(WHO["name"])) + r"-(CV|Cover-Letter)-.+\.pdf", name)) \
+        and has_twin(path)
 
 
 def id_in(overview):

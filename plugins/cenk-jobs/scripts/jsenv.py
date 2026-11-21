@@ -64,9 +64,11 @@ class Env(dict):
         base = value if os.path.isabs(value) else os.path.join(self.home, value)
         return os.path.normpath(os.path.join(base, *more))
 
-    def file_prefix(self):
-        """'<First>-<Last>' in ASCII from PERSON_NAME, for upload-safe file names."""
-        return "-".join(w.capitalize() for w in self.get("PERSON_NAME", "Candidate").translate(ASCII).split())
+    def file_prefix(self, name=None):
+        """'<First>-<Last>' in ASCII, for upload-safe file names: from the name given (profilelib.person), else
+        PERSON_NAME, else "Candidate"."""
+        name = name or self.get("PERSON_NAME") or "Candidate"
+        return "-".join(w.capitalize() for w in name.translate(ASCII).split())
 
 
 ASCII = str.maketrans("ŞşİıĞğÜüÖöÇçÀàÁáÂâÈèÉéÊêÌìÍíÎîÒòÓóÔôÙùÚúÛûÑñÄäËëÏïßÅåØøÆæŁłŃńŚśŹźŻżĆćĘęĄą",

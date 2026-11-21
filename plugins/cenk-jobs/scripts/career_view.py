@@ -122,13 +122,14 @@ if args == ["cvs"]:
     from build_cv import pdf_name
     env = jsenv.load(env_arg, __file__)
     found = []
+    person_name = pl.person(env)["name"]  # once: it may read the profile from Drive
     for path in sorted(glob.glob(os.path.join(env.path("CV_VERSIONS_DIR"), "*.json"))):
         name = os.path.basename(path)
         if " " not in os.path.splitext(name)[0]:
             continue  # not "<n> <Variant>.json"
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
-        pdf = env.path("CVS_DIR", pdf_name(name, data.get("name") or env.get("PERSON_NAME", "")))
+        pdf = env.path("CVS_DIR", pdf_name(name, data.get("name") or person_name))
         if not os.path.isfile(pdf):
             print(f"no PDF for {name}: build it with build_cv.py; left out", file=sys.stderr)
             continue

@@ -186,9 +186,10 @@ def main():
             known[name] = {"checks": view["checks"]}
         passed.append(entry)
 
+    import profilelib as pl
     tag = opts.get("--tag") or datetime.datetime.now().strftime("r%m%d%H%M")
     result = {
-        "person": opts.get("--person") or env.get("PERSON_NAME", ""),
+        "person": opts.get("--person") or pl.person(env)["name"],
         "masterRecord": slash(env.path("MASTER_RECORD")), "envFile": slash(os.path.abspath(env.file)),
         "scripts": slash(HERE), "python": slash(sys.executable),
         "searchFile": slash(search), "outDir": slash(out_dir),

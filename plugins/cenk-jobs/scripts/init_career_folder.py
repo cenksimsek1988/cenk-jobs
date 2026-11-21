@@ -1,6 +1,8 @@
 """Create a new person's job-search main folder and its job-search.env. Never overwrites anything.
 
-Usage: python -I init_career_folder.py "<main folder, e.g. G:/My Drive/cenk/jobs>" "<Full Name>"
+Usage: python -I init_career_folder.py "<main folder, e.g. G:/My Drive/cenk/jobs>"
+The person's name is the profile's person.name (profilelib.py set person.name), not a line here; a name given after
+the folder (older calls) is not written anywhere.
 Creates in the main folder:
   job-search.env               every folder and file name the scripts use (edit the values, never the scripts)
   documents-inbox/             the person drops all their documents here as they are; Claude sorts them
@@ -20,10 +22,11 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-if len(sys.argv) < 3:
+if len(sys.argv) < 2:
     sys.exit(__doc__)
 home = os.path.abspath(sys.argv[1])
-name = " ".join(sys.argv[2:])
+if len(sys.argv) > 2:
+    print("The name given is not written here: the profile holds it (profilelib.py set person.name).")
 made = []
 
 LESSONS = os.path.join("career-records", "interview-lessons")  # INTERVIEW_LESSONS_DIR's default
@@ -95,8 +98,7 @@ env_path = os.path.join(home, "job-search.env")
 if not os.path.exists(env_path):
     template = open(os.path.join(HERE, "..", "templates", "job-search.env.template"), encoding="utf-8").read()
     with open(env_path, "w", encoding="utf-8") as f:
-        f.write(template.replace("{name}", name).replace("{name_upper}", name.upper())
-                .replace("{home}", home.replace(os.sep, "/")))
+        f.write(template.replace("{home}", home.replace(os.sep, "/")))
     made.append(env_path)
 
 print("\n".join(["Created:"] + made) if made else "Nothing to create: the folders already exist.")

@@ -910,12 +910,13 @@ elif cmd == "show":
 elif cmd == "split":
     split_tracker_files(data, "--apply" in args)
 elif cmd == "brief":
+    import profilelib
     wanted = args[1:]
     # The settings that change how a form is filled, once, so every applier's brief carries them.
     # The first name titles a tab that waits on the person: ">>> Jane: Acme type the code <<<".
     print("filling: " + " ".join(f"{k}={choices.value(env, k)[0]}" for k in ("LETTERS", "EMAILED_CODES",
                                                                               "OPTIONAL_FIELDS"))
-          + f" first_name={(env.get('PERSON_NAME') or '').split(' ')[0]}")
+          + f" first_name={profilelib.person(env)['first']}")
     for company, job in companies(data):
         if job["id"] not in wanted:
             continue

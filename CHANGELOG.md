@@ -6,6 +6,24 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.45.1] - 2026-11-21
+
+The person's name and contact line come from their profile; `job-search.env`'s lines only override them.
+
+### Changed
+
+- Letters, the CV and letter file names, the form brief's first name and the usage report's redaction read the name
+  and contact from the profile (`profilelib.person`): `person.name`, that name in capitals on top of letters, and the
+  contact line "<city> · <phone> · <email> · <LinkedIn>" from `person.location`, `phone`, `email` and
+  `links.linkedin`, never the home address. `PERSON_NAME`, `NAME_ON_CV` and `CONTACT_LINE` in `job-search.env` still
+  win where set: an install that sets them sees no change, and an empty `CONTACT_LINE` now gives the profile's line.
+- The usage report and `employer.py merge --from-checks` mask every spelling of the name and contact, from
+  `job-search.env` and the profile together (`profilelib.identity`), and write nothing when no name is known.
+- `check_setup.py` no longer requires the three lines, and names one that only repeats the profile (remove it); a line
+  with another wording stays.
+- `init_career_folder.py` takes only the main folder; the env template's name lines are commented overrides; setup
+  fills the profile instead. A letter with no name known stops with the command that sets it.
+
 ## [0.45.0] - 2026-11-21
 
 Phase 1 of the data redesign: every write to the shared records goes through one library that refuses a stale base,
