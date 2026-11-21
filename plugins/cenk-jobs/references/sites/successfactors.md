@@ -2,6 +2,7 @@
 
 Read by the applier, and by a session that fills this site's form, with `../filling.md`.
 
+- Draft: no draft known.
 - A SuccessFactors apply link (`talentcommunity/apply/<id>`) opens the site's home page when signed out: not a closed
   posting; open the job's own page. Signing in there from a job's Apply link can submit at once by quick apply from
   the stored profile, with no CV or answers: upload the CV to the profile first, or sign in from the site's home page,

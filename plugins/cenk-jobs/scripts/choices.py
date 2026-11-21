@@ -155,12 +155,15 @@ def workflow_args(env):
 
 def setting_cut(note, env):
     """The key of the setting whose cut skipped a fit, when the person's settings no longer make it, else "".
-    Example: "fit: not a high fit (APPLY_FITS=high): Go" with APPLY_FITS=normal -> "APPLY_FITS"; a hard gap -> ""."""
-    note = str(note or "")
-    if "(APPLY_FITS=high)" in note and value(env, "APPLY_FITS")[0] != "high":
+    Example: "fit: not a high fit (APPLY_FITS=high): Go" with APPLY_FITS=normal -> "APPLY_FITS"; a hard gap -> "".
+    Only the fit check's own message counts, with or without "fit: " before it (the run writes both; seen 21 Nov: 46
+    of 64 without); a note the person wrote that names a setting does not."""
+    note = re.sub(r"^fit:\s*", "", str(note or "").strip())
+    if note.startswith("not a high fit (APPLY_FITS=high)") and value(env, "APPLY_FITS")[0] != "high":
         return "APPLY_FITS"
     room = value(env, "LONG_SHOTS_PER_DAY")[0]
-    if "LONG_SHOTS_PER_DAY=0" in note and room.isdigit() and int(room) > 0:
+    if (re.match(r"(long-shot|weak): \d+ soft gap", note) and "(LONG_SHOTS_PER_DAY=0)" in note
+            and room.isdigit() and int(room) > 0):
         return "LONG_SHOTS_PER_DAY"
     return ""
 

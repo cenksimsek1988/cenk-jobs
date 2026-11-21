@@ -36,8 +36,8 @@ archived. A scheduled run reaches the older one's sub-sessions by message and re
    its `local_...` id): "Write your handoff to handoffs/<short name>.md, then stop." A running session finishes first.
 3. Read every file in `handoffs/`, oldest first. Each fact goes into its record, as in "The handoff" below; each
    open item into the job's to-dos (`track.py todo`) or the Questions page.
-4. Archive by the shared rules (`ARCHIVE_SESSIONS`), the older coordinator last; one the app will not archive, or
-   one the person still uses, stays and is named in Do now.
+4. Archive by the shared rules (`ARCHIVE_SESSIONS`), the older coordinator last; one the app will not archive, one
+   the person still uses, or one holding a form (`tab=yes`, a `Held:` line), stays and is named in Do now.
    Example: a prep session whose interview is tomorrow stays.
 5. Delete each recorded file: its facts are in the records now.
 6. One line: "Read 4 handoffs; ended 3 sessions; kept 'Prep Acme' until the interview on 12 Nov."
@@ -222,7 +222,8 @@ Written to `handoffs/<short name>.md` in the main folder (shared rules). One blo
 line each; a fact about the person themselves is already in the profile: only its key, such as `person.phone`); hiring steps or deadlines seen (date, time, name, link); sign-ins seen; employee reviews looked up
 (employer, rating, number of reviews, complaint topics, source); a study or after-a-step session's `Weak answers:`
 lines (`references/study.md`); a `write` session's approved text: its job, question and file
-(`handoffs/<short name>.answer.md`). Nothing else.
+(`handoffs/<short name>.answer.md`); one `Held:` line per form left open in a tab (`../../references/filling.md`).
+Nothing else.
 
 The coordinator records it: `track.py set`, `step` and `outcome`, `MASTER_RECORD`, `logins.py set` and `sync`, `employer.py
 record`, `environment` or `decide`, `usage.py log`, `build_app_folders.py`, calendar events, the `working` to-do
@@ -235,7 +236,8 @@ page never asked it), then that file is deleted with the handoff.
 ## Ending
 
 - A sub-session ends once its handoff is recorded: the coordinator archives it (`ARCHIVE_SESSIONS`: `yes` without
-  asking, empty when the person agrees).
+  asking, empty when the person agrees). Never one with `tab=yes`: its `Held:` forms go to the person first, then
+  `sessions.py set <name> tab=no` (`state=done` is refused before).
 - Every run ends with `handoffs/job-search-coordinator.md` (the coordinator's hand-off, shared rules): what is open,
   what waits on the person, what is next, and every open sub-session. An older `handoffs/coordinator.md` is read
   once by the next handoff check, like any other file there.

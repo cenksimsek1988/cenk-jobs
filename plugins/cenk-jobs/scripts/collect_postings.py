@@ -612,6 +612,17 @@ def saved_rows(env):
 PLACES, NOT_PLACES = [], []  # from job-search.env in main()
 
 
+def load_places(env):
+    """Set PLACES and NOT_PLACES from job-search.env, then the master record's search scope field by field (one
+    missing keeps the env's); return the regions a remote posting must name."""
+    global PLACES, NOT_PLACES
+    regions = terms(env.get("REMOTE_REGIONS"))
+    PLACES, NOT_PLACES = terms(env.get("PLACES")), terms(env.get("NOT_PLACES"))
+    scope_regions, scope_places = scope_of(env)
+    PLACES = scope_places if scope_places is not None else PLACES
+    return scope_regions if scope_regions is not None else regions
+
+
 def wanted(row, title, place, role_terms, regions):
     """A title must hold one of the search's terms (else ROLE_TERMS); the place one of its places. A remote posting
     passes only with one of its places or REMOTE_REGIONS in the same text, or as a bare "Remote".
@@ -665,15 +676,14 @@ def run(script, *more):
 def tracked_keys():
     """(employer key, title key) -> job id for every job in the tracker, except a closed one (a new posting is a new
     opening) and one the fit check skipped only by a setting's cut the person's settings no longer make
-    (choices.setting_cut on a "fit:" note; 0.46.0: such a cut kept the title out for good). The new posting then comes
-    in, and track.py reopen leaves the old row skipped."""
+    (choices.setting_cut; before 0.46.0 such a cut kept the title out for good). The new posting then comes in, and
+    track.py reopen leaves the old row skipped."""
     with open(ENV.path("TRACKER"), encoding="utf-8") as fh:
         jobs = flat_jobs(json.load(fh))
     out = {}
     for j in jobs:
         note = str(j.get("note") or j.get("outcome") or "")
-        if j.get("status") == "closed" or (j.get("status") == "skipped" and note.startswith("fit:")
-                                           and choices.setting_cut(note, ENV)):
+        if j.get("status") == "closed" or (j.get("status") == "skipped" and choices.setting_cut(note, ENV)):
             continue
         tk = reposts.title_key(j.get("title", ""))
         for k in reposts.employer_keys(ENV, j.get("company", ""), {}):
@@ -721,12 +731,7 @@ def main():
         run_start = window_start(opts.get("--since"), usage_rows(ENV)[1])
     except ValueError:
         sys.exit("--since takes a date, YYYY-MM-DD or YYYY-MM-DDTHH:MM")
-    role_terms, regions = terms(ENV.get("ROLE_TERMS")), terms(ENV.get("REMOTE_REGIONS"))
-    global PLACES, NOT_PLACES
-    PLACES, NOT_PLACES = terms(ENV.get("PLACES")), terms(ENV.get("NOT_PLACES"))
-    scope_regions, scope_places = scope_of(ENV)
-    regions = scope_regions if scope_regions is not None else regions  # field by field: one missing keeps the env's
-    PLACES = scope_places if scope_places is not None else PLACES
+    role_terms, regions = terms(ENV.get("ROLE_TERMS")), load_places(ENV)
     rules = title_rules(ENV)
     since_args = ["--since", opts["--since"]] if opts.get("--since") else []
     rows = [r for r in json.loads(run("searches.py", "due", "--json", *since_args) or "[]") if r.get("method") == "script"]

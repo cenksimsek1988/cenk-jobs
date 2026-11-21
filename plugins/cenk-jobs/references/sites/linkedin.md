@@ -2,6 +2,7 @@
 
 Read by the applier, and by a session that fills this site's form, with `../filling.md`.
 
+- Draft: no draft known; a held Easy Apply dialog is lost when its tab closes.
 - LinkedIn Easy Apply fills screening answers saved from earlier applications (example: 3 years of a skill, where the
   record says 6): check every prefilled number against the record before Review. Its salary fields take a number
   only: `50000`, not "EUR 50,000 a year" ("Invalid input").

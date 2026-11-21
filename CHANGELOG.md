@@ -6,6 +6,23 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.46.1] - 2026-11-21
+
+A form held for the person is never lost with its session, and `track.py reopen` brings back only fits inside the
+person's places now.
+
+### Changed
+
+- Held forms: each one is named the same way in the question, its to-do and the handoff's new `Held:` line: the tab
+  title, the plain link marked "open in Chrome", and whether the site keeps a draft. A session with `tab=yes` is never
+  stopped, ended or archived; `sessions.py set` refuses `state=done` while `tab=yes`, and `sessions.py sync` names a
+  session archived while it held a form. Every site note starts with a "Draft:" line (unknown: "no draft known").
+- `track.py reopen`: a fit cut by a setting is read from the fit check's own message, with or without "fit: " before
+  it (0.46.0 missed the unprefixed form: 18 of 64 found on a copy); a note the person wrote never counts. A cut fit
+  outside the person's places now (job-search.env, then the search scope) stays skipped, as the funnel would leave
+  it out. Example: "4 to reopen", "60 left skipped: outside the person's places now".
+- `collect_postings.load_places` sets the places for both scripts.
+
 ## [0.46.0] - 2026-11-21
 
 The fit check grades by the kinds of soft gaps, and more postings reach it: boards' remote flags and region-only

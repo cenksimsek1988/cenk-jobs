@@ -57,7 +57,8 @@ never take a screenshot.
 - `APPLY=list`: no form is filled; the fitting jobs are listed with their links.
 - A form left filled at the review page for the person: read it back first (`filling.md`), then the tab's title and
   the question both say that Submit sends the form as it is now (example title: ">>> Jane: Acme review, Submit
-  sends it <<<"). A change asked later waits until the person confirms they have not pressed Submit. After a
+  sends it <<<"), with its plain link and the site's draft fact (`Held:` in `filling.md`). A change asked later
+  waits until the person confirms they have not pressed Submit. After a
   go-ahead, read the page first: a form already sent is recorded as sent, never changed.
 - If the permission check refuses a submit click: retitle the tab for the person, say so in one line, and try no
   other way.

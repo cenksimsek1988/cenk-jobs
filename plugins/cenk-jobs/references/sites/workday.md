@@ -2,6 +2,7 @@
 
 Read by the applier, and by a session that fills this site's form, with `../filling.md`.
 
+- Draft: yes, in the signed-in account, each step as saved (a reload can drop the later steps).
 - Workday can end the session
   after about 25 minutes on one application: save each step as soon as it is filled, and check that the session is
   still signed in before the next step.

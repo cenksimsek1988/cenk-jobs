@@ -1592,6 +1592,10 @@ sessions set essays-eps tab=yes >/dev/null 2>&1
 sessions show >"$T/show1b.out" 2>&1
 check "sessions show: a form held open in a tab comes before the fewest steps left" sh -c '
     grep -q "^ 3 you   essays-eps .*form open in a tab" "$1" && grep -q "^ 4 you   answers-zeta .*1 step left" "$1"' _ "$T/show1b.out"
+sessions set essays-eps state=done >"$T/held-done.out" 2>&1
+check "sessions set 0.46.1: state=done is refused while tab=yes, and nothing is written" sh -c '
+    grep -q "holds a filled form (tab=yes)" "$1" && "$2" -I "$3/dq.py" "$4" \
+    "[s[\"state\"] for s in R[\"sessions\"] if s.get(\"name\") == \"essays-eps\"] == [\"you\"]"' _ "$T/held-done.out" "$PY" "$T" "$SF"
 sessions set essays-eps tab=no >/dev/null 2>&1
 check "sessions set: quick is refused and names steps= and tab=" sh -c '"$1" -I "$2/sessions.py" set essays-eps quick=yes --env "$3" 2>&1 | grep -q "steps=1"' \
     _ "$PY" "$S" "$ENVF"
@@ -1625,10 +1629,17 @@ check "sessions show: a title whose prefix differs from the state is named for a
     ! grep -q "^rename local_a1" "$1"' _ "$T/show3.out"
 sessions set study-acme state=you >/dev/null 2>&1
 "$PY" -I "$T/mklist.py" "$H" "$T/list2.json" 2
+# prep-old still held a form when the app archived it (written by hand: set refuses tab=yes on a done session).
+"$PY" -I -c 'import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+[s.update(tab=True) for s in d["sessions"] if s.get("name") == "prep-old"]
+json.dump(d, open(sys.argv[1], "w", encoding="utf-8"))' "$SF"
 sessions sync "$T/list2.json" >"$T/sync2.out" 2>&1
 check "sessions sync again: an archived one is dropped, a missing one stays and is named" sh -c '
     grep -q "1 archived and dropped, 1 not in the list" "$1" && grep -q "^dropped: prep-old" "$1" &&
     grep -q "^not in the list.*: search-today" "$1"' _ "$T/sync2.out"
+check "sessions sync 0.46.1: one archived while holding a form is named on its own line" \
+    grep -q "^archived while holding a filled form: prep-old (jobs .*); its tab is gone" "$T/sync2.out"
 check "sessions sync again: a known one takes its new title and keeps its state, jobs and waits" dq "$SF" \
     'len(R["sessions"]) == 5 and [(s["title"].endswith("(2 left)"), s["state"], s["jobs"]) for s in R["sessions"] if s["id"] == "local_a1"] == [(True, "you", ["D5"])]'
 # On the dashboard: D6's to-do names its session; D5 gets an urgent one that names its session; D10 waits on the
@@ -3213,6 +3224,11 @@ check "0.44.4 text: tabs closed before a report, no createIfEmpty in the health 
     grep -q "apply order" "$1/skills/plan/SKILL.md" && grep -q "Apply order" "$1/RULES/urgent.md" &&
     ! grep -q "apply where the person is" "$1/skills/coordinate/SKILL.md" &&
     ! grep -q "does its pieces as subagents" "$1/skills/schedule/SKILL.md"' _ "$S/.."
+check "0.46.1 text: a held form has its tab title, plain link and draft fact; its session is never archived; every site note has a Draft line" sh -c '
+    grep -q "^- Every held form is named the same way" "$1/references/filling.md" &&
+    grep -q "its session is never archived" "$1/RULES.md" && grep -q "Never one with .tab=yes." "$1/skills/coordinate/SKILL.md" &&
+    grep -q "one .Held:. line per form left open" "$1/skills/coordinate/SKILL.md" && grep -q "Held:" "$1/skills/apply/SKILL.md" &&
+    for f in "$1"/references/sites/*.md; do grep -q "^- Draft: " "$f" || exit 1; done' _ "$S/.."
 # --- 0.45.0: recordlib (a stale base refused, the changed rows checked, the change log), PIPELINE by command,
 # waits_on and a login row's origin as fields, records.py check -------------------------------------------------
 mkhome "$T/h45" flat
@@ -3587,14 +3603,17 @@ jobs = [job("K1", "Engineering Manager", "skipped", "fit: not a high fit (APPLY_
         job("K5", "Backend Engineer", "closed", "the posting is gone"),
         job("K6", "Site Reliability Lead", "skipped", "fit: not a high fit (APPLY_FITS=high): Go"),
         job("K7", "Site Reliability Lead", "found", "posted again under a new link"),
-        job("K8", "Release Manager", "skipped", "the person: not now (APPLY_FITS=high)")]
+        job("K8", "Release Manager", "skipped", "the person: not now (APPLY_FITS=high)"),
+        job("K9", "Delivery Lead", "skipped", "not a high fit (APPLY_FITS=high): Go", location="Oslo, Norway")]
 json.dump({"jobs": jobs}, open(os.path.join(sys.argv[1], "apply", "targets.json"), "w", encoding="utf-8"))
 PYEOF
 "$PY" -I "$T/mk46.py" "$H"
+echo "PLACES=Rome" >>"$ENVF"
 track reopen >"$T/r46-dry.out" 2>&1
-check "track reopen 0.46.0: lists only a fit skipped by a setting's cut no longer made; a dry run changes nothing" sh -c '
-    grep -q "^K1 | Kappa | Engineering Manager | APPLY_FITS no longer cuts it$" "$1" && ! grep -q "^K[2-8] " "$1" &&
+check "track reopen 0.46.0: lists only a fit skipped by a setting's cut no longer made, inside the places; a dry run changes nothing" sh -c '
+    grep -q "^K1 | Kappa | Engineering Manager | APPLY_FITS no longer cuts it$" "$1" && ! grep -q "^K[2-9] " "$1" &&
     grep -q "^1 left skipped: the same job is in the tracker under a newer row$" "$1" &&
+    grep -q "^1 left skipped: outside the person.s places now$" "$1" &&
     grep -q "^1 to reopen; dry run" "$1" &&
     "$2" -I "$3/dq.py" "$4" "[j[\"status\"] for j in R[\"jobs\"]][0] == \"skipped\""' _ "$T/r46-dry.out" "$PY" "$T" "$H/apply/targets.json"
 check "collect 0.46.0: a title skipped by a setting's cut no longer made, or closed, blocks no new posting; a hard gap still does" "$PY" -I -c '
@@ -3604,9 +3623,18 @@ import collect_postings as c, jsenv, reposts
 c.ENV = jsenv.load(sys.argv[2])
 keys = c.tracked_keys()
 ids = set(keys.values())
-assert not {"K1", "K5", "K6"} & ids and {"K2", "K3", "K4", "K7", "K8"} <= ids, ids
+assert not {"K1", "K5", "K6", "K9"} & ids and {"K2", "K3", "K4", "K7", "K8"} <= ids, ids
 index = reposts.Index(c.ENV, json.load(open(c.ENV.path("TRACKER"), encoding="utf-8")))
 assert index.fit_skip_of("Kappa", "Engineering Manager") == "" and index.fit_skip_of("Kappa", "Staff Engineer") == "K2"
+' "$S" "$ENVF"
+check "choices 0.46.1: a setting cut is the fit check's own message, with or without fit: before it; the person's note is none" "$PY" -I -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+import choices, jsenv
+env = jsenv.load(sys.argv[2])
+cut = lambda note: choices.setting_cut(note, env)
+assert cut("not a high fit (APPLY_FITS=high): Go") == cut("fit: not a high fit (APPLY_FITS=high): Go") == "APPLY_FITS"
+assert cut("the person: not now (APPLY_FITS=high)") == "" and cut("fit: a hard gap: on-site in Oslo") == ""
 ' "$S" "$ENVF"
 "$PY" -I "$S/choices.py" set LONG_SHOTS_PER_DAY=2 --env "$ENVF" >/dev/null 2>&1
 track reopen --apply --per-day 0 >"$T/r46-bad.out" 2>&1

@@ -78,6 +78,11 @@ site's notes in `sites/<site>.md`. The safety rules here are `RULES.md`'s, in sh
   the held tab `>>> <first name>: <company> <action> <<<` (`first_name` in the brief's `filling:` line; example:
   `document.title = ">>> Jane: Acme type the code <<<"`), scroll the field into view, and tell the person to find it
   with Chrome's tab search (Ctrl+Shift+A). The form's address is never given as the way in.
+- Every held form is named the same way in the question, its to-do and the handoff's `Held:` line: the tab title,
+  the plain link as text marked "open in Chrome" (for when the tab is gone), and the site's draft fact (its site
+  note's "Draft:" line). Example: `Held: ">>> Jane: Acme review, Submit sends it <<<", https://acme.example/apply/12
+  (open in Chrome), the site keeps a draft: no`. A session holding one (`sessions.py` `tab=yes`) is never stopped,
+  ended or archived: its tab group would go with it.
 - Any other page the person must open (a sign-in, a posting, a confirmation): its address as text marked "open in
   Chrome", and close your own tab: a tab in Claude's tab group is hard to find.
 - Before a form goes to the person, read it back: every required field filled, no validation error. A field put

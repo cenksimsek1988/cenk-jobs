@@ -2,6 +2,7 @@
 
 Read by the applier, and by a session that fills this site's form, with `../filling.md`.
 
+- Draft: none (below).
 - (session) The form's questions, before opening Chrome: a POST to `https://jobs.ashbyhq.com/api/non-user-graphql?op=ApiJobPosting`
   (Python; WebFetch only gets), variables `organizationHostedJobsPageName` and `jobPostingId`: `applicationForm`
   sections, each field in `fieldEntries` with `isRequired`.

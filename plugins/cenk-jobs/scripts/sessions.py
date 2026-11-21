@@ -5,7 +5,8 @@ python -I sessions.py set <id|name> [key=value ...]     keys: state=you|ready|do
                                                         jobs=J1,J2 (the job in hand first; empty clears),
                                                         due=<date>|none, tab=yes|no (it holds a filled form open
                                                         in a browser tab), steps=<n>|none (the person's steps
-                                                        left to finish it), name=<short name>
+                                                        left to finish it), name=<short name>; state=done is
+                                                        refused while tab=yes
 python -I sessions.py order <id|name> ... | auto        these first, in this order; the rule orders the rest.
                                                         auto: the rule alone
 python -I sessions.py show                              the order, one line per session, and each title to set
@@ -25,8 +26,9 @@ questions" where a title's prefix differs.
 sync reads the list as the app's session tool returns it: an array of {sessionId, title, cwd, isArchived,
 isRunning, lastActivityAt, name, link}. Ask for 200 sessions, archived included: the tool lists 20 by default. A new
 session in the main folder is added with the state of its title's prefix (none: ready); a known one gets its
-title, running and last activity, and keeps its state; one the list marks archived is dropped and named; one
-missing from the list stays and is named. The main session ("Job search coordinator") is no row.
+title, running and last activity, and keeps its state; one the list marks archived is dropped and named (one that
+held a form, tab=yes, on its own line: its tab group went with it); one missing from the list stays and is named.
+The main session ("Job search coordinator") is no row.
 The order of the sessions that wait on the person: the ones named by `order`; then urgent (an Urgent to-do, or a
 task due today or tomorrow, on one of its jobs); then a fixed date, the nearest first (due, else the earliest
 coming step or to-do date of its jobs); then a form held open in a browser tab (tab=yes); then the fewest steps left
@@ -192,6 +194,11 @@ def sync(env, data, path, today):
                                                                    "included)", missing)):
         if rows:
             print(f"{word}: " + ", ".join(f"{label(s)} ({s['state']})" for s in rows))
+    for s in dropped:
+        if s.get("tab"):
+            jobs = ", ".join(s.get("jobs") or []) or "none"
+            print(f"archived while holding a filled form: {label(s)} (jobs {jobs}); "
+                  "its tab is gone: give the person the form's plain link and whether the site keeps a draft")
 
 
 def set_fields(env, data, word, pairs, today):
@@ -231,6 +238,10 @@ def set_fields(env, data, word, pairs, today):
             s.pop("quick", None)
         else:
             s[key] = value
+    if s.get("state") == "done" and s.get("tab"):
+        # Archiving a session closes its tab group: a held form would be lost (seen 21 Nov).
+        sys.exit(f"{s.get('name') or s['id']} holds a filled form (tab=yes): give the person its tab title, plain "
+                 "link and draft fact first, then set tab=no; a session with tab=yes is never done or archived")
     print(s.get("name") or s["id"], "->", ", ".join(f"{k}={s.get(k)}" for k in ("state", "waits", "jobs", "due", "tab", "steps")
                                                    if s.get(k) not in (None, "", [], False, 0)))
 

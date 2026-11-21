@@ -30,7 +30,8 @@ week: not known yet."
    (`templates/fit-settings-example.json`).
    After `APPLY_FITS` goes from high to normal, or `LONG_SHOTS_PER_DAY` up from 0: `track.py reopen` lists the fits
    the old setting skipped, never sent; on the person's yes, `track.py reopen --apply --per-day 15` sets them back to
-   found, 15 a day newest first (one fit check and one preparation each). Example: "64 to reopen".
+   found, 15 a day newest first (one fit check and one preparation each); a fit outside the places now stays skipped.
+   Example: "4 to reopen".
    The fit check's model: Sonnet (about 60k W an employer), Opus at medium effort (about 100k W, estimated), which
    reads the requirements against the record closer, or Opus at max effort (about 150-300k W, estimated; up to 30M W
    on a day of 100 employers). `FIT_MODEL=sonnet|opus|opus-max`, default sonnet.

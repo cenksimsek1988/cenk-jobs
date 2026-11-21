@@ -230,7 +230,8 @@ connector is down. Their sign-ins are there, and a second browser loses them.
   confirmed, a link handed over). `tabs_context_mcp` with `createIfEmpty` opens a window with an empty tab: close
   it when unused.
 - Before the final report or handoff: `tabs_context_mcp`, then close every own tab except a held `>>> ... <<<` tab;
-  a group that holds filled forms is never closed.
+  a group that holds filled forms is never closed, and its session is never archived (`Held:` lines,
+  `references/filling.md`).
 - The same address goes into the job's to-do (`track.py todo ... link=<address>`); the dashboard shows it as a
   link, and every sub-session brief and handoff carries it.
 

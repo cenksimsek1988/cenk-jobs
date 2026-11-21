@@ -959,8 +959,14 @@ elif cmd == "reopen":
     # only the newest comes back.
     import reposts  # noqa: E402
     cuts = [(c, row, choices.setting_cut(row.get(NOTE, ""), env)) for c, row in companies(data)
-            if row.get("status") == "skipped" and not row.get("applied") and str(row.get(NOTE, "")).startswith("fit:")]
+            if row.get("status") == "skipped" and not row.get("applied")]
     cuts = sorted([t for t in cuts if t[2]], key=lambda t: str(t[1].get("date") or ""), reverse=True)
+    # The person's places now (env, then the search scope): a cut fit outside them stays skipped, as the funnel would
+    # leave it out (seen 21 Nov: 60 of 64 outside a scope narrowed to remote and one city).
+    import collect_postings as cp  # noqa: E402
+    regions = cp.load_places(env)
+    outside = [t for t in cuts if t[1].get("location") and not cp.place_ok(t[1]["location"], cp.PLACES, regions)]
+    cuts = [t for t in cuts if t not in outside]
 
     def job_keys(c, row):
         return {(k, reposts.title_key(title_of(row))) for k in reposts.employer_keys(env, c.get("name", "")
@@ -980,6 +986,8 @@ elif cmd == "reopen":
     for c, row, cut in cuts:
         print(f"{row['id']} | {c.get('name', '') or row.get('company', '')} | {title_of(row)[:60]} | {cut} no longer "
               "cuts it")
+    if outside:
+        print(f"{len(outside)} left skipped: outside the person's places now")
     if twins:
         print(f"{twins} left skipped: the same job is in the tracker under a newer row")
     if not cuts:
