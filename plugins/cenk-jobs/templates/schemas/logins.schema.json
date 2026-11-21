@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LOGINS: one row per connector or job-site sign-in",
+  "description": "Written by logins.py (recordlib.py). origin says who made the row: sync (logins.py sync, for a job that waits on the site), claude (a check in a session), person (the person said so).",
+  "type": "object",
+  "properties": {
+    "_about": {"type": "string"},
+    "logins": {"type": "array", "items": {"$ref": "#/$defs/login"}}
+  },
+  "$defs": {
+    "status": {"enum": ["connected", "signed-in", "needs-sign-up", "expired", "needs-sign-in", "needs-reconnect",
+                        "blocked", "excluded", "unknown"]},
+    "origin": {"enum": ["sync", "claude", "person"]},
+    "login": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "kind": {"type": "string"},
+        "status": {"$ref": "#/$defs/status"},
+        "origin": {"$ref": "#/$defs/origin"},
+        "checked": {"type": "string"},
+        "note": {"type": "string"},
+        "link": {"type": "string"},
+        "jobs": {"type": "array"},
+        "history": {"type": "array"}
+      }
+    }
+  }
+}

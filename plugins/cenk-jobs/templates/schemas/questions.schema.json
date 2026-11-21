@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QUESTIONS: questions for the person, by question id",
+  "description": "Written by questions.py (recordlib.py). done is an older word for answered.",
+  "type": "object",
+  "properties": {
+    "_about": {"type": "string"},
+    "questions": {"type": "object", "additionalProperties": {"$ref": "#/$defs/question"}},
+    "handled": {"type": "object"},
+    "page": {"type": "object"}
+  },
+  "$defs": {
+    "status": {"enum": ["open", "answered", "closed", "done", "dropped"]},
+    "kind": {"enum": ["fact", "job", "decision", "general"]},
+    "question": {
+      "type": "object",
+      "properties": {
+        "kind": {"$ref": "#/$defs/kind"},
+        "status": {"$ref": "#/$defs/status"},
+        "text": {"type": "string"},
+        "jobs": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

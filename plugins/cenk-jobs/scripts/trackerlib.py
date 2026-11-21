@@ -14,7 +14,8 @@ waits_on_person(s)   True for statuses where the person must act: account-needed
 date_in(text)        the first "<day> <month>" in a note as YYYY-MM-DD, the year nearest to today (notes such as
                      "3 Nov: sent on Greenhouse" carry no year); "" when there is none.
 applied_on(job, note) the job's "applied" date, else the first date in its note.
-login_of(job)        the id of the sign-in a job waits on: the job's own "login" field when set, else its platform
+login_of(job)        the id of the sign-in a job waits on: its waits_on login when set (track.py wait), else an
+                     older row's own "login" field, else its platform
                      with the company for platforms where each employer has its own account (Workday,
                      SuccessFactors, Cornerstone, a company's own site), else the shared platform, else the
                      apply link's site. A job board is a login only when its own form is the way to apply
@@ -32,7 +33,9 @@ pipeline_entry(pipeline, id) a job's PIPELINE entry; one with "same_as" takes th
 ended(job, pipeline) (how, date) when a job is over, else ("", ""): by its tracker status (ENDED_STATUS; no date,
                      the row holds none) or, for a sent job, by its PIPELINE stage (ENDED_STAGE) with that date.
 step_done(step)      the date a PIPELINE step was done ("yes" when no date is known), "" when it is not done: its
-                     "done" field, else a "how" that says done (older records).
+                     "done" field (a date, written by track.py step <id> done), else a "how" that says done (older
+                     records: records.py check names each one).
+The vocabularies (STATUSES, TODO_KINDS) come from templates/schemas/tracker.schema.json, where each is listed once.
 
 A split tracker (track.py split) keeps one summary row per job and per company; the rest sits in a detail file
 named by the row's "details" key (a path relative to the tracker's folder). Only this module knows that layout:
@@ -56,6 +59,8 @@ import os
 import re
 import urllib.parse
 
+import recordlib
+
 # Pay figures and salary or rate phrases: masked in every file other people may read (dashboard, usage report).
 # A range is one match, so "EUR 70-90k" leaves no "-90k" behind (seen: a posted range in a note, 6 Nov 2026).
 # Currency codes stand alone ("12 European" is not pay); TRY only in capitals ("try 2 times" is not pay).
@@ -77,6 +82,11 @@ BOARD_NAME = re.compile(r"(?i)linkedin|indeed|glassdoor|stepstone|infojobs|monst
 ON_BOARD = re.compile(r"(?i)easy apply|indeed apply")
 # The note logins.py sync gives a row it makes; such a row records a wait, not a check of the sign-in.
 SYNC_NOTE = "an application waits on this site's sign-in or account"
+
+
+def made_by_sync(row):
+    """A login row logins.py sync made: its origin, or an older row's note (before origin existed)."""
+    return row.get("origin") == "sync" if row.get("origin") else (row.get("note") or "").startswith(SYNC_NOTE)
 # Printed by every script that changes a record the two pages show (RULES/run.md, "Dashboard").
 PAGES_BEHIND = 'pages behind: refresh both (RULES/run.md, "Dashboard")'
 MONTHS = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
@@ -125,11 +135,10 @@ def waits_on_person(status):
 
 
 # A job's to-do kinds. "waiting": the next move is the employer's (shown in Hiring steps, never in Do now).
-TODO_KINDS = ("urgent", "working", "task", "click", "todo", "waiting")
+TODO_KINDS = recordlib.vocabulary("tracker", "todo_kind")
 ENDED_STATUS = ("excluded", "closed", "declined", "skipped", "failed")  # tracker statuses: over before it was sent
-# Every tracker status the plugin knows; another one (an older "needs-<name>") is a check line on the dashboard.
-STATUSES = ("found", "pending", "to-apply", "account-needed", "needs-person", "needs-captcha", "submitted", "skipped",
-            "excluded", "failed", "closed", "declined")
+# Every tracker status the plugin knows; another one (an older "needs-<name>") is a records.py check shape line.
+STATUSES = recordlib.vocabulary("tracker", "status")
 ENDED_STAGE = ("rejected", "closed", "declined")  # PIPELINE stages: over after it was sent
 ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 # "done" as a word in a step's "how" (older records), not "not done" or "to be done".
@@ -249,8 +258,9 @@ def pay_for(table, location):
 def login_of(job):
     """One name per sign-in: "<platform> · <employer>" for an employer's own site; a Workday site is named so by its
     URL too, never by its tenant host. Example: a job on acme.wd5.myworkdayjobs.com -> "Workday · Acme"."""
-    if job.get("login"):
-        return job["login"]
+    waits = job.get("waits_on") if isinstance(job.get("waits_on"), dict) else {}
+    if waits.get("login") or job.get("login"):
+        return waits.get("login") or job["login"]
     platform = re.split(r"[(;,]", job.get("platform") or "")[0].strip()
     company = job.get("company", "").split(" (")[0].strip()
     if platform and PER_EMPLOYER.search(platform):

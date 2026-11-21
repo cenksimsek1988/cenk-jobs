@@ -83,7 +83,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import employerlib as el  # noqa: E402
 import jsenv  # noqa: E402
-from trackerlib import expand_company, flat_jobs, json_indent  # noqa: E402
+import recordlib  # noqa: E402
+from trackerlib import expand_company, flat_jobs  # noqa: E402
 
 args = sys.argv[1:]
 env_arg = None
@@ -252,7 +253,7 @@ elif cmd == "alias":
         print(f"{args[2]} now finds {name} (keys: {', '.join(added)})")
 elif cmd == "split":
     path = env.path("EMPLOYER_CHECKS")
-    data = el.load_json(path, {"employers": {}})
+    data, base = recordlib.load(env, "employer-checks", {"employers": {}})
     summaries, files, names, pairs, st = el.plan_split(env, data)
     if not st["moved"]:
         print(f"nothing to split: {st['entries']} entries, none with checks or an environment left in the summary")
@@ -263,7 +264,7 @@ elif cmd == "split":
     if not apply_flag:
         print("dry run: nothing written; add --apply to split")
         sys.exit(0)
-    backup = el.apply_split(env, path, data, (summaries, files, names, pairs, st))
+    backup = el.apply_split(env, path, data, (summaries, files, names, pairs, st), base)
     print(f"split; every entry proved equal to its original; backup {backup}")
 elif cmd == "record":
     if len(args) < 4:
@@ -307,17 +308,14 @@ elif cmd == "decide":
     # An older {companies: [...]} tracker keeps a verdict per company: the person's decision replaces it there. A decision
     # on one category: "exclude" still excludes the employer; "allow" replaces only a "discuss", since another category
     # may still exclude it.
-    path = env.path("TRACKER")
-    tracker = el.load_json(path, {})
+    tracker, tracker_base = recordlib.load(env, "tracker")
     for company in tracker.get("companies", []):
         old = company.get("verdict")
         replaces = old != args[2] and (not category or args[2] == "exclude" or old == "discuss")
         if replaces and el.keys(company.get("name", "")) & el.keys(args[1]):
             company["verdict"] = args[2]
             company["decided"] = {"date": el.today(), **({"category": category} if category else {})}
-            with open(path + ".tmp", "w", encoding="utf-8") as f:
-                json.dump(tracker, f, ensure_ascii=False, indent=json_indent(path))
-            os.replace(path + ".tmp", path)
+            recordlib.save(env, "tracker", tracker, tracker_base, "employer.py")
             break
     print(args[1], "->", args[2])
     # The decision is saved now, so recheck-running sees no move: the running applications are named here instead.
@@ -331,7 +329,7 @@ elif cmd == "decide":
                           f"stage {el.pipeline_row(pipeline, j.get('id')).get('stage', 'sent')}")
 elif cmd == "repair-clear":
     path = env.path("EMPLOYER_CHECKS")
-    data = el.load_json(path, {"employers": {}})
+    data, base = recordlib.load(env, "employer-checks", {"employers": {}})
     counts, employers, changed = {}, set(), {}
     for name, summary in data.get("employers", {}).items():
         # a split entry whose status map shows no clear israel or defence check needs no detail file opened
@@ -347,7 +345,7 @@ elif cmd == "repair-clear":
                 changed[name] = entry
     print(f"{len(employers)} employers;", ", ".join(f"{c}: {n}" for c, n in sorted(counts.items())) or "nothing to repair")
     if apply_flag and employers:
-        el.apply_repair(env, path, data, changed)
+        el.apply_repair(env, path, data, changed, base)
         print("written, with a backup beside it")
 elif cmd == "import-tracker":
     tracker = el.load_json(env.path("TRACKER"), {})

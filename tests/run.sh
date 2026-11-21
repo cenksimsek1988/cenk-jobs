@@ -1498,8 +1498,9 @@ check "check: to-dos on a job ended by its status, and on one where a later to-d
     grep -q "^check: to-do on an ended job: D8 (excluded), 1 to-do(s) -> track.py todo D8 done all" "$1" &&
     grep -q "^check: to-do on an ended job: D4 (declined .*), 1 to-do(s) -> track.py todo D4 done <n>" "$1"' _ "$T/check1.out"
 check "check: the jobs with to-dos without since, in one line" has "to-dos without since: D5 (1) -> track.py todo"
-check "check: a past due to-do and a past due step" sh -c '
-    grep -q "^check: past due: D5 \"call the recruiter\", due $2" "$1" && grep -q "^check: past due: D1 step \"Questionnaire\", due $2" "$1"' \
+check "check: a past due to-do, and a past due step (records.py steps, with its command)" sh -c '
+    grep -q "^check: past due: D5 \"call the recruiter\", due $2" "$1" &&
+    grep -q "^check: steps: [0-9]* past step(s) not done: .*D1 step [0-9]* \"Questionnaire\" due $2.* -> track.py step <id> done <n> <date>" "$1"' \
     _ "$T/check1.out" "$(day -3)"
 check "check: a job whose site is signed in and that nobody started" has "ready, not started: D6 (Workday .* Epsilon Co is signed in)"
 check "check: a found job without an owner" has "no owner: D7 (found or pending; no to-do, question or session)"
@@ -2644,12 +2645,13 @@ PYEOF
 "$PY" -I "$S/build_app_folders.py" --env "$ENVF" >/dev/null 2>&1
 "$PY" -I "$S/export_dashboard.py" "$T/d42" --env "$ENVF" >"$T/d42.out" 2>&1
 "$PY" -I "$S/export_dashboard.py" --check --env "$ENVF" >"$T/d42c.out" 2>&1
-check "export 0.42: the same employer and role sent twice is a check line and a flag on the later row" sh -c '
-    grep -q "^check: the same employer and role twice: K1 and K2 Acme Corp" "$1" &&
+check "export 0.42: the same employer and role sent twice is a check line (records.py dupes) and a flag on the later row" sh -c '
+    grep -q "^check: dupes: the same employer and role twice: K1 and K2 Acme Corp" "$1" &&
     "$2" -I "$3/dq.py" "$4/applications.json" "K[\"K2\"][\"again\"] == \"re-application of K1\" and K[\"K1\"][\"again\"] == \"\""' \
     _ "$T/d42.out" "$PY" "$T" "$T/d42"
 check "export 0.42: a status the plugin does not know is a check line; its note is a Waits on you row with a check" sh -c '
-    grep -q "^check: status not known to the plugin: needs-jane (1: K3)" "$1" && grep -q "^check: needs-jane with no to-do: K3" "$1" &&
+    grep -q "^check: shape: tracker K3 status: .needs-jane. is not one of" "$1" &&
+    grep -q "^check: waits: needs-jane with no waits_on and no to-do: .*K3" "$1" &&
     "$2" -I "$3/dq.py" "$4/actions.json" "K[\"K3:todo\"][\"text\"] == \"Waits on you: hand score 68\""' \
     _ "$T/d42.out" "$PY" "$T" "$T/d42"
 check "export 0.42: Claude's own to-do, a job ready to send (with its long-shot) and an unread posting are Claude's next" \
@@ -2836,7 +2838,8 @@ PYEOF
 check "export 0.44: a board row sync made never overrides a checked sign-in: the merged row is signed in" \
     dq "$T/d44/logins.json" 'K["LinkedIn"]["status"] == "signed-in"'
 check "export 0.44: an account at no named site and a sign-in to-do naming a board are check lines; Claude finds the site" sh -c '
-    grep -q "^check: account-needed with no site named: A7 " "$1" && grep -q "^check: a sign-in to-do names a job board.*A8 (linkedin)" "$1" &&
+    grep -q "^check: waits: account-needed with no site named: A7 " "$1" &&
+    grep -q "^check: waits: a wait or sign-in to-do names a job board.*A8 (linkedin)" "$1" &&
     "$2" -I "$3/dq.py" "$4/actions.json" "K[\"queued:nosite\"][\"text\"].startswith(\"1 application waits on an account\") and \"A7:signin\" not in K"' \
     _ "$T/d44.out" "$PY" "$T" "$T/d44"
 check "export 0.44: --check names a Questions page with no build record" grep -q "^check: the Questions page has no build record" "$T/d44c.out"
@@ -2889,7 +2892,7 @@ check "logins 0.44: a hand-set row no job waits on says so; its old note is in i
 track set A6 submitted "" repeat_of=A5 >"$T/r44.out" 2>&1
 "$PY" -I "$S/export_dashboard.py" "$T/d44b" --env "$ENVF" >"$T/d44b.out" 2>&1
 check "export 0.44: the same role twice is a check line until the later job names the earlier; the flag stays" sh -c '
-    grep -q "^check: the same employer and role twice: A5 and A6 Kappa Co.*repeat_of=A5$" "$1" &&
+    grep -q "^check: dupes: the same employer and role twice: A5 and A6 Kappa Co.*repeat_of=A5$" "$1" &&
     ! grep -q "the same employer and role twice" "$2" &&
     "$3" -I "$4/dq.py" "$5/applications.json" "K[\"A6\"][\"again\"] == \"re-application of A5\""' \
     _ "$T/d44.out" "$T/d44b.out" "$PY" "$T" "$T/d44b"
@@ -3205,6 +3208,191 @@ check "0.44.4 text: tabs closed before a report, no createIfEmpty in the health 
     grep -q "apply order" "$1/skills/plan/SKILL.md" && grep -q "Apply order" "$1/RULES/urgent.md" &&
     ! grep -q "apply where the person is" "$1/skills/coordinate/SKILL.md" &&
     ! grep -q "does its pieces as subagents" "$1/skills/schedule/SKILL.md"' _ "$S/.."
+# --- 0.45.0: recordlib (a stale base refused, the changed rows checked, the change log), PIPELINE by command,
+# waits_on and a login row's origin as fields, records.py check -------------------------------------------------
+mkhome "$T/h45" flat
+use "$T/h45"
+"$PY" -I - "$S" "$ENVF" >"$T/r45.out" 2>&1 <<'PYEOF'
+import os
+import sys
+sys.path.insert(0, sys.argv[1])
+import jsenv
+import recordlib as rl
+env = jsenv.load(sys.argv[2])
+data, base = rl.load(env, "tracker")
+path = rl.path(env, "tracker")
+with open(path, "a", encoding="utf-8") as f:
+    f.write(" ")
+before = open(path, "rb").read()
+try:
+    rl.save(env, "tracker", data, base, "test", ["F1"])
+except SystemExit as e:
+    print("exit", e.code)
+print("same", open(path, "rb").read() == before, "tmp", os.path.exists(path + ".tmp"))
+PYEOF
+check "recordlib 0.45.0: a file changed since it was read is not written: STALE, exit 3, no tmp file left" sh -c '
+    grep -q "^exit 3" "$1" && grep -q "STALE: apply/targets.json changed since it was read: run the command again" "$1" &&
+    grep -q "^same True tmp False" "$1"' _ "$T/r45.out"
+track set F2 to-apply "ready" >"$T/x.out" 2>&1
+check "recordlib 0.45.0: a write appends its rev, script, file and changed rows to changes.jsonl" "$PY" -I -c '
+import json, sys
+line = json.loads(open(sys.argv[1], encoding="utf-8").read().splitlines()[-1])
+assert line["file"] == "apply/targets.json" and line["ids"] == ["F2"] and line["script"] == "track.py" and line["rev"] >= 1, line
+' "$H/apply/changes.jsonl"
+track set F2 needs-jane "x" >"$T/x.out" 2>&1
+rc=$?
+check "track.py 0.45.0: a status outside the schema's vocabulary is refused" sh -c '
+    [ "$1" -eq 1 ] && grep -q "status must be one of" "$2"' _ "$rc" "$T/x.out"
+track set F2 needs-person "an essay" >"$T/x.out" 2>&1
+track set F2 submitted "sent" >>"$T/x.out" 2>&1
+check "track.py 0.45.0: a waiting status gets waits_on; a sent job keeps it only in its history" "$PY" -I -c '
+import json, sys
+f2 = [j for j in json.load(open(sys.argv[1], encoding="utf-8"))["jobs"] if j["id"] == "F2"][0]
+assert "waits_on" not in f2 and f2["history"][-1]["waits_on"]["kind"] == "person" and f2["applied"], f2
+' "$H/apply/targets.json"
+track wait F1 account-needed "sign in to Acme Jobs" login="Acme Jobs" >"$T/x.out" 2>&1
+check "track.py 0.45.0: wait writes waits_on {kind, login, since}, not the older login field" "$PY" -I -c '
+import json, sys
+f1 = [j for j in json.load(open(sys.argv[1], encoding="utf-8"))["jobs"] if j["id"] == "F1"][0]
+assert f1["waits_on"]["kind"] == "account" and f1["waits_on"]["login"] == "Acme Jobs" and "login" not in f1, f1
+' "$H/apply/targets.json"
+track step F2 add name="Recruiter screen" date=2026-11-18 time=10:00-10:30 >"$T/p45.out" 2>&1
+track step F2 add name="Take-home" due=2026-11-25 proposed=yes >>"$T/p45.out" 2>&1
+track step F2 done 1 2026-11-18 >>"$T/p45.out" 2>&1
+track step F2 set 2 proposed=no due=2026-11-26 >>"$T/p45.out" 2>&1
+track outcome F2 rejected 2026-11-27 reason="not moving forward" >>"$T/p45.out" 2>&1
+track outcome F2 withdrawn 2026-11-28 why=relocation >>"$T/p45.out" 2>&1
+check "track.py 0.45.0: step and outcome write PIPELINE: steps by number, an earlier outcome kept in history" "$PY" -I -c '
+import json, sys
+e = json.load(open(sys.argv[1], encoding="utf-8"))["F2"]
+s = e["steps"]
+assert s[0]["done"] == "2026-11-18" and s[0]["time"] == "10:00-10:30" and "proposed" not in s[1] and s[1]["due"] == "2026-11-26", e
+assert e["stage"] == "declined" and e["why"] == "relocation" and e["history"][0]["stage"] == "rejected", e
+' "$H/apply/pipeline.json"
+track step F2 add name="Call" date="18 Nov" >"$T/x.out" 2>&1
+rc1=$?
+track outcome F1 rejected 2026-11-27 >"$T/y.out" 2>&1
+rc2=$?
+check "track.py 0.45.0: a step date not written YYYY-MM-DD, and an outcome of a job not sent, are refused" sh -c '
+    [ "$1" -eq 1 ] && grep -q "date is a date" "$2" && [ "$3" -eq 1 ] && grep -q "an outcome is for a sent job" "$4"' \
+    _ "$rc1" "$T/x.out" "$rc2" "$T/y.out"
+"$PY" -I "$S/logins.py" sync --env "$ENVF" >"$T/x.out" 2>&1
+"$PY" -I "$S/logins.py" set "Acme Jobs" signed-in "signed in" origin=person --env "$ENVF" >>"$T/x.out" 2>&1
+check "logins.py 0.45.0: a row sync makes has origin sync; a set row says who: person here" "$PY" -I -c '
+import json, sys
+rows = {r["id"]: r for r in json.load(open(sys.argv[1], encoding="utf-8"))["logins"]}
+assert rows["Acme Jobs"]["origin"] == "person" and rows["Acme Jobs"]["history"][-1]["origin"] == "sync", rows
+' "$H/apply/logins.json"
+"$PY" -I - "$H" <<'PYEOF'
+import json
+import os
+import sys
+p = os.path.join(sys.argv[1], "apply", "targets.json")
+data = json.load(open(p, encoding="utf-8"))
+f1 = [j for j in data["jobs"] if j["id"] == "F1"][0]
+f1["todo"] = [{"kind": "todo", "text": "first", "since": "2026-11-01"},
+              {"kind": "todo", "text": "older", "due": "next week"}]
+with open(p, "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=1)
+PYEOF
+track todo F1 done 1 >"$T/x.out" 2>&1
+rc=$?
+check "recordlib 0.45.0: removing a to-do is not refused for an older one below it (only changed parts are checked)" sh -c '
+    [ "$1" -eq 0 ] && grep -q "removed 1 to-do" "$2"' _ "$rc" "$T/x.out"
+"$PY" -I - "$S" "$ENVF" >"$T/r45n.out" 2>&1 <<'PYEOF'
+import sys
+sys.path.insert(0, sys.argv[1])
+import jsenv
+import recordlib as rl
+env = jsenv.load(sys.argv[2])
+before = rl.rev(env)
+data, base = rl.load(env, "tracker")
+again = rl.save(env, "tracker", data, base, "test")
+print("same base", again == base, "rev", rl.rev(env) == before)
+PYEOF
+check "recordlib 0.45.0: a write that changes nothing writes and logs nothing" grep -q "^same base True rev True" "$T/r45n.out"
+# records.py check: each id on a made-up case, then a clean folder.
+mkhome "$T/h45r" flat
+use "$T/h45r"
+mkdir -p "$H/job-applications"
+"$PY" -I - "$H" <<'PYEOF'
+import json
+import os
+import sys
+h = sys.argv[1]
+
+
+def put(name, data):
+    with open(os.path.join(h, "apply", name), "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=1)
+
+
+put("targets.json", {"jobs": [
+    {"id": "R1", "company": "Acme Corp", "title": "Staff Engineer", "status": "needs-jane"},
+    {"id": "R2", "company": "Acme Corp", "title": "Staff Engineer", "status": "submitted", "applied": "2026-11-01",
+     "cv": "a.pdf"},
+    {"id": "R3", "company": "Acme Corp", "title": "Staff Engineer", "status": "submitted", "applied": "2026-11-05"},
+    {"id": "R4", "company": "Beta Ltd", "title": "Lead", "status": "needs-person"},
+    {"id": "R5", "company": "Gamma Inc", "title": "Dev", "status": "account-needed", "platform": "linkedin",
+     "url": "https://www.linkedin.com/jobs/view/1", "todo": [{"kind": "click", "text": "sign in", "login": "LinkedIn"}]},
+    {"id": "R5", "company": "Gamma Inc", "title": "Dev 2", "status": "found"},
+    {"id": "R6", "company": "Delta Co", "title": "Eng", "status": "submitted", "applied": "2026-11-02", "cv": "b.pdf",
+     "prep": {" gaps": ["x"]}, "repeat_of": "R99"},
+    {"id": "R10", "company": "Omega GmbH", "title": "A", "status": "excluded", "note": "employer excluded"},
+    {"id": "R11", "company": "Omega GmbH", "title": "B", "status": "pending"},
+    {"id": "R12", "company": "Zeta AG", "title": "Ops", "status": "account-needed",
+     "url": "https://www.linkedin.com/jobs/view/2"}]})
+put("pipeline.json", {"R2": {"stage": "approved", "steps": [
+    {"name": "Call", "date": "2026-11-03"}, {"name": "Panel", "date": "2026-11-04", "how": "video, done 4 Nov"}]},
+    "R9": {"stage": "pending", "notes": "by hand"}, "R6": {"same_as": "R7"}})
+put("questions.json", {"questions": {"q1": {"kind": "job", "status": "open", "text": "x", "jobs": ["R8"]}}})
+PYEOF
+"$PY" -I "$S/records.py" check --env "$ENVF" >"$T/rc45.out" 2>&1
+check "records.py 0.45.0: shape names an unknown status, a key with spaces and a PIPELINE key no reader knows" sh -c '
+    grep -q "^check: shape: tracker R1 status: .needs-jane. is not one of" "$1" &&
+    grep -q "^check: shape: tracker R6 prep: key . gaps. has spaces around it" "$1" &&
+    grep -q "^check: shape: pipeline R9 key .notes. is not in the schema" "$1"' _ "$T/rc45.out"
+check "records.py 0.45.0: sent, waits (no waits_on, no to-do, no site, a job board) and links" sh -c '
+    grep -q "^check: sent: 1 submitted naming no CV: R3" "$1" &&
+    grep -q "^check: waits: needs-person with no waits_on and no to-do: R4 -> track.py wait <id> needs-person" "$1" &&
+    grep -q "^check: waits: account-needed with no site named: R12 " "$1" && grep -q "^check: waits: a wait or sign-in to-do names a job board.*R5 (LinkedIn)" "$1" &&
+    grep -q "^check: links: 1 question(s) naming jobs not in the tracker: q1 (R8)" "$1" && grep -q "^check: links: PIPELINE entries of no tracker job: R9" "$1" &&
+    grep -q "^check: links: same_as naming no PIPELINE entry: R6 (R7)" "$1" && grep -q "^check: links: repeat_of naming no tracker job: R6 (R99)" "$1"' _ "$T/rc45.out"
+check "records.py 0.45.0: dupes, steps and employer, each with its command" sh -c '
+    grep -q "^check: dupes: one id on two tracker rows: R5" "$1" &&
+    grep -q "^check: dupes: the same employer and role twice: R2 and R3 .* -> track.py set R3 submitted \"\" repeat_of=R2" "$1" &&
+    grep -q "^check: steps: 1 past step(s) not done: R2 step 1 \"Call\" on 2026-11-03 -> track.py step <id> done <n> <date>" "$1" &&
+    grep -q "^check: steps: 1 step(s) done only in its how text: R2 step 2" "$1" &&
+    grep -q "^check: employer: Omega GmbH is excluded .*, not sent yet: R11 -> track.py set <id> excluded" "$1" &&
+    grep -q "^check: 1[0-9] record faults" "$1"' _ "$T/rc45.out"
+export_dash --check >"$T/ec45.out" 2>&1
+check "export --check 0.45.0: prints records.py's lines in place of its own status, repeat and wait lines" sh -c '
+    grep -q "^check: shape: tracker R1 status" "$1" && grep -q "^check: dupes: the same employer and role twice" "$1" &&
+    ! grep -q "status not known to the plugin" "$1" && ! grep -q "^check: the same employer and role twice" "$1" &&
+    ! grep -q "^check: account-needed with no site named" "$1" && ! grep -q "with no to-do: R4" "$1"' _ "$T/ec45.out"
+mkhome "$T/h45c" flat
+use "$T/h45c"
+"$PY" -I - "$H" <<'PYEOF'
+import json
+import os
+import sys
+h = sys.argv[1]
+with open(os.path.join(h, "apply", "targets.json"), "w", encoding="utf-8") as f:
+    json.dump({"jobs": [{"id": "C1", "company": "Acme Corp", "title": "Engineer", "status": "submitted",
+                         "applied": "2026-11-01", "cv": "c.pdf"}]}, f, indent=1)
+with open(os.path.join(h, "apply", "pipeline.json"), "w", encoding="utf-8") as f:
+    json.dump({"C1": {"stage": "approved", "steps": [{"name": "Call", "date": "2026-11-03", "done": "2026-11-03"}]}},
+              f, indent=1)
+PYEOF
+"$PY" -I "$S/records.py" check --env "$ENVF" >"$T/rc45c.out" 2>&1
+check "records.py 0.45.0: a clean folder gives no fault line" sh -c '
+    [ "$(grep -c . "$1")" -eq 1 ] && grep -q "^check: 0 record faults" "$1"' _ "$T/rc45c.out"
+check "0.45.0 text: records only by their scripts, STALE means run again, PIPELINE by step and outcome" sh -c '
+    grep -q "never by hand: each write is checked and logged" "$1/RULES/run.md" && grep -q "STALE" "$1/RULES/run.md" &&
+    grep -q "track.py outcome <id> rejected" "$1/RULES/hiring-steps.md" && grep -q "track.py step <id> done <n>" "$1/RULES/run.md" &&
+    grep -q "Keeps the shared records" "$1/skills/coordinate/SKILL.md" &&
+    ! grep -q "Is the only writer of the shared records" "$1/skills/coordinate/SKILL.md" &&
+    grep -q "records.py" "$1/RULES/tools.md"' _ "$S/.."
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

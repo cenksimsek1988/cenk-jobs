@@ -6,7 +6,48 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
-## [0.44.4] - 2026-11-21
+## [0.45.0] - 2026-11-21
+
+Phase 1 of the data redesign: every write to the shared records goes through one library that refuses a stale base,
+checks what it writes and logs it; one check script names every record fault; three facts read from free text become
+fields: a waiting job's `waits_on`, a login row's `origin` and a hiring step's `done` date. The file layout does not
+change.
+
+### Added
+
+- `recordlib.py`: the one way to write the seven record files (tracker, PIPELINE, logins, questions, sessions,
+  employer checks, saved searches). A file changed since the command read it is not written ("STALE: ... run the
+  command again", exit 3); a value the command writes wrong is refused ("REFUSED: ...", exit 1): a status outside its
+  vocabulary, a job made submitted with no applied date, a job made waiting with no `waits_on`. Older rows never
+  block a write. Every write appends `{rev, at, script, file, ids}` to `changes.jsonl` beside the tracker
+  (`CHANGES_LOG`). A command that writes two files checks both bases first; collect_postings.py and questions.py run
+  a STALE subprocess once more.
+- `templates/schemas/<kind>.schema.json`: each file's shape and vocabularies (statuses, to-do kinds, stages, login
+  origin), each vocabulary listed once; trackerlib.py and logins.py read theirs from there. The `.schema.json` names
+  keep `.gitignore`'s guard on a person's own `pipeline.json`, `logins.json` and `employer-checks.json`.
+- `records.py check`: one `check: <id>: ...` line per fault, rows with the same fault on one line: shape, sent,
+  waits, links, dupes, steps, employer. `export_dashboard.py --check` prints them; its own lines for an unknown
+  status, a repeated role, a wait with no site or no to-do, a sign-in on a job board and a past-due step moved there.
+- PIPELINE's writer: `track.py step <id> add name= date= [time= due= with= how= link= mail= proposed=yes]`,
+  `step <id> done|cancel <n> [<date>]`, `step <id> set <n> key=value`, and `track.py outcome <id>
+  rejected|closed|declined|withdrawn <date> [reason= mail= why= category=]`. Steps keep their number; an entry with
+  `same_as` writes into the entry it names; an earlier outcome goes into the entry's history.
+
+### Changed
+
+- A waiting job's `waits_on` `{kind, login, since}`: `track.py set` writes it for a waiting status, `wait` names the
+  site (and takes needs-captcha); a sent or ended job keeps it only in its history row. It replaces the job's own
+  `login` field, still read on older rows.
+- A login row's `origin` (sync, claude, person) replaces reading the sync note's text; `logins.py set` takes
+  `origin=person`.
+- `track.py set` refuses a status outside the vocabulary (it accepted any `needs-<word>` before).
+- Rules and skills: the shared records change only by their scripts, never by hand; a STALE refusal means run the
+  command again; PIPELINE changes only by `track.py step` and `outcome`; a sub-session's own script call is safe, and
+  the coordinator keeps the other files alone.
+
+### Fixed
+
+- `track.py wait` on the older `{companies}` tracker named a Workday site "Workday · " with no employer.
 
 No Claude tab groups left behind in Chrome, and one order for finishing the open applications.
 

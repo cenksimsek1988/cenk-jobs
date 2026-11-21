@@ -35,6 +35,22 @@ def title_key(title):
     return frozenset(w for w in words if w not in FILLER)
 
 
+def repeat_pairs(jobs, pipeline):
+    """[(first id, later job)]: a sent job (submitted, or in PIPELINE) whose employer key and title words match an
+    earlier sent one, in applied order. jobs: trackerlib.flat_jobs rows. The dashboard flags the later job
+    ("re-application of"); records.py check (dupes) names a pair whose later job has no repeat_of=<first id>."""
+    seen, out = {}, []
+    sent = [j for j in jobs if j.get("status") == "submitted" or j["id"] in (pipeline or {})]
+    for j in sorted(sent, key=lambda j: (str(j.get("applied") or "")[:10], j["id"])):
+        keys = sorted(el.keys(j.get("company") or ""))
+        k = (keys[0] if keys else "", title_key(j.get("title", "")))
+        if k[0] and k[1] and k in seen:
+            out.append((seen[k], j))
+        else:
+            seen.setdefault(k, j["id"])
+    return out
+
+
 def employer_keys(env, name, employers):
     """Every key the employer is known by: its own keys and those of the saved entry it matches (names.json)."""
     out = set(el.keys(name or ""))

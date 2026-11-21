@@ -33,7 +33,8 @@ coming step or to-do date of its jobs); then a form held open in a browser tab (
 (steps=<n>); then the rest, the longest wait first. The coordinator's list of questions and the dashboard's Do now
 use this one order. Example: 1 apply-acme (urgent), 2 study-beta (by 2026-11-16), 3 apply-gamma (form open in a tab),
 4 answers-delta (1 step left). An older record's "quick": true reads as one step left.
-Add --env <job-search.env> anywhere to pick the env file.
+Add --env <job-search.env> anywhere to pick the env file. Every write goes through recordlib.py (STALE, exit 3: run
+the command again).
 """
 import datetime
 import json
@@ -43,6 +44,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jsenv  # noqa: E402
+import recordlib  # noqa: E402
 from trackerlib import ISO_DATE, ended, flat_jobs, pipeline_entry, step_done  # noqa: E402
 
 STATES = ("you", "ready", "done")
@@ -57,21 +59,18 @@ def record_path(env):
     return env.path("SESSIONS") if env.get("SESSIONS") else os.path.join(env.home, "apply", "sessions.json")
 
 
+_BASE = {}  # the record's fingerprint as load read it, by path (recordlib refuses a moved base)
+
+
 def load(env):
-    path = record_path(env)
-    if not os.path.exists(path):
-        return {"_about": "The person's open sessions and the order to answer them. Written by the coordinator "
-                          "through sessions.py; the dashboard reads it.", "synced": "", "order": [], "sessions": []}
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    data, _BASE[record_path(env)] = recordlib.load(env, "sessions", {
+        "_about": "The person's open sessions and the order to answer them. Written by the coordinator through "
+                  "sessions.py; the dashboard reads it.", "synced": "", "order": [], "sessions": []})
+    return data
 
 
 def save(env, data):
-    path = record_path(env)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path + ".tmp", "w", encoding="utf-8", newline="\n") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(path + ".tmp", path)
+    _BASE[record_path(env)] = recordlib.save(env, "sessions", data, _BASE.get(record_path(env), ""), "sessions.py")
 
 
 def split_title(title):

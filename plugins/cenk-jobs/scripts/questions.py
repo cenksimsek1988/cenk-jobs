@@ -75,6 +75,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import jsenv  # noqa: E402
 import profilelib as pl  # noqa: E402
+import recordlib  # noqa: E402
 from trackerlib import ENDED_STAGE, collapse_row, expand_row, flat_jobs, is_company_shape, json_indent  # noqa: E402
 from trackerlib import PAGES_BEHIND, pipeline_entry  # noqa: E402
 
@@ -119,8 +120,14 @@ def load(path, default):
         return json.load(f)
 
 
+def save_questions():
+    """QUESTIONS through recordlib: refused (STALE, exit 3) when another command changed it since it was read."""
+    global QBASE
+    QBASE = recordlib.save(env, "questions", data, QBASE, "questions.py")
+
+
 def save(path, data):
-    """Keep the file's own indent and line endings, so a rewrite changes only what changed."""
+    """The master record (not one of recordlib's files): keep the file's own indent and line endings."""
     crlf = os.path.exists(path) and b"\r\n" in open(path, "rb").read(4096)
     text = json.dumps(data, ensure_ascii=False, indent=json_indent(path) if os.path.exists(path) else 2) + "\n"
     with open(path + ".tmp", "wb") as f:
@@ -246,6 +253,8 @@ def recent(q):
 def run(script, *argv):
     cmd = [sys.executable, "-I", os.path.join(HERE, script), *argv, *env_args]
     res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+    if res.returncode == recordlib.STALE_EXIT:  # another command wrote the file meanwhile: once more, on the new one
+        res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
     if res.returncode:
         raise RuntimeError(f"{script} {' '.join(argv)} failed: {res.stderr.strip() or res.stdout.strip()}")
     return res.stdout.strip()
@@ -253,10 +262,10 @@ def run(script, *argv):
 
 if not args or args[0] not in ("add", "list", "build", "record", "answer", "note"):
     sys.exit(__doc__)
-data = load(QUESTIONS, {"_about": "Questions for the person, asked once on their Questions page (questions.py). "
-                                  "status: open, answered (written into the records), closed (its jobs were sent "
-                                  "first) or dropped.",
-                        "questions": {}})
+data, QBASE = recordlib.load(env, "questions", {
+    "_about": "Questions for the person, asked once on their Questions page (questions.py). status: open, answered "
+              "(written into the records), closed (its jobs were sent first) or dropped.",
+    "questions": {}})
 qs = data["questions"]
 
 if args[0] == "add":
@@ -314,7 +323,7 @@ if args[0] == "add":
     if opts.get("keep") in ("yes", "true", "1") or \
             set(q.get("jobs", [])) & ended_jobs(load(env.path("TRACKER"), {}), pipeline)[1]:
         q["keep"] = True
-    save(QUESTIONS, data)
+    save_questions()
     print(qid, "->", ", ".join(q["jobs"]) or "no job")
     print(PAGES_BEHIND)
 
@@ -327,7 +336,7 @@ elif args[0] == "note":
     if len(args) < 3 or args[1] not in qs:
         sys.exit(__doc__ if len(args) < 3 else f"no question {args[1]!r}")
     qs[args[1]].update(note=args[2], noted_at=now)
-    save(QUESTIONS, data)
+    save_questions()
     print(args[1], "-> note set")
     print(PAGES_BEHIND)
 
@@ -410,7 +419,7 @@ elif args[0] == "build":
                   "--page <dir>, then write the page" if behind else "the Questions page is up to date")
         sys.exit(0)
     data["page"] = {"built": now, "docs": digests}
-    save(QUESTIONS, data)
+    save_questions()
     os.makedirs(os.path.join(out_dir, "questions"), exist_ok=True)
     os.makedirs(os.path.join(out_dir, "status"), exist_ok=True)
     for qid, doc in docs.items():
@@ -450,7 +459,7 @@ else:  # record, answer
         given = [(os.path.basename(f)[:-5], (load(f, {}) or {}).get("answer", ""), "Questions page")
                  for f in sorted(glob.glob(os.path.join(args[1], "answers", "*.json")))]
     tracker_path = env.path("TRACKER")
-    tracker = load(tracker_path, {})
+    tracker, TBASE = recordlib.load(env, "tracker")
     jobs = raw_jobs(tracker)
     master = load(env.path("MASTER_RECORD"), {})
     changed = {"tracker": False, "master": False}
@@ -461,12 +470,14 @@ else:  # record, answer
         return ", ".join(names.get(j, j) for j in ids) or "no job waiting"
 
     def flush():
-        """Write what this run changed so far: before a script rewrites the tracker, before stopping, at the end."""
-        if changed["tracker"]:
-            save(tracker_path, tracker)
+        """Write what this run changed so far: before a script rewrites the tracker, before stopping, at the end.
+        The tracker and QUESTIONS go together (both bases checked before either is written), then the master record."""
+        global TBASE, QBASE
+        writes = ([("tracker", tracker, TBASE, ())] if changed["tracker"] else []) + [("questions", data, QBASE, ())]
+        bases = recordlib.save_many(env, writes, "questions.py")
+        TBASE, QBASE = (bases[0] if changed["tracker"] else TBASE), bases[-1]
         if changed["master"]:
             save(env.path("MASTER_RECORD"), master)
-        save(QUESTIONS, data)
         changed.update(tracker=False, master=False)
 
     def to_profile(key, value, private):
@@ -483,13 +494,13 @@ else:  # record, answer
 
     def call(script, *argv):
         """Run employer.py or track.py, which rewrite the tracker: flush first, then read the tracker back."""
-        global tracker, jobs
+        global tracker, jobs, TBASE
         flush()
         try:
             out = run(script, *argv)
         except RuntimeError as e:
             sys.exit(f"{e}. The answers before it are recorded; this one and the rest stay open.")
-        tracker = load(tracker_path, {})
+        tracker, TBASE = recordlib.load(env, "tracker")
         jobs = raw_jobs(tracker)
         return out
 
@@ -591,6 +602,7 @@ else:  # record, answer
                     job = expand_row(tracker_path, row)  # a split row: the detail with the prep is merged in
                     given = job.setdefault("prep", {}).setdefault("answers", [])
                     given[:] = [a for a in given if a.get("question") != q["text"]] + [dict(entry, answer=label, question=q["text"])]
+                    recordlib.check_base(env, "tracker", TBASE)  # before a split row's detail file is written
                     collapse_row(tracker_path, row, job, is_company_shape(tracker))
                     changed["tracker"] = True
             for job_id in q.get("jobs", []):
@@ -606,6 +618,7 @@ else:  # record, answer
             job = expand_row(tracker_path, row)  # a split row: the detail with the prep is merged in
             answers = job.setdefault("prep", {}).setdefault("answers", [])
             answers[:] = [a for a in answers if a.get("question") != q["text"]] + [dict(entry, question=q["text"])]
+            recordlib.check_base(env, "tracker", TBASE)  # before a split row's detail file is written
             collapse_row(tracker_path, row, job, is_company_shape(tracker))
             changed["tracker"] = True
             go_on += q["jobs"]

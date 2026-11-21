@@ -7,7 +7,11 @@ of its file) has every command and option. Run one as RULES.md, "Where things ar
 ## Records
 
 - `track.py`: the tracker: add, set (`--file` for many), wait, todo (add, done, list), show (`--full`), brief, list,
-  summary, sync (a screening run's journal), split (summary rows and detail files).
+  summary, sync (a screening run's journal), split (summary rows and detail files); `PIPELINE`: step (add, done,
+  cancel, set), outcome.
+- `records.py`: check: the records' faults by id (shape, sent, waits, links, dupes, steps, employer); writes nothing.
+- `recordlib.py` (a library): every write of the seven record files: STALE refusal, the changed rows checked,
+  `changes.jsonl`.
 - `questions.py`: the Questions page: add, list, note, answer (`--file`), build (`--check`), record.
 - `logins.py`: login state: set, sync, show.
 - `sessions.py`: the open sessions and the order to answer them: sync, set, order, show, lock, unlock.

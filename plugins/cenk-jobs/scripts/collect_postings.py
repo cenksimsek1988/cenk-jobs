@@ -579,8 +579,10 @@ def place_ok(place, places, regions):
 
 
 def run(script, *more):
-    res = subprocess.run([sys.executable, "-I", os.path.join(HERE, script), *more, "--env", ENV.file],
-                         capture_output=True, text=True, encoding="utf-8")
+    cmd = [sys.executable, "-I", os.path.join(HERE, script), *more, "--env", ENV.file]
+    res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+    if res.returncode == 3:  # STALE (recordlib): another command wrote the file meanwhile; once more, on the new one
+        res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
     if res.returncode:
         sys.exit(f"{script} {' '.join(more[:2])} failed: {res.stderr.strip()[-300:]}")
     return res.stdout

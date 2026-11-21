@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SESSIONS: the open sessions and the order to answer them",
+  "description": "Written by sessions.py (recordlib.py).",
+  "type": "object",
+  "properties": {
+    "_about": {"type": "string"},
+    "synced": {"type": "string"},
+    "order": {"type": "array"},
+    "sessions": {"type": "array", "items": {"$ref": "#/$defs/session"}}
+  },
+  "$defs": {
+    "state": {"enum": ["you", "ready", "done"]},
+    "session": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": {"type": "string"},
+        "title": {"type": "string"},
+        "state": {"$ref": "#/$defs/state"},
+        "jobs": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

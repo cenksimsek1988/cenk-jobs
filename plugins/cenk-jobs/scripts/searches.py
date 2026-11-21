@@ -67,7 +67,8 @@ once the person has set the scope's any_mode_places (career_view.py scope), name
 as whole words. Example: a LinkedIn row "Berlin" with any_mode_places Springfield. Seen 20 Nov: city rows the person
 had dropped gave 89 of 103 postings out of scope. Words only: a city inside an accepted country is named outside
 when neither names the other ("Milan" with any_mode_places Italy); the person keeps it with scope-ok.
-Add --env <job-search.env> anywhere to pick the env file; --today <YYYY-MM-DD> reads "due" as of that day.
+Add --env <job-search.env> anywhere to pick the env file; --today <YYYY-MM-DD> reads "due" as of that day. The file is
+SEARCHES, else searches.json beside TRACKER; every write goes through recordlib.py (STALE, exit 3: run it again).
 add also takes note="<text>". Example: searches.py add "Acme careers" "engineering" alert=no note="no alert offered, 2026-11-13"
 Example: searches.py add LinkedIn "Backend engineer, remote" alert=yes gmail="from:jobalerts-noreply@linkedin.com newer_than:2d"
 """
@@ -80,6 +81,7 @@ import urllib.parse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jsenv  # noqa: E402
+import recordlib  # noqa: E402
 from trackerlib import flat_jobs, scope_of, terms, title_has  # noqa: E402
 
 args = sys.argv[1:]
@@ -107,18 +109,19 @@ PATH = os.path.normpath(PATH)
 today = datetime.date.fromisoformat(as_of) if as_of else datetime.date.today()
 
 
+BASE = ""
+
+
 def load():
-    if not os.path.exists(PATH):
-        return {"_about": "Saved searches: read from alert emails, or checked on a schedule (searches.py).", "searches": []}
-    with open(PATH, encoding="utf-8") as f:
-        return json.load(f)
+    global BASE
+    data, BASE = recordlib.load(env, "searches", {
+        "_about": "Saved searches: read from alert emails, or checked on a schedule (searches.py).", "searches": []})
+    return data
 
 
 def save(data):
-    os.makedirs(os.path.dirname(PATH), exist_ok=True)
-    with open(PATH + ".tmp", "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=1)
-    os.replace(PATH + ".tmp", PATH)
+    global BASE
+    BASE = recordlib.save(env, "searches", data, BASE, "searches.py", indent=1)
 
 
 def pairs(items):

@@ -21,8 +21,8 @@ its own rule, the last one below.
   repeat it). Never for what can wait, never twice for the same step.
 - The Urgent row: `track.py todo <id> add urgent "<what to do>" where=pc` (or `where=phone`); the coordinator
   removes it (`track.py todo <id> done kind=urgent`) once the step is done or expired.
-- A step due within 24 hours (a test, a task, a deadline) is Urgent on its own (`export_dashboard.py`) until it has
-  `"done"` in `PIPELINE`; a due date that passed reads Past due, never Urgent. In a run, the coordinator sends one
+- A step due within 24 hours (a test, a task, a deadline) is Urgent on its own (`export_dashboard.py`) until it is
+  done (`track.py step <id> done <n>`); a due date that passed reads Past due, never Urgent. In a run, the coordinator sends one
   notification for all such steps at its end, and the session that found one sends none; outside a run, the session
   that finds it notifies at once. Example: a take-home due tomorrow at 10:00, found by the 19:00 run's prep
   session: in the coordinator's last notification of the run.

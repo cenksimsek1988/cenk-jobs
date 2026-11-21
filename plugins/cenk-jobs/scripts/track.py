@@ -14,16 +14,30 @@ python -I track.py todo <id> add <kind> "<text>" [key=value ...]          add a 
 python -I track.py todo <id> done <n>|all|kind=<kind>|session=<id>        remove to-dos: the one `list` numbers <n>, all,
                                                                            or every one of a kind or a session
 python -I track.py todo <id> list                                         the job's to-dos, numbered
-python -I track.py wait <id> needs-person|account-needed "<what>" [link=<url>] [login=<site>]
+python -I track.py wait <id> needs-person|needs-captcha|account-needed "<what>" [link=<url>] [login=<site>]
                                                                            a wait on the person, recorded where the
-                                                                           dashboard shows it: the status and one to-do
-                                                                           with its link (the job's own form when no
-                                                                           link is given); account-needed: a sign-in
-                                                                           to-do with the site. login= names the site
-                                                                           and stays on the job; it is required when
-                                                                           the records name none (a job board that
-                                                                           only forwards). Example: login="Workday ·
-                                                                           Acme"
+                                                                           dashboard shows it: the status, its waits_on
+                                                                           {kind, login, since} and one to-do with its
+                                                                           link (the job's own form when no link is
+                                                                           given); account-needed: a sign-in to-do with
+                                                                           the site. login= names the site; it is
+                                                                           required when the records name none (a job
+                                                                           board that only forwards). Example:
+                                                                           login="Workday · Acme"
+python -I track.py step <id> add name="<step>" date=<YYYY-MM-DD> [time=<HH:MM[-HH:MM]>] [due=<date>] [with=<who>]
+                     [how=<how>] [link=<url>] [mail=<message id>] [proposed=yes]
+                                                                           a hiring step into PIPELINE, numbered 1, 2,
+                                                                           ... in the order added (date= or due= is
+                                                                           needed; due alone: a task)
+python -I track.py step <id> done|cancel <n> [<date>]                     step <n> done or cancelled on that day
+                                                                           (today when left out)
+python -I track.py step <id> set <n> key=value ...                        change step <n> (the keys of add;
+                                                                           proposed=no once the person agreed)
+python -I track.py outcome <id> rejected|closed|declined|withdrawn <date> [reason="<why>"] [mail=<message id>]
+                     [why=ethics|relocation|pay|other] [category=<category>]
+                                                                           a sent job's outcome into PIPELINE; withdrawn
+                                                                           is stored as declined, with its why (other
+                                                                           when left out)
 python -I track.py show <id> [--full]                                     print one job's summary row and the path of
                                                                            its detail file; --full: the row with its
                                                                            detail merged in (prep, history, earlier)
@@ -47,9 +61,14 @@ python -I track.py split [--apply]                                        split 
 A split tracker keeps working with every command: set and brief open only the details they need; sync opens them all.
 Statuses: found, pending, to-apply, account-needed, needs-person, needs-captcha, submitted, skipped, excluded, failed,
 closed (the posting closed before it was sent: 404, 410, "no longer available"), declined (the person chose not to
-apply: ethics, relocation, pay, other); any other "needs-<word>" (an older tracker may say "needs-jane") and any status
-the tracker already uses are accepted. skipped is Claude's screening verdict (the posting does not fit the rules).
-A sent job's later outcome is its stage in PIPELINE (approved, rejected, closed, declined), not its status.
+apply: ethics, relocation, pay, other), as listed in templates/schemas/tracker.schema.json; another status is refused
+(records.py check names an older row's). skipped is Claude's screening verdict (the posting does not fit the rules).
+A sent job's later outcome is its stage in PIPELINE (approved, rejected, closed, declined), not its status: PIPELINE
+changes only by step and outcome. A step is known by its position and is never removed; a job whose entry has
+same_as=<id> writes into that entry. step add makes a pending entry approved, and an ended one approved again with its
+outcome kept in the entry's history; an outcome replaces an earlier one the same way.
+A waiting status (account-needed, needs-person, needs-captcha) gets waits_on {kind, since}, with the site's login when
+the records name it; a sent or ended job keeps it only in that history row, like its to-dos.
 'submitted' also sets applied=<today> when the job was not submitted before. A note about to be replaced is saved in
 the job's history first and every change is appended there with its date, so the tracker says what happened and
 when. A change of status into submitted, excluded, closed, declined, skipped or failed drops the job's to-dos: they
@@ -57,6 +76,8 @@ were about getting it sent. They are printed and kept in that history row ("todo
 submitted "sent"` prints "dropped 2 to-dos: approve the letter; press Submit". A to-do names its session by id
 (session=<id>), never by a title in its text: titles change. Both tracker shapes work: {jobs: [...]} and the older {companies: [{name, jobs: [...]}]}, where a job's note
 is its "outcome". Add --env <job-search.env> anywhere to pick the env file.
+Every write goes through recordlib.py: a file changed since this command read it is not written ("STALE: ... run
+the command again", exit 3), and a value the command writes wrong is refused ("REFUSED: ...", exit 1).
 
 sync also applies the person's employer-rule categories (EMPLOYER_RULES, see employer.py) to each employer's category
 checks: an "exclude" category excludes it, a "discuss" category sets its verdict to "discuss" (its jobs are
@@ -91,7 +112,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import choices  # noqa: E402
 import employerlib as el  # noqa: E402
 import jsenv  # noqa: E402
-from trackerlib import (DETAILS, ENDED_STATUS, ISO_DATE, STATUSES, TODO_KINDS, collapse, collapse_row,  # noqa: E402
+import recordlib  # noqa: E402
+from trackerlib import (DETAILS, ENDED_STAGE, ENDED_STATUS, ISO_DATE, STATUSES, TODO_KINDS, collapse,  # noqa: E402
+                        collapse_row,
                         companies, date_in, employer_link, entries, expand, expand_company, job_urls, login_of,
                         workday_host, expand_row, flat_jobs, is_company_shape, json_indent, load_settings, needs_of,
                         note_key, split_tracker, write_json)
@@ -108,17 +131,26 @@ PATH = env.path("TRACKER")
 today = datetime.date.today().isoformat()
 
 
+BASE = ""  # the tracker's fingerprint as this command read it (recordlib refuses a moved base)
+WAIT_KIND = {"account-needed": "account", "needs-person": "person", "needs-captcha": "captcha"}
+
+
 def load():
-    with open(PATH, encoding="utf-8") as f:
-        return json.load(f)
+    global BASE
+    data, BASE = recordlib.load(env, "tracker")
+    if not BASE:
+        sys.exit(f"no tracker at {PATH}")
+    return data
 
 
-def save(data):
-    indent = json_indent(PATH)
-    tmp = PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=indent)
-    os.replace(tmp, PATH)
+def save(data, ids=()):
+    global BASE
+    BASE = recordlib.save(env, "tracker", data, BASE, "track.py", ids)
+
+
+def ready():
+    """STALE before the first detail file of a split row is written, when the tracker moved since it was read."""
+    recordlib.check_base(env, "tracker", BASE)
 
 
 def find(data, job_id):
@@ -452,6 +484,7 @@ def sync(journals):
         company["verdict"] = verdict
         if verdict in ("clear", "allow"):
             attach_prep(company, prep_of(done, names, name, preps))
+    ready()
     save(collapse(data, PATH))  # rows with a detail file go back to summary rows and their files
     queue = [(c["name"], j) for c in data["companies"] if c.get("verdict", "") in ("clear", "allow", "discuss", "")
              for j in c["jobs"] if "prep" in j and j["status"] == "pending"]
@@ -537,7 +570,7 @@ def split_tracker_files(data, apply):
     indent = json_indent(PATH)
     size_before = os.path.getsize(PATH)
     with open(PATH, "rb") as fh:
-        crlf = b"\r\n" in fh.read(4096)  # save() writes text mode: on Windows every line ends in CR LF
+        crlf = b"\r\n" in fh.read(4096)  # recordlib keeps the file's own line endings: CR LF when it has them
 
     def size_of(value, indent):
         text = json.dumps(value, ensure_ascii=False, indent=indent)
@@ -557,6 +590,7 @@ def split_tracker_files(data, apply):
     while os.path.exists(backup):
         n += 1
         backup = f"{PATH}.before-split-{today}-{n}.json"
+    ready()
     shutil.copy2(PATH, backup)
     for rel, detail in files.items():
         write_json(os.path.join(base, rel), detail, 1)
@@ -576,15 +610,155 @@ def split_tracker_files(data, apply):
           f"{os.path.getsize(PATH)} bytes (backup {backup})")
 
 
+def site_of_job(company, job):
+    """login_of with the employer's name, which a job row of the older {companies} shape does not hold. Seen: a
+    Workday wait named "Workday · " with no employer."""
+    return login_of(dict(job, company=job.get("company") or company.get("name", "")))
+
+
+def waits_on(job, status, site=""):
+    """A waiting job's waits_on: its kind, since today, and the site: the one given, else the one its earlier wait
+    named (an older row's own "login" too)."""
+    earlier = (job.get("waits_on") if isinstance(job.get("waits_on"), dict) else {}).get("login") or job.get("login")
+    site = site or earlier or ""
+    return dict({"kind": WAIT_KIND[status], "since": today}, **({"login": site} if site else {}))
+
+
+# --- PIPELINE: a sent job's hiring steps and outcome ----------------------------------------------------------------
+STEP_KEYS = ("name", "date", "time", "due", "with", "how", "link", "mail", "proposed")
+OUTCOME_KINDS = ("rejected", "closed", "declined", "withdrawn")
+OUTCOME_KEYS = ("stage", "date", "reason", "why", "category", "mail", "rejected")
+PIPELINE_ABOUT = ("A sent job's hiring steps and outcome, by job id: written by track.py step and track.py outcome "
+                  "only. A missing entry is pending.")
+
+
+def pipeline_load():
+    if not env.get("PIPELINE"):
+        sys.exit("PIPELINE is not set in job-search.env")
+    return recordlib.load(env, "pipeline", {"_about": PIPELINE_ABOUT})
+
+
+def entry_of(pipeline, job_id):
+    """(id, entry) where a job's steps and outcome live: its own entry, or the one its same_as names."""
+    own = pipeline.get(job_id)
+    if isinstance(own, dict) and own.get("same_as"):
+        print(f"{job_id} shares the process of {own['same_as']} (same_as): written there")
+        return own["same_as"], pipeline.setdefault(own["same_as"], {})
+    return job_id, pipeline.setdefault(job_id, {})
+
+
+def keep_outcome(entry):
+    """An ended entry's outcome into its history, with until, before a step or a new outcome replaces it."""
+    if entry.get("stage") not in ENDED_STAGE:
+        return False
+    entry.setdefault("history", []).append(dict({k: entry[k] for k in OUTCOME_KEYS if entry.get(k)}, until=today))
+    for key in OUTCOME_KEYS:
+        entry.pop(key, None)
+    return True
+
+
+def a_date(value, what):
+    if not ISO_DATE.fullmatch(value or ""):
+        sys.exit(f"{what} is a date, YYYY-MM-DD: got {value!r}")
+    return value
+
+
+def step_fields(pairs):
+    """{key: value} of a step's key=value pairs, checked; proposed=yes gives True, proposed=no None (drop the mark)."""
+    out = {}
+    for pair in pairs:
+        key, eq, value = pair.partition("=")
+        value = value.strip()
+        if not eq or key not in STEP_KEYS or not value:
+            sys.exit(f"a step takes {', '.join(k + '=' for k in STEP_KEYS)} got {pair!r}")
+        if key in ("date", "due"):
+            a_date(value, key)
+        if key == "time" and not re.fullmatch(r"\d{1,2}:\d{2}(-\d{1,2}:\d{2})?", value):
+            sys.exit(f"time is HH:MM or HH:MM-HH:MM: got {value!r}")
+        if key == "proposed" and value not in ("yes", "no"):
+            sys.exit("proposed is yes (a time the employer offered, not agreed yet) or no (agreed)")
+        out[key] = (True if value == "yes" else None) if key == "proposed" else value
+    return out
+
+
+def step_number(pid, steps, n, action):
+    if not n.isdigit() or not 1 <= int(n) <= len(steps):
+        sys.exit(f"step {action} <n>: {pid} has {len(steps)} step(s)"
+                 + "".join(f"; {i} {s.get('name', '')}" for i, s in enumerate(steps, 1)))
+    return int(n)
+
+
+def step_command(pipeline, job, rest):
+    pid, entry = entry_of(pipeline, job["id"])
+    steps = entry.setdefault("steps", [])
+    action = rest[0] if rest else ""
+    if action == "add":
+        step = {k: v for k, v in step_fields(rest[1:]).items() if v is not None}
+        if not step.get("name") or not (step.get("date") or step.get("due")):
+            sys.exit('step add needs name="<step>" and date=<YYYY-MM-DD> (or due=<date> for a task)')
+        if keep_outcome(entry):
+            print(f"{pid}: its process had ended; this step makes it approved again (the outcome is in its history)")
+        if entry.get("stage", "pending") in ("", "pending"):
+            entry["stage"] = "approved"
+        steps.append(step)
+        print(f"{pid} step {len(steps)}: {step['name']}, {step.get('date') or 'due ' + step['due']}")
+        return pid
+    if action in ("done", "cancel") and len(rest) >= 2:
+        n = step_number(pid, steps, rest[1], action)
+        when = a_date(rest[2], "the day") if len(rest) > 2 else today
+        word = "done" if action == "done" else "cancelled"
+        steps[n - 1][word] = when
+        print(f"{pid} step {n} {steps[n - 1].get('name', '')}: {word} {when}")
+        return pid
+    if action == "set" and len(rest) >= 3:
+        # A changed time or due date, a link, or proposed=no once the person agreed: the step keeps its number.
+        n = step_number(pid, steps, rest[1], action)
+        for key, value in step_fields(rest[2:]).items():
+            if value is None:
+                steps[n - 1].pop(key, None)
+            else:
+                steps[n - 1][key] = value
+        print(f"{pid} step {n} {steps[n - 1].get('name', '')}: " + ", ".join(rest[2:]))
+        return pid
+    sys.exit('step <id> add name="<step>" date=<date> [key=value ...] | step <id> done|cancel <n> [<date>] | '
+             'step <id> set <n> key=value ...')
+
+
+def outcome_command(pipeline, job, rest):
+    if len(rest) < 2 or rest[0] not in OUTCOME_KINDS:
+        sys.exit(f"outcome <id> {'|'.join(OUTCOME_KINDS)} <date> [reason=...] [mail=...] [why=...] [category=...]")
+    kind, when = rest[0], a_date(rest[1], "the outcome's date")
+    allowed = ("reason", "mail") + (("why", "category") if kind in ("declined", "withdrawn") else ())
+    extra = {}
+    for pair in rest[2:]:
+        key, eq, value = pair.partition("=")
+        if not eq or key not in allowed or not value.strip():
+            sys.exit(f"outcome {kind} takes {', '.join(k + '=' for k in allowed)} got {pair!r}")
+        extra[key] = value.strip()
+    if job.get("status") != "submitted" and job["id"] not in pipeline:
+        sys.exit(f"{job['id']} is {job.get('status') or 'not sent'}: an outcome is for a sent job; before sending: "
+                 f'track.py set {job["id"]} closed|declined "<why>"')
+    if kind in ("declined", "withdrawn"):
+        extra["why"] = extra.get("why") or "other"
+    pid, entry = entry_of(pipeline, job["id"])
+    keep_outcome(entry)
+    # PIPELINE has no withdrawn stage: its readers show a declined entry with its why (ethics: "Withdrawn").
+    entry.update(stage="declined" if kind == "withdrawn" else kind, date=when, **extra)
+    print(f"{pid} -> {kind} {when}" + (f" ({extra['reason']})" if extra.get("reason") else ""))
+    return pid
+
+
 # --- the commands -------------------------------------------------------------------------------------------------
-if not args or args[0] not in ("add", "set", "todo", "wait", "show", "brief", "list", "summary", "sync", "split"):
+if not args or args[0] not in ("add", "set", "todo", "wait", "step", "outcome", "show", "brief", "list", "summary",
+                               "sync", "split"):
     sys.exit(__doc__)
 cmd = args[0]
+
+
 def set_one(data, job_id, status, note, more):
     """One job's new status and note, kept in its history; the caller saves."""
-    allowed = set(STATUSES) | {j.get("status") for _, j in entries(data) if j.get("status")}
-    if status not in allowed and not re.fullmatch(r"needs-[a-z]+", status):
-        sys.exit(f"status must be one of {', '.join(sorted(allowed))}, or needs-<word>")
+    if status not in STATUSES:
+        sys.exit(f"status must be one of {', '.join(STATUSES)} (templates/schemas/tracker.schema.json)")
     company, row = find(data, job_id)
     job = expand_row(PATH, row)  # a split row: its detail merged in; written back below
     history = job.setdefault("history", [])
@@ -601,10 +775,16 @@ def set_one(data, job_id, status, note, more):
         job["applied"] = today
     job[NOTE] = note or old
     change = {"date": today, "status": status, NOTE: note}
-    # A job that is sent or over needs none of the to-dos it had: they were about getting it sent.
-    dropped = job.pop("todo", None) if status != old_status and status in ("submitted",) + ENDED_STATUS else None
+    if status in WAIT_KIND and status != old_status:
+        # The wait the records and the dashboard read (track.py wait also names its site and its to-do).
+        job["waits_on"] = waits_on(job, status, site_of_job(company, job) if status == "account-needed" else "")
+    # A job that is sent or over needs none of the to-dos it had, nor its wait: they were about getting it sent.
+    over = status != old_status and status in ("submitted",) + ENDED_STATUS
+    dropped = job.pop("todo", None) if over else None
     if dropped:
         change["todo_dropped"] = dropped
+    if over and job.get("waits_on"):
+        change["waits_on"] = job.pop("waits_on")
     history.append(change)
     collapse_row(PATH, row, job, is_company_shape(data))
     print(job_id, company.get("name", ""), title_of(job)[:60], "->", status)
@@ -628,7 +808,7 @@ if cmd == "add":
     job.update(fields(args[5:]))
     job["history"] = [{"date": today, "status": "found", NOTE: job.get(NOTE) or "added"}]
     add_job(data, company, job)
-    save(data)
+    save(data, [job_id])
     print("added", job_id, company, title)
     print(PAGES_BEHIND)
 elif cmd == "set" and args[1:2] == ["--file"]:
@@ -640,19 +820,23 @@ elif cmd == "set" and args[1:2] == ["--file"]:
     bad = [n for n, ln in enumerate(lines, 1) if len(ln) < 2]
     if bad:
         sys.exit(f"set --file: line {bad[0]} needs id, status and note, tab-separated")
+    ready()
     for ln in lines:
         set_one(data, ln[0], ln[1], ln[2] if len(ln) > 2 else "", [])
-    save(data)
+    save(data, [ln[0] for ln in lines])
     print(PAGES_BEHIND)
 elif cmd == "set":
+    if len(args) < 3:
+        sys.exit('set <id> <status> "<note>" [key=value ...]')
+    ready()
     set_one(data, args[1], args[2], args[3] if len(args) > 3 else "", args[4:])
-    save(data)
+    save(data, [args[1]])
     print(PAGES_BEHIND)
 elif cmd == "wait":
     # A wait known only in a chat or a hand-off note is invisible on the dashboard: the status and the to-do go
     # together. Seen: 16 jobs waiting on sign-ins and answers stayed "found" with no to-do for two days.
-    if len(args) < 4 or args[2] not in ("needs-person", "account-needed") or not args[3].strip():
-        sys.exit('wait <id> needs-person|account-needed "<what it waits on>" [link=<url>] [login=<site>]')
+    if len(args) < 4 or args[2] not in WAIT_KIND or not args[3].strip():
+        sys.exit('wait <id> needs-person|needs-captcha|account-needed "<what it waits on>" [link=<url>] [login=<site>]')
     job_id, status, what = args[1], args[2], args[3].strip()
     extra = {}
     for pair in args[4:]:
@@ -662,9 +846,8 @@ elif cmd == "wait":
         extra[key] = value.strip()
     company, row = find(data, job_id)
     job = expand_row(PATH, row)
-    if extra.get("login"):
-        job["login"] = extra["login"]  # kept on the job: logins.py sync files it under this site from now on
-    if status == "account-needed" and not login_of(job):
+    named = extra.get("login", "")
+    if status == "account-needed" and not (named or site_of_job(company, job)):
         # A job board that only forwards to the employer's site is never the login (trackerlib.login_of).
         sys.exit(f'account-needed needs login=<site>: which site wants the account? Example: login="Workday · '
                  f'{company.get("name", "") or "Acme"}" or login="company site · {company.get("name", "") or "Acme"}"')
@@ -674,13 +857,17 @@ elif cmd == "wait":
         history.append({"until": today, "status": job.get("status", ""), NOTE: old})
     history.append({"date": today, "status": status, NOTE: what})
     job.update(status=status, **{NOTE: what})
-    login, host = login_of(job), workday_host(*job_urls(job))
+    login, host = named or site_of_job(company, job), workday_host(*job_urls(job))
     if host and env.get("LOGINS") and os.path.isfile(env.path("LOGINS")):
         # A Workday site's row is found by its tenant host, as logins.py sync does: one name per site.
         with open(env.path("LOGINS"), encoding="utf-8") as fh:
             login = next((r["id"] for r in json.load(fh).get("logins", []) if r.get("kind") == "site"
                           and r["id"].lower() != host and workday_host(r["id"], r.get("link") or "") == host), login)
     link = extra.get("link") or employer_link(job, login) or job.get("apply_url", "")
+    # waits_on holds the site from now on (logins.py sync files the job under it); an older row's own login goes.
+    job["waits_on"] = waits_on(job, status, login if status == "account-needed" else named)
+    job.pop("login", None)
+    ready()
     collapse_row(PATH, row, job, is_company_shape(data))
     kind = "click" if status == "account-needed" else "todo"
     same = next((t for t in row.get("todo") or [] if t.get("text") == what), None)
@@ -692,7 +879,7 @@ elif cmd == "wait":
     else:
         todo_command(row, "add", [kind, what, *([f"link={link}"] if link else []),
                                   *([f"login={login}"] if status == "account-needed" and login else [])])
-    save(data)
+    save(data, [job_id])
     print(job_id, company.get("name", ""), title_of(job)[:60], "->", status)
     print(PAGES_BEHIND)
 elif cmd == "todo":
@@ -700,8 +887,17 @@ elif cmd == "todo":
         sys.exit("todo <id> add|done|list")
     company, row = find(data, args[1])
     if todo_command(row, args[2], args[3:]):
-        save(data)
+        save(data, [args[1]])
         print(PAGES_BEHIND)
+elif cmd in ("step", "outcome"):
+    # PIPELINE changes only here: the tracker is read for the job, never written.
+    if len(args) < 3:
+        sys.exit(__doc__)
+    company, job = find(data, args[1])
+    pipeline, pipeline_base = pipeline_load()
+    pid = (step_command if cmd == "step" else outcome_command)(pipeline, job, args[2:])
+    recordlib.save(env, "pipeline", pipeline, pipeline_base, "track.py", [pid])
+    print(PAGES_BEHIND)
 elif cmd == "show":
     company, job = find(data, [a for a in args[1:] if a != "--full"][0])
     row = {"company": company.get("name", "")}

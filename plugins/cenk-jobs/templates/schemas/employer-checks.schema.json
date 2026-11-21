@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EMPLOYER_CHECKS: the person's own summary per employer, by employer name",
+  "description": "Written by employer.py and employerlib.py (recordlib.py); the per-employer files in EMPLOYERS_DIR are written beside it, before it.",
+  "type": "object",
+  "properties": {
+    "_about": {"type": "string"},
+    "employers": {"type": "object", "additionalProperties": {"$ref": "#/$defs/employer"}}
+  },
+  "$defs": {
+    "employer": {
+      "type": "object",
+      "properties": {
+        "verdict": {"type": "string"},
+        "verdict_date": {"type": "string"},
+        "aliases": {"type": "array"},
+        "decisions": {"type": "array"},
+        "details": {"type": "object"}
+      }
+    }
+  }
+}

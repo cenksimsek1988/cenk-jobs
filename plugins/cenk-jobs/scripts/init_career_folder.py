@@ -65,11 +65,12 @@ FILES = {
         "_about": "Login state: connectors and job-site sign-ins. Written by Claude at each health check (logins.py).",
         "logins": []},
     os.path.join(home, "apply", "pipeline.json"): {
-        "_about": "Hiring stage per sent job (key = job id). stage: approved | rejected | closed | declined (missing = pending). "
-                  "approved: steps in order, each {date, time, name, with, how, due, link, mail} (link: the step's "
-                  "own page; mail: the Gmail link of the email that set it); same_as: another job id whose "
-                  "process this one shares; reminder. rejected and closed: date and reason. declined: date, why "
-                  "(ethics | relocation | pay | other) and reason."},
+        "_about": "Hiring stage per sent job (key = job id), written only by track.py step and track.py outcome. "
+                  "stage: approved | rejected | closed | declined (missing = pending). "
+                  "approved: steps in order, each {date, time, name, with, how, due, link, mail, done, cancelled} "
+                  "(link: the step's own page; mail: the Gmail link of the email that set it); same_as: another "
+                  "job id whose process this one shares; reminder. rejected and closed: date and reason. declined: "
+                  "date, why (ethics | relocation | pay | other) and reason."},
     os.path.join(home, "apply", "employer-checks.json"): {
         "_about": "The person's own employer checks per category (employer.py): {employers: {name: {checks, verdict, "
                   "decisions}}}.",

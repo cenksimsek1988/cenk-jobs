@@ -1,7 +1,8 @@
 """The person's logins: connectors (Gmail, Google Calendar, Google Drive, Claude in Chrome, ...) and job-site sign-ins.
 
 python -I logins.py sync                                   rebuild the job-site rows from the tracker's open jobs
-python -I logins.py set <id> <status> "<note>" [key=value]  record a check (keys: name, kind, fix, link, account)
+python -I logins.py set <id> <status> "<note>" [key=value]  record a check (keys: name, kind, fix, link, account,
+                                                           origin=person when the person said it; claude otherwise)
 python -I logins.py show                                   one line per login
 Statuses: connected (a connector that answered), signed-in (a site the person is signed in to), needs-sign-up (no
 account yet: the person creates it), expired (the person was signed in and the session ended: a sign-in page where
@@ -9,7 +10,8 @@ a form was), needs-sign-in, needs-reconnect, blocked (a bot check or terms page 
 site of an employer the person's rules exclude: no sign-in needed; sync sets it, whatever the site's last state, by
 its name, the part after "·" or the employers of the jobs on it; the employers themselves are in the dashboard's
 Excluded tab, not in this file), unknown (older rows only; the dashboard shows it as "not signed
-in"). sync makes new site rows needs-sign-in; Claude sets needs-sign-up and expired with `set`.
+in"). sync makes new site rows needs-sign-in; Claude sets needs-sign-up and expired with `set`. A row's origin says
+who made its state: sync, claude (a check in a session) or person; a sync row no job waits on any more goes.
 sync files each job under the row of its site, one row per site (a job board by the board's name: "LinkedIn Easy
 Apply" waits under "LinkedIn"); a job whose site is not named yet (a board that only forwards) gets no row.
 A site no job waits on keeps its last state: signed-in with its own note, any other state with the note "no
@@ -18,7 +20,8 @@ Example: `set "Acme Jobs" signed-in "no open job: the offer closed, 6 Nov 2026"`
 The file (LOGINS in job-search.env) is the one place login state lives: the dashboard's Logins tab and its "Do now"
 list read it, and each job-site row points at the tracker's jobs by id instead of repeating them. Claude writes it at
 every session's health check: a connector's status from one cheap call, a site's from what the person or the browser
-showed. Add --env <job-search.env> anywhere to pick the env file.
+showed. Add --env <job-search.env> anywhere to pick the env file. Every write goes through recordlib.py (STALE, exit
+3: run the command again).
 """
 import datetime
 import json
@@ -27,11 +30,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jsenv  # noqa: E402
+import recordlib  # noqa: E402
 from trackerlib import JOB_BOARD, PER_EMPLOYER, employer_link, flat_jobs, job_urls, login_of, workday_host  # noqa: E402
-from trackerlib import PAGES_BEHIND, SYNC_NOTE, site_key  # noqa: E402
+from trackerlib import PAGES_BEHIND, SYNC_NOTE, made_by_sync, site_key  # noqa: E402
 
-STATUSES = ("connected", "signed-in", "needs-sign-up", "expired", "needs-sign-in", "needs-reconnect", "blocked",
-            "excluded", "unknown")
+STATUSES = recordlib.vocabulary("logins", "status")
 OK = ("connected", "signed-in")
 args = sys.argv[1:]
 env_arg = None
@@ -44,19 +47,19 @@ PATH = env.path("LOGINS")
 now = datetime.datetime.now().replace(microsecond=0).isoformat()
 
 
+BASE = ""
+
+
 def load():
-    if not os.path.exists(PATH):
-        return {"_about": "Login state: connectors and job-site sign-ins. Written by Claude at each health check.",
-                "logins": []}
-    with open(PATH, encoding="utf-8") as f:
-        return json.load(f)
+    global BASE
+    data, BASE = recordlib.load(env, "logins", {
+        "_about": "Login state: connectors and job-site sign-ins. Written by Claude at each health check.",
+        "logins": []})
+    return data
 
 
 def save(data):
-    tmp = PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, PATH)
+    recordlib.save(env, "logins", data, BASE, "logins.py")
 
 
 if not args or args[0] not in ("sync", "set", "show"):
@@ -123,15 +126,15 @@ if args[0] == "sync":
             # A row sync made earlier that no job waits on any more goes; a row Claude set by hand stays, and says
             # that nothing waits on it, so an old "Sign in ..." never reads as a request (seen 20 Nov 2026: a sign-in
             # done for jobs already sent).
-            if not row["jobs"] and row.get("note", "").startswith(SYNC_NOTE):
+            if not row["jobs"] and made_by_sync(row):
                 del rows[row["id"]]
             elif not row["jobs"] and row.get("status") not in OK + ("excluded",) \
                     and not row.get("note", "").startswith("no application waits"):
                 row.setdefault("history", []).append({k: row[k] for k in ("checked", "status", "note") if k in row})
                 row["note"] = f"no application waits on it (since {now[:10]})"
     for site, ids in waiting.items():
-        rows[site] = {"id": site, "name": site, "kind": "site", "status": "needs-sign-in", "checked": now,
-                      "note": SYNC_NOTE, "jobs": sorted(ids), "link": links.get(site, "")}
+        rows[site] = {"id": site, "name": site, "kind": "site", "status": "needs-sign-in", "origin": "sync",
+                      "checked": now, "note": SYNC_NOTE, "jobs": sorted(ids), "link": links.get(site, "")}
     # Excluded employers are listed in the dashboard's Excluded tab (employerlib.excluded_list), not here: rows of
     # kind "employer" from older versions go, and a job site of an excluded employer is marked excluded.
     for rid in [k for k, r in rows.items() if r.get("kind") == "employer"]:
@@ -158,12 +161,14 @@ elif args[0] == "set":
     if status not in STATUSES:
         sys.exit(f"status must be one of {', '.join(STATUSES)}")
     row = rows.setdefault(login_id, {"id": login_id, "name": login_id, "kind": "site", "jobs": []})
+    # Keep the earlier state: the old note is often the only record of what was seen and when.
+    if "status" in row and (row["status"], row.get("note", "")) != (status, note):
+        row.setdefault("history", []).append({k: row[k] for k in ("checked", "status", "note", "origin")
+                                              if k in row})
+    row["origin"] = "claude"  # origin=person below when the person said it
     for pair in args[4:]:
         key, _, value = pair.partition("=")
         row[key] = value
-    # Keep the earlier state: the old note is often the only record of what was seen and when.
-    if "status" in row and (row["status"], row.get("note", "")) != (status, note):
-        row.setdefault("history", []).append({k: row[k] for k in ("checked", "status", "note") if k in row})
     row.update(status=status, note=note, checked=now)
     data["logins"] = sorted(rows.values(), key=lambda r: (r.get("kind") != "connector", r["id"]))
     save(data)

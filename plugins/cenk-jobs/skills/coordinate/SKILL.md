@@ -107,10 +107,13 @@ state from these rows.
   scheduled run takes over: write your handoff, unlock, reply 'handoff written' to <its id>, then stop."), ends
   its turn, and on the reply takes the lock and runs as the day's coordinator. Seen: 16-18 Nov the run stood aside
   and never ran. The holder that gets this message does just that, never a card. Example: a test coordinator started while the person's own one runs waits for its handoff.
-- **Is the only writer of the shared records**: `TRACKER`, `PIPELINE`, `LOGINS`, `SESSIONS`, `MASTER_RECORD`,
-  `QUESTIONS`, `EMPLOYER_RULES`, `EMPLOYER_CHECKS`, `USAGE_LOG`, the study notes (`INTERVIEW_LESSONS_DIR`), the application folders (through
-  `build_app_folders.py`), the calendar category, the dashboard and the Questions page (a refresh session, below, writes only the pages). Sub-sessions report; the coordinator records. Why: the files sync through Google Drive, and two
-  sessions writing one file lose each other's changes.
+- **Keeps the shared records**: `TRACKER`, `PIPELINE`, `LOGINS`, `SESSIONS`, `QUESTIONS`, `EMPLOYER_CHECKS` and
+  the saved searches change only by their scripts, which refuse a file changed since it was read ("STALE": run the
+  same command again), so a sub-session's own script call is safe. `MASTER_RECORD`, `EMPLOYER_RULES`, `USAGE_LOG`,
+  the study notes (`INTERVIEW_LESSONS_DIR`), the application folders (through `build_app_folders.py`), the calendar
+  category, the dashboard and the Questions page (a refresh session, below, writes only the pages) are the
+  coordinator's alone: sub-sessions report, the coordinator records. Why: the files sync through Google Drive, and
+  two sessions writing one file lose each other's changes.
 - The person's profile is not a shared record: any session saves a fact about the person there at once, by
   compare-and-set (`profilelib.py set`, RULES.md "Keep learning about the person"), and its handoff names the key.
 - Never changes the plugin and never starts a session in its repository (RULES.md, "The plugin's own files"). It
@@ -131,8 +134,8 @@ state from these rows.
 - The dashboard is checked by `export_dashboard.py --check`, not by reading its tabs: a page is opened only when a
   check line names something the page shows wrong, or the person reports one. The Calendar tab is compared by the
   calendar check (RULES/hiring-steps.md, "Calendar").
-- A hiring step that is done: `"done": "<date>"` on its `PIPELINE` step, and what is awaited next as a to-do.
-  Example: `track.py todo J1 add waiting "feedback on the take-home"`.
+- A hiring step that is done: `track.py step <id> done <n> <date>`, and what is awaited next as a to-do. Example:
+  `track.py todo J1 add waiting "feedback on the take-home"`.
 - A CV rebuilt while forms are filled and not sent: tell every session that holds one to upload the new file again,
   and to correct the same wording in its essays, before any Submit.
 - "I'm at my PC": list every step waiting at the PC (Urgent to-dos with `"where": "pc"`) and have each session go
@@ -221,7 +224,7 @@ line each; a fact about the person themselves is already in the profile: only it
 lines (`references/study.md`); a `write` session's approved text: its job, question and file
 (`handoffs/<short name>.answer.md`). Nothing else.
 
-The coordinator records it: `track.py set`, `PIPELINE`, `MASTER_RECORD`, `logins.py set` and `sync`, `employer.py
+The coordinator records it: `track.py set`, `step` and `outcome`, `MASTER_RECORD`, `logins.py set` and `sync`, `employer.py
 record`, `environment` or `decide`, `usage.py log`, `build_app_folders.py`, calendar events, the `working` to-do
 removed, the session's state and title (`sessions.py set <name> state=done`), and both pages refreshed (above). Each
 `Weak answers:` line goes into its file in `INTERVIEW_LESSONS_DIR` (the folder and the three files created when

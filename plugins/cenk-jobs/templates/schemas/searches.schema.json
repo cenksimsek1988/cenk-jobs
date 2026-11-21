@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SEARCHES: the saved searches, one row each",
+  "description": "Written by searches.py (recordlib.py); collect_postings.py writes through it.",
+  "type": "object",
+  "properties": {
+    "_about": {"type": "string"},
+    "searches": {"type": "array", "items": {"$ref": "#/$defs/search"}}
+  },
+  "$defs": {
+    "search": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": {"type": "integer"},
+        "site": {"type": "string"},
+        "query": {"type": "string"}
+      }
+    }
+  }
+}

@@ -32,7 +32,8 @@ Reads TRACKER (either shape, see trackerlib.py), PIPELINE, CVS_DIR and PERSON_NA
   TRACKER_SETTINGS      a JSON file; this script reads "cv_names": [[<regex>, <CV file name>], ...] for notes that
                         name a CV in words ("sent with the TD CV"), and "cv_copied_when_note_has": a phrase in a sent
                         job's note meaning its CV is the current one in CVS_DIR rather than one in _cv-versions/.
-Pipeline entries: {"stage": "approved", "steps": [{date, time, name, with, how, due, link, mail, done, cancelled}],
+Pipeline entries (written by track.py step and track.py outcome; templates/schemas/pipeline.schema.json):
+{"stage": "approved", "steps": [{date, time, name, with, how, due, link, mail, done, cancelled}],
 "same_as": <job id>, "reminder": ...} (a step's "done" is the date it was done: it leaves Next steps and its line says
 so; an entry with "same_as" and no stage of its own takes the stage, date and reason of the entry it names) or {"stage": "rejected", "date": ..., "reason": ...} ("rejected": {date, reason} works too), or
 {"stage": "closed", "date": ..., "reason": ...} (the role closed, was filled or put on hold), or {"stage": "declined",

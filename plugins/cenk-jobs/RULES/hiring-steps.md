@@ -6,16 +6,17 @@ A part of `RULES.md`. Read to record an outcome, write a calendar event or handl
 
 | Category | When | Recorded as |
 |---|---|---|
-| rejected | the employer said no to the person | `PIPELINE` stage `rejected`, date, reason |
-| closed | the role closed, was filled or put on hold, or the person was late: not a rejection | sent: `PIPELINE` stage `closed`; not sent: `track.py set <id> closed` |
-| declined | the person said no at some step | sent: `PIPELINE` stage `declined`, `why` (ethics, relocation, pay, other), for ethics the `category` (example: `human_rights`); not sent: `track.py set <id> declined` |
+| rejected | the employer said no to the person | `track.py outcome <id> rejected <date> reason="..." mail=<message id>` |
+| closed | the role closed, was filled or put on hold, or the person was late: not a rejection | sent: `track.py outcome <id> closed <date>`; not sent: `track.py set <id> closed` |
+| declined | the person said no at some step | sent: `track.py outcome <id> declined <date> why=<ethics, relocation, pay or other>`, for ethics `category=` (example: `human_rights`); withdrawn: `outcome <id> withdrawn`; not sent: `track.py set <id> declined` |
 | excluded | the employer rules exclude the employer | `track.py set <id> excluded` |
 | skipped | the screen: the posting does not fit the rules | `track.py set <id> skipped` |
 
-Examples: "the position has now been filled" is closed; "we will not move forward with you" is rejected. A
-`rejected` whose reason says filled, no longer open, or the position (role, posting, vacancy, job) closed,
-cancelled, withdrawn or on hold is a `check:` line of `export_dashboard.py`: set
-the stage `closed`.
+`PIPELINE` changes only by `track.py outcome` and `track.py step`, which check and log each write (recordlib.py); a
+hand edit skips both. Examples: "the position has now been filled" is closed; "we will not move forward with you" is
+rejected. A `rejected` whose reason says filled, no longer open, or the position (role, posting, vacancy, job)
+closed, cancelled, withdrawn or on hold is a `check:` line of `export_dashboard.py`: `track.py outcome <id> closed
+<date>`.
 
 ## Calendar
 
@@ -25,7 +26,8 @@ title prefix `CALENDAR_PREFIX` ("Job search · ").
 - Otherwise create the event (a deadline: all-day, free, reminders 3 days and 1 day before), with the job id and
   step in the description (`[job-search: <id> step <n>]`).
 - Every event the person owns holds the step's own link (meeting, test, booking, interview page) and the email's
-  Gmail link; the same two go into the step's `link` and `mail` in `PIPELINE`.
+  Gmail link; the same two go into the step: `track.py step <id> add name="Interview" date=<date> time=<HH:MM>
+  link=<url> mail=<message id>` (or `step <id> set <n> link=... mail=...`).
 - An online interview without a video link: draft a request for it to the recruiter the day before (a draft).
 - Each run, compare the category's coming events with the records: `export_dashboard.py --check --calendar
   <events.json>` prints a `calendar:` line for each event of an ended job, each coming step with no event on its
@@ -33,9 +35,9 @@ title prefix `CALENDAR_PREFIX` ("Job search · ").
   or an invitation the person declined that still has the color, is named to the person; after their yes, an event
   they own is deleted and an invitation loses its color. Example: Acme was excluded on 12 Nov; "Job search · Acme
   interview" on 18 Nov is named.
-- A date an employer proposed and nobody confirmed is a step with `"proposed": true` in `PIPELINE`: Hiring steps
-  reads "Proposed", and it is no task in Do now. Confirmed: remove the field. Example: a recruiter offers a call
-  on 18 Nov at 10:00 and the person has not answered.
+- A date an employer proposed and nobody confirmed is a step added with `proposed=yes`: Hiring steps reads
+  "Proposed", and it is no task in Do now. Confirmed: `track.py step <id> set <n> proposed=no` (with `date=` and
+  `time=` when they changed). Example: a recruiter offers a call on 18 Nov at 10:00 and the person has not answered.
 - A deadline event follows its to-do or step: a new due date moves it; a step marked done, or a to-do removed,
   removes it.
 

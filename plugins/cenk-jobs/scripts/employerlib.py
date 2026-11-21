@@ -49,6 +49,7 @@ import os
 import re
 import shutil
 
+import recordlib
 from trackerlib import PER_EMPLOYER, file_name, write_detail, write_json
 
 PLUGIN = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -588,10 +589,12 @@ def backup_checks(path, kind):
     return backup
 
 
-def apply_split(env, path, data, plan):
+def apply_split(env, path, data, plan, base):
     """Write a plan_split plan: a backup first, the detail files, the proof read back from disk, and only then names.json
-    and the summary. On a mismatch SystemExit names the entry and the summary is left as it was. Returns the backup."""
+    and the summary. On a mismatch SystemExit names the entry and the summary is left as it was. Returns the backup.
+    base: the summary's fingerprint as read (recordlib); a summary changed since stops it before any write (STALE)."""
     summaries, files, names, pairs, _ = plan
+    recordlib.check_base(env, "employer-checks", base)
     backup = backup_checks(path, "split")
     for rel, detail in files.items():
         write_detail(detail_path(env, rel, rel.rsplit("/", 1)[1][:-5]), detail)
@@ -601,13 +604,14 @@ def apply_split(env, path, data, plan):
         raise SystemExit(f"the merged view of {bad!r} differs from the original: the summary and names.json are "
                          f"unchanged (detail files were written beside it; the backup is {backup})")
     save_names(env, names, pairs)
-    save_json(path, summaries)
+    recordlib.save(env, "employer-checks", summaries, base, recordlib.caller(), indent=1)
     return backup
 
 
-def apply_repair(env, path, data, changed):
+def apply_repair(env, path, data, changed, base):
     """Write repair-clear's changed merged entries ({name: entry}): the summary backed up, and each split employer's
-    checks.json beside itself, then the entries and the summary."""
+    checks.json beside itself, then the entries and the summary. base: as in apply_split."""
+    recordlib.check_base(env, "employer-checks", base)
     shutil.copy2(path, f"{path}.before-repair-{today()}.json")
     for name, entry in changed.items():
         old = data["employers"][name]
@@ -615,7 +619,7 @@ def apply_repair(env, path, data, changed):
             detail = detail_path(env, old["details"]["checks"], "checks")
             shutil.copy2(detail, f"{detail}.before-repair-{today()}.json")
         write_entry(env, data, name, entry)
-    save_json(path, data)
+    recordlib.save(env, "employer-checks", data, base, recordlib.caller(), list(changed), indent=1)
 
 
 def decision_for(env, name):
@@ -1034,7 +1038,7 @@ def excluding(env, name, rule_set=None):
 def excluded_list(env, jobs, pipeline=None):
     """The person's one list of excluded employers, one row each, for the dashboard's Excluded tab: every employer
     their rules or decisions exclude, and every employer of a job the tracker excluded or the person withdrew from on
-    their rules. jobs: the tracker's flat job list; pipeline: PIPELINE's {job id: stage}.
+    their rules. jobs: the tracker's flat job list; pipeline: PIPELINE's {job id: entry}.
     Row: {id, employer, how (Excluded|Withdrawn), by, why, fact, source, since, jobs, n, names (every name the
     employer goes by in the records)}."""
     global blacklist, checks_file
@@ -1177,7 +1181,7 @@ def record(env, name, checks=None, verdict=None, decided=False, category=None, g
     path = env_path(env, "EMPLOYER_CHECKS")
     if not path:
         raise SystemExit("EMPLOYER_CHECKS is not set in job-search.env")
-    data = checks_file(env)
+    data, base = recordlib.load(env, "employer-checks", {"employers": {}})
     data.setdefault("employers", {})
     found, summary = find_own(env, name, data["employers"])
     entry = expand_entry(env, summary, SCOPES) if summary else {}
@@ -1218,8 +1222,9 @@ def record(env, name, checks=None, verdict=None, decided=False, category=None, g
             decision["category"] = category
         entry.setdefault("decisions", []).append(decision)
         entry["opinion"] = today()  # a shared-list update asks before it changes anything here (shared_update)
+    recordlib.check_base(env, "employer-checks", base)  # before the employer's own files are written
     write_entry(env, data, found or name, entry)
-    save_json(path, data)
+    recordlib.save(env, "employer-checks", data, base, recordlib.caller(), [found or name], indent=1)
     return entry
 
 

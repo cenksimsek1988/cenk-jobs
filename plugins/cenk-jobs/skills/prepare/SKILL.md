@@ -17,8 +17,8 @@ prep waits.
    `CALENDAR=self`: book nothing and write no event; record the date the person gives. A reply to a recruiter is a
    draft the person sends.
 3. With `CALENDAR=auto`, each step and deadline into the calendar (RULES.md, "Calendar"), with its own link and the email link; the same
-   two into the step's `link` and `mail` in `PIPELINE`; a step due within 24 hours: RULES/urgent.md. Rejections,
-   closed posts and declines into `PIPELINE` as their outcome.
+   two into the step (`track.py step <id> add name="<step>" date=<date> link=<url> mail=<message id>`); a step due
+   within 24 hours: RULES/urgent.md. Rejections, closed posts and declines: `track.py outcome` (RULES/hiring-steps.md).
    Each employer reply also gets its feedback line: `feedback.py add <id> invitation|rejection
    not_fit="<what did not fit, from the reply and the posting>"`. Example: `not_fit="payments domain; Kotlin"`.
 4. Each message whose action is done gets the label `GMAIL_DONE_LABEL` (RULES.md, "Mail"). A reply waiting as a

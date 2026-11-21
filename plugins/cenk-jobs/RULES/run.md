@@ -51,8 +51,12 @@ employers**, **Hiring steps** and **All applications**, under the total count an
   page still lacks the Sessions tab.
 - Every export ends with one `check:` line per mismatch between the records and the page (`export_dashboard.py
   --check` prints them alone and writes nothing, with "the Questions page is behind the records" from `questions.py
-  build --check`). Fix each in the same run, or name it in the run report. Example:
+  build --check`), and the records' own faults by id (`records.py check`: shape, sent, waits, links, dupes, steps,
+  employer). Fix each in the same run, or name it in the run report. Example:
   `check: to-do on an ended job: J3 (rejected 2026-11-10), 2 to-do(s) -> track.py todo J3 done all`.
+- The shared records change only by their scripts (`track.py`, `logins.py`, `questions.py`, `sessions.py`,
+  `searches.py`, `employer.py`), never by hand: each write is checked and logged (recordlib.py, `changes.jsonl`).
+  "STALE: ... changed since it was read" means another session wrote it meanwhile: run the same command again.
 - Logins: each person's own sites and connectors live in their `LOGINS` file; the Logins tab groups them in this
   order: Needs you (a connector, or a site jobs wait on, and not signed in; a site no job waits on is Not signed
   in), Signed in, Connected, Not signed in. A job board's rows are one row on the page ("LinkedIn Easy Apply" and
@@ -86,9 +90,10 @@ employers**, **Hiring steps** and **All applications**, under the total count an
     that session's row, not a row of its own (an urgent or past-due one stays).
   - A job that is sent or ends loses its to-dos: `track.py set` drops and prints them. A to-do for after the end
     is added after it. Example: "send the withdrawal email", added on the day the person declined.
-- A hiring step that is done gets `"done": "<date>"` in `PIPELINE`: it leaves Do now and the README's next steps,
-  and Hiring steps says Done. What is awaited next is a `waiting` to-do. Example: a take-home handed in on 13 Nov:
-  `"done": "2026-11-13"`, then `track.py todo J1 add waiting "feedback on the take-home"`.
+- A hiring step that is done: `track.py step <id> done <n> <date>` (n: its number, 1, 2, ...; a step that will not
+  happen: `step <id> cancel <n>`). It leaves Do now and the README's next steps, and Hiring steps says Done. What is
+  awaited next is a `waiting` to-do. Example: a take-home handed in on 13 Nov: `track.py step J1 done 2 2026-11-13`,
+  then `track.py todo J1 add waiting "feedback on the take-home"`.
 - Sessions: `SESSIONS` (`sessions.py`) holds every open sub-session: its state (`you`, `ready`, `done`), what it
   waits on, its jobs (the one in hand first), a date, `tab` (it holds a filled form open in a browser tab) and
   `steps` (the person's steps left). The coordinator keeps it; the export only reads it. The order to answer them:
@@ -99,5 +104,5 @@ employers**, **Hiring steps** and **All applications**, under the total count an
 - Do now's Question rows are the Questions page's open questions (`QUESTIONS`), nothing else; before the page exists,
   the employers the rules leave to the person. A job that waits on the person without a to-do or a question shows
   its note as a To do.
-- A hiring step's Do now row links to its email (`mail` in `PIPELINE`), never the step's own page: a personal
+- A hiring step's Do now row links to its email (the step's `mail`), never the step's own page: a personal
   access link (a page that opens without a sign-in) stays in the calendar and the person's folder. Pay figures and addresses never go into the exported files.
