@@ -11,7 +11,8 @@ Read `../../RULES.md` first. This skill writes the plan into the tracker; it sen
 
 1. Take the open jobs from the tracker (`track.py list`): cleared by the screen, waiting on the person, or ready to
    send. Leave out excluded, skipped, closed and declined ones.
-2. Order them: deadline first, then fit, then the sites the person is signed in to (`logins.py show`).
+2. Order them in the apply order's three groups (RULES.md): those that need nothing from the person, then those
+   that need only a sign-in (`logins.py show`), then the rest; inside each, deadline first, then fit.
 3. For each job, the CV version that fits the role (`CV_VERSIONS_DIR`) and the letter the funnel prepared
    (`track.py brief <id>`: `letter_txt`). A job without one where `LETTERS` asks for one gets it now
    (`LETTER_BODIES_DIR`; `asked`: only for a form with a letter field, `apply`, "Before filling"; `always`;

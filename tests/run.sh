@@ -3196,6 +3196,15 @@ check "0.44.3 text: the Dover note, board discovery by allowed_domains, the form
     [ -s "$1/references/sites/dover.md" ] && grep -q "allowed_domains" "$1/references/weekly.md" &&
     ! grep -q "site:greenhouse.io" "$1/references/weekly.md" &&
     grep -q "fileOf(r.c.name).split(./.).pop()" "$1/workflows/screen-and-prepare.js"' _ "$S/.."
+# 0.44.4: tabs are closed before a report, the health check opens no tab group, and the apply order is one rule
+# that the run, apply, plan and urgent point to.
+check "0.44.4 text: tabs closed before a report, no createIfEmpty in the health check, the apply order and its pointers" sh -c '
+    grep -q "Before the final report or handoff" "$1/RULES.md" && grep -q "^## Apply order$" "$1/RULES.md" &&
+    grep -q "without .createIfEmpty." "$1/RULES/run.md" && grep -q "Close your Chrome tabs before your final report" "$1/skills/coordinate/SKILL.md" &&
+    grep -q "only a held .>>>. tab stays open" "$1/agents/applier.md" && grep -q "Apply order" "$1/skills/apply/SKILL.md" &&
+    grep -q "apply order" "$1/skills/plan/SKILL.md" && grep -q "Apply order" "$1/RULES/urgent.md" &&
+    ! grep -q "apply where the person is" "$1/skills/coordinate/SKILL.md" &&
+    ! grep -q "does its pieces as subagents" "$1/skills/schedule/SKILL.md"' _ "$S/.."
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

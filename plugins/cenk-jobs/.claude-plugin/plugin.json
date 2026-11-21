@@ -1,6 +1,6 @@
 {
   "name": "cenk-jobs",
-  "version": "0.44.3",
+  "version": "0.44.4",
   "description": "Your job search with Claude: finds and screens job postings under your own rules, writes CVs and cover letters from your own facts, and free texts with you, applies in your own Chrome, tracks every application in Google Drive, puts interviews and deadlines in Google Calendar, prepares each hiring step, and shows it all on one private dashboard.",
   "repository": "https://github.com/cenksimsek1988/cenk-jobs",
   "license": "MIT",

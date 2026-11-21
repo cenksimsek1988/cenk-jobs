@@ -20,8 +20,8 @@ Read `../../RULES.md` first.
   schedule (the scheduled-tasks list) and correct the keys. A task that runs every day stays so until the person
   changes it. Example: the task has cron `0 19 * * *` and the key says `weekdays`: write `SEARCH_DAYS=daily`.
 - Say the result in one line: "Scheduled run: weekdays at 19:00, in a fresh main session."
-- A trigger's turn may not start other sessions: the run, a fresh session, does its pieces as subagents (the one
-  exception to "the coordinator runs no search itself"), or proposes a piece as a card.
+- A trigger's turn may not start other sessions: the run, a fresh session, does its pieces itself and applies through
+  `cenk-jobs:applier` subagents (the one exception, /cenk-jobs:coordinate "Pieces"), or proposes a piece as a card.
 - A scheduled run that finds a coordinator active (its lock is held) takes over: it asks that coordinator for its
   handoff ("write your handoff, unlock, reply 'handoff written', then stop"), and on the reply takes the lock and
   runs as the day's coordinator. Example: the coordinator was active 4 minutes before 19:00; it hands off and the
@@ -29,5 +29,6 @@ Read `../../RULES.md` first.
 
 ## What each run does
 
-The coordinator's "Each run" list (/cenk-jobs:coordinate), in its order. In a scheduled run each piece is a
-subagent (an `applier` per application) or a card, since a trigger's turn starts no session (above).
+The coordinator's "Each run" list (/cenk-jobs:coordinate), in its order. In a scheduled run the pieces run in the
+run's own session, applying through `applier` subagents, or become cards, since a trigger's turn starts no session
+(above).

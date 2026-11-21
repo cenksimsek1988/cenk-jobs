@@ -63,12 +63,14 @@ site's notes in `sites/<site>.md`. The safety rules here are `RULES.md`'s, in sh
   use AI stops the job for the person, also when essays are "auto".
 - (session) A form that waits on the person (RULES.md, "Honesty and what Claude never does"): stop on that page and put the field in Do now. If
   the step expires (an emailed or SMS code, a CAPTCHA, a Submit waiting for their yes, a sign-in page), send one
-  notification at once (RULES.md, "Urgent steps"), "At your PC:" or "From your phone:", and keep the tab open.
+  notification in its round of the apply order (`RULES/urgent.md`), "At your PC:" or "From your phone:", and keep
+  the tab open.
   A Submit answered by "The captcha is invalid." means an invisible CAPTCHA ran: a CAPTCHA stop.
-- (session) A site that sends a one-time code on Submit (example: Greenhouse's emailed security code): fill everything, then
-  press Submit while the person is active (they wrote in any job-search session in the last 15 minutes) or has said
-  they are at the PC, and pass the code request on at once ("At your PC: type the code Acme just emailed").
-  Otherwise stop before Submit and notify "At your PC:".
+- (session) A site that sends a one-time code on Submit (example: Greenhouse's emailed security code): fill
+  everything and stop before Submit. Its Submit is in the last list of the apply order (RULES.md), pressed while the
+  person is active (they wrote in any job-search session in the last 15 minutes) or has said they are at the PC;
+  the code request is then passed on at once ("At your PC: type the code Acme just emailed"), or, with
+  `EMAILED_CODES=on`, the session types it.
   Keep-alive while it waits: a second tab on the same site, reloaded every 10 minutes for at most 2 hours; never the
   form's own tab. A public form without a sign-in gets none (a reload clears it): say so and name the refill time.
   Example: "This form has no login: if the tab closes, I refill it in about 5 minutes."
@@ -81,8 +83,9 @@ site's notes in `sites/<site>.md`. The safety rules here are `RULES.md`'s, in sh
 - Before a form goes to the person, read it back: every required field filled, no validation error. A field put
   right is filled again in place, never after a reload, so a CAPTCHA the person typed survives.
 - A Submit click the browser tool refuses: retitle the tab for the person, say so in one line, and try no other way.
-- Tabs: only the session that opened a tab closes it; a tab group that holds filled forms is never closed; a
-  confirmation tab closes right after its Submit.
+- Tabs: only the session that opened a tab closes it; a tab group that holds filled forms is never closed, else it
+  is emptied before the session's final report or handoff (RULES.md, "Claude in Chrome"); a confirmation tab closes
+  right after its Submit.
 - A hypothetical question is explained in plain words before an option is proposed: it can read as a booking.
   Example: "How comfortable would you be doing that tomorrow?" asks how ready the person is, not for a meeting
   tomorrow.

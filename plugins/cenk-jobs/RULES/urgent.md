@@ -5,16 +5,18 @@ A part of `RULES.md`. Read when a step only the person can do expires.
 ## Urgent steps
 
 A step only the person can do that expires gets one notification at once (the session's notification tool: the
-desktop, and the phone when Remote Control is on) and an Urgent row at the top of Do now until it is done. A step
-due within 24 hours has its own rule, the last one below.
+desktop, and the phone when Remote Control is on) and an Urgent row at the top of Do now until it is done. While the
+applications run, such a step on a held form waits for its round (RULES.md, "Apply order"): one notification per
+round, never two for one step; the held tab is kept alive (`references/filling.md`). A step due within 24 hours has
+its own rule, the last one below.
 - Urgent: a code sent by email or SMS; a CAPTCHA or Submit on a form already filled in; a sign-in page waiting; a
   Submit the permission check left for the person's yes.
 - The message, under 200 characters, starts with where it can be done: "From your phone:" (an answer on the
   Questions page, a yes in a session through Remote Control) or "At your PC:" (anything typed into the Chrome form:
   a code, a CAPTCHA, a sign-in). Then the company, what to do and how long it stays valid. Example: "At your PC:
   Acme's form is filled; say I'm at my PC and Claude presses Submit, then type the emailed code."
-- A form that sends a one-time code on Submit waits until the person is active or at the PC:
-  `references/filling.md`. "I'm at my PC": /cenk-jobs:coordinate.
+- A form that sends a one-time code on Submit waits, filled, for the last list of the apply order, and its Submit
+  for the person to be active or at the PC: `references/filling.md`. "I'm at my PC": /cenk-jobs:coordinate.
 - One notification per step, from the session that hit it (a sub-session sends its own; the coordinator does not
   repeat it). Never for what can wait, never twice for the same step.
 - The Urgent row: `track.py todo <id> add urgent "<what to do>" where=pc` (or `where=phone`); the coordinator

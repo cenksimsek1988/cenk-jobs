@@ -48,25 +48,31 @@ archived. A scheduled run reaches the older one's sub-sessions by message and re
    (`choices.py show`) and the plan's share when `statusline.py read` prints one; `usage.py log run started "<by
    hand|scheduled>"` (with `variant=<name>` from `variants.py current` when the person turned variants on).
    Example: "Job-search run started at 19:02 (scheduled); apply: auto, high fits, sent alone. Plan used: 5 hours
-   23%, 7 days 41%." "Run my job search now" starts a run at once; a run started under 6 hours ago with no end row:
-   say so instead; an older one: `usage.py log run stopped`, then start.
+   23%, 7 days 41%." "Run my job search now": in a coordinator with a conversation behind it, a fresh session for
+   the run (as at `run-due`, below); in a fresh one, the run itself, at once. A run started under 6 hours ago with no
+   end row: say so instead; an older one: `usage.py log run stopped`, then start.
 2. The handoff check (above).
 3. Gmail (`/cenk-jobs:prepare`, "Mail and calendar"): first, never dropped for other work. Seen on 17 Nov: a day
    spent on applying left 15 rejections and an interview invitation unread.
 4. The shared-list update: `employer.py shared-update` (a dry run), its `ask` items to the Questions page, then
    `--apply`; each `updated` item is one line in the run report (RULES/employers.md, "Shared list updates").
-5. `check_setup.py --needs`: the programs, connectors and sign-ins the run waits on, to the person as one list.
-   Example: "sign in to Workday · Acme: 2 planned". With nobody there, each goes in Do now.
+5. `check_setup.py --needs`: a program or connector the run cannot go on without, asked at once. Its `sign in to`
+   lines wait for the sign-in round, its other lines for the last list (RULES.md, "Apply order"). Example: "sign in
+   to Workday · Acme: 2 planned" comes after the applications that need nothing. With nobody there, each goes in
+   Do now.
 6. The health check (RULES/run.md), then the calendar check (RULES/hiring-steps.md, "Calendar").
 7. The Questions page's answers: `questions.py record`, then `build` and write the page in the same turn, so the
    jobs they free go on in this run and the page shows them done; act on each "act on" line; bring up every
    "Discuss" in the chat.
-8. The pieces of the day, one sub-session each ("Pieces"), in this order: search, plan, apply where the person is
-   signed in, prep for the nearest steps.
+8. The pieces of the day, one sub-session each ("Pieces"), in this order: search, plan, apply in the apply order
+   (RULES.md), prep for the nearest steps.
 9. The run's new questions to the page (`questions.py build`), `build_app_folders.py` and the dashboard refresh
    (RULES/run.md, "Dashboard"): each `check:` line fixed, or named in the report.
-10. The deadline notification (RULES/urgent.md) and the report ("Ending"), whose last line is `token_report.py
-    --days 1` for the run's W and, from the run 7 days back, `variants.py count`.
+10. The run's own Chrome tabs closed, except held `>>>` tabs (RULES.md, "Claude in Chrome"); the deadline
+    notification (RULES/urgent.md) and the report ("Ending"), whose last line is `token_report.py --days 1` for the
+    run's W and, from the run 7 days back, `variants.py count`. On the first run of the week, when `sessions.py
+    show` lists no open session, the report also says: "Chrome: Claude tab groups with no `>>>` tab can be closed
+    (right-click the group name, Close group)."
 11. "Run finished at 21:40.", `usage.py log run ok` (or `failed` / `stopped`), then `sessions.py unlock <id>`: a
     lock left behind holds the next coordinator for 30 minutes.
 
@@ -88,8 +94,8 @@ state from these rows.
   session (one a message or a trigger started) proposes it as a card and names it in Do now.
 - An apply session is never started from an automated turn (a message from another session or a trigger): it is
   proposed as a card, with one line saying so. Its forms may need the person, who may be away.
-- A finished search's questions go to the person at once, in one ordered list (the order of "Answer first"), even
-  while another task is open; they never wait for that task to end.
+- A finished search's questions go on the Questions page at once, and to the person in the chat in the run's last
+  list (RULES.md, "Apply order"), in the order of "Answer first".
 - Runs in the main folder and is titled **Job search coordinator**: only the person's own main session, started in
   their main folder by them or by the schedule. A development or test session that loads this skill keeps its own
   title and writes no record. At the start of each run it says so in one line: "This is your main job-search
@@ -139,9 +145,12 @@ state from these rows.
   `MASTER_RECORD` or asks the person, and records each new fact as a dated fact line. A forwarded go-ahead (a
   submission, an email, a term to accept) is quoted, never stored.
 - When the person says they are signed in to a site, the piece for that site starts at once: sign-ins expire.
-- A sub-session's application or letter that waits only on the person's go-ahead: the coordinator submits it after
-  finding, in that session's transcript, the person's own go-ahead for that exact version (example: "send it" under
-  the final letter). A go-ahead for an earlier draft does not count, and an email stays a draft (`send_mode`).
+- A page the coordinator opens in Chrome (a link it checks, RULES.md "Links") is read with `find` or `read_page`
+  (`max_chars` 5000), never a screenshot, and its tab is closed at once.
+- A sub-session's application or letter that waits only on the person's go-ahead: after finding, in that session's
+  transcript, the person's own go-ahead for that exact version (example: "send it" under the final letter), the
+  coordinator forwards it, quoted, and that session submits: its tab is in its own group, which the coordinator
+  cannot see. A go-ahead for an earlier draft does not count, and an email stays a draft (`send_mode`).
 - Keeps the sessions record (`SESSIONS`), which the dashboard's Answer first rows and Sessions tab read. After
   every start, change of state and handoff: save the app's session list as a file (`list_sessions`, limit 200,
   archived included: it lists 20 by default), `sessions.py sync <file>`, then `sessions.py set <name>
@@ -167,7 +176,8 @@ state from these rows.
 One sub-session per piece (`start_session`): fresh context, the same main folder, a short name. Its brief (shared
 rules) names the jobs by company, role and id, the CV and letter files, the answers from `MASTER_RECORD` it needs,
 `${CLAUDE_PLUGIN_ROOT}/RULES.md` and the skill it runs, the script path (`${CLAUDE_PLUGIN_ROOT}/scripts`), and
-the handoff below.
+the handoff below. It ends with: "Close your Chrome tabs before your final report; keep only held `>>>` tabs, and
+name each in the report."
 
 Every long piece goes to a fresh session: searches, workflows, analyses, page-check rounds, publish-and-verify
 rounds, and requests from other sessions. The coordinator records results and answers messages: a busy session
@@ -175,8 +185,10 @@ that does not answer within 20 s loses a message. Seen 19 Nov: three dashboard r
 1 h, and 8 messages from another job session lost. A piece the app will not start (a turn a message started) is
 a card or a question to the person (shared rules), never run in the coordinator's own context, a form whose
 sign-in may expire included. Seen 18 Nov: search, a 39-agent workflow and an analysis ran inside the coordinator.
-One exception: a scheduled run's own fresh session does its pieces as subagents (a trigger's turn may not start
-sessions; `/cenk-jobs:schedule`).
+One exception: a scheduled run starts no session (a trigger's turn may not; `/cenk-jobs:schedule`): it runs the
+scripts, the workflow, plan and the Gmail step in its own fresh context, applies through `cenk-jobs:applier`
+subagents, which share its tab group, and proposes any other piece as a card. A coordinator by hand fills no form
+and runs no browser sweep: an apply sub-session's appliers share that sub-session's tab group.
 
 | Piece | What the sub-session does | Example name |
 |---|---|---|

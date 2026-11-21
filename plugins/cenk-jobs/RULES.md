@@ -143,6 +143,17 @@ The run's order is /cenk-jobs:coordinate's "Each run" list; the health check and
 - Pay figures go only into a form's pay fields and onto their own Questions page (only they read it); the
   home address and the birth date only into forms. Never into a CV, letter, shared file or the dashboard.
 
+## Apply order
+
+The open applications go in three rounds; nothing of rounds 2 and 3 is asked before round 1 is done:
+1. every application that needs nothing from the person (with `send` in `ASK_FIRST`: up to the review page);
+2. one round asking for all sign-ins, then those applications;
+3. one list of what the person must do, or do with Claude (essays, codes, CAPTCHAs, decisions, go-aheads), in the
+   "Answer first" order.
+
+A form that needs the person beyond a sign-in is filled as far as it goes and held for round 3. Example: 12 open
+jobs: 7 sent alone, 3 after one sign-in round, 2 asked about at the end.
+
 ## Urgent steps
 
 A step only the person can do that expires: read `RULES/urgent.md`. A one-time code is started only while the
@@ -212,7 +223,14 @@ connector is down. Their sign-ins are there, and a second browser loses them.
 - A tab that holds a filled form waiting on the person (a code, a CAPTCHA, a Submit, their picks): a link would open
   an empty copy. Keep the tab, title it `>>> <first name>: <company> <action> <<<`, and name it in the question with
   how to find it (Chrome's tab search, Ctrl+Shift+A).
-- Only the session that opened a tab closes it; a tab group holding filled forms is never closed.
+- Tabs: each session has its own tab group, shared with its subagents; no other session sees or closes its tabs, and
+  the group goes with its last tab. Seen 21 Nov: 14 groups left by sessions that ended with tabs open.
+- One working tab per session, or per applier when appliers run side by side: opened once (`tabs_create_mcp`),
+  navigated for each page, never one per posting, and closed as soon as its piece is done (a posting read, a Submit
+  confirmed, a link handed over). `tabs_context_mcp` with `createIfEmpty` opens a window with an empty tab: close
+  it when unused.
+- Before the final report or handoff: `tabs_context_mcp`, then close every own tab except a held `>>> ... <<<` tab;
+  a group that holds filled forms is never closed.
 - The same address goes into the job's to-do (`track.py todo ... link=<address>`); the dashboard shows it as a
   link, and every sub-session brief and handoff carries it.
 
@@ -220,8 +238,9 @@ connector is down. Their sign-ins are there, and a second browser loses them.
 
 - A subagent in any cenk-jobs session is one of the plugin's own agents (`cenk-jobs:applier`, `fitter`, `former`,
   `writer`, `reviewer`, `screener`, `checker`, `verifier`), never `general-purpose`, `Explore` or another kind.
-  Work with no agent of its own runs as a script or a sub-session on `SESSION_MODEL`. Seen 6-18 Nov: 88
-  general-purpose agents on Opus at 567k W each, 50M W in all.
+  Work with no agent of its own runs as a script or a sub-session on `SESSION_MODEL`, or in a scheduled run's own
+  session (/cenk-jobs:coordinate, "Pieces"). Seen 6-18 Nov: 88 general-purpose agents on Opus at 567k W each, 50M
+  W in all.
 - A long context is re-read on every turn: 68% of the measured cost was cache reads. Keep a session to its piece
   and end it when the piece is done.
 

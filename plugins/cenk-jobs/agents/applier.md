@@ -12,6 +12,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/references/filling.md` first, then the site's notes 
 files to upload, whether to send alone or ask first. The session that started you records the result and logs it.
 
 - One application, one tab: open your own with `tabs_create_mcp`; never touch another tab, and close only your own.
+  Close it when you return submitted, closed or failed; only a held `>>>` tab stays open.
 - Your brief's `filling:` line (LETTERS, EMAILED_CODES, OPTIONAL_FIELDS) sets how optional fields are filled
   (`filling.md`). An emailed code is the session's: return `needs-person` with the field and keep the tab open.
 - Before you return a form for the person: read it back (every required field, no validation error) and title the

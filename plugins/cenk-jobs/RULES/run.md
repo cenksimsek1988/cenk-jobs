@@ -9,9 +9,11 @@ A step of the run (/cenk-jobs:coordinate, "Each run"):
 1. `check_setup.py`: fix or report each FAIL in one line.
 2. Each connector, one cheap read call, once per run: Gmail `search_threads` (`pageSize` 1), Google Calendar
    `list_calendars`, Google Drive (the main folder readable on disk, or the Drive connector), Claude in Chrome
-   `tabs_context_mcp`. Record each: `logins.py set <id> connected|needs-reconnect "<what you saw>" kind=connector
-   name=<Name> fix=<how>`, then `logins.py sync`. `LOGINS` is the one place login state lives. The export cannot
-   call a connector: it names each one not checked since the run started in a `check:` line.
+   `tabs_context_mcp` without `createIfEmpty`: any answer, "no tab group" included, means connected; with
+   `createIfEmpty` the call would open a window and a tab group. Record each:
+   `logins.py set <id> connected|needs-reconnect "<what you saw>" kind=connector name=<Name> fix=<how>`, then
+   `logins.py sync`. `LOGINS` is the one place login state lives. The export cannot call a connector: it names
+   each one not checked since the run started in a `check:` line.
 3. The dashboard: `DASHBOARD_URL` set and readable. If not, create it now (see "Dashboard"). The same for
    `QUESTIONS_PAGE` (`RULES/questions.md`).
 

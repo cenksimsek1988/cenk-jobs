@@ -48,8 +48,9 @@ tracker, and nothing is prepared or sent.
    - A job board's public JSON (the addresses in `workflows/screen-and-prepare.js`), or `fetch_jd.py`.
    - A site without an alert: newest first, and stop at the first posting older than the row's last check or already
      in the tracker. Example: last check 6 Nov; the list reaches a posting of 5 Nov: stop there.
-   - A browser last, only for a search nothing else covers. Read each page with `find` or `read_page` (`max_chars`
-     5000); never a screenshot (RULES.md, "Claude in Chrome").
+   - A browser last, only for a search nothing else covers: one tab for the whole sweep, navigated per page, closed
+     at the end. Read each page with `find` or `read_page` (`max_chars` 5000); never a screenshot (RULES.md,
+     "Claude in Chrome").
    After each: `searches.py done <id> found=<n>`; each posting an agent finds is added with `found_by=agent:<source>`.
    A source an agent found that has no alert: check whether a script can read it (a public board API, a plain page);
    if so, add it as a script row (`searches.py add ... source=<kind> board=<name>`), so the script's share grows. A posting's date comes from the employer's board, since a job

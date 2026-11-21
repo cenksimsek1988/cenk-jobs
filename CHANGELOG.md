@@ -6,6 +6,35 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.44.4] - 2026-11-21
+
+No Claude tab groups left behind in Chrome, and one order for finishing the open applications.
+
+### Changed
+
+- Chrome tabs: a session works in one tab (an applier in its own), navigated for each page, closes it once its
+  piece is done, and closes every own tab before its final report or handoff, except a held `>>>` tab. Every
+  sub-session's brief ends with that line, and the run closes its own tabs before its report. Seen 21 Nov: 14 tab
+  groups left by sessions that ended with tabs open. A group is its session's alone (its subagents share it) and
+  goes with its last tab.
+- The run's health check reads Claude in Chrome without `createIfEmpty`, so it opens no window and no tab group.
+- On the first run of the week, when no session is open, the report says that Claude tab groups with no `>>>` tab
+  can be closed.
+- Apply order: first every application that needs nothing from the person; then one round asking for all sign-ins,
+  and those applications; last, one list of what the person must do or do with Claude (essays, codes, CAPTCHAs,
+  decisions, go-aheads). The run asks at its start only for a missing program or connector, no longer for sign-ins.
+  A form whose Submit sends a code is filled and waits for the last list, and so does an expiring step on a held
+  form. A finished search's questions join the last list (each is still on the Questions page at once). plan orders
+  by these groups first.
+- A scheduled run starts no session: it runs the scripts, the workflow, plan and the Gmail step in its own context,
+  applies through `cenk-jobs:applier` subagents, and proposes any other piece as a card. "Run my job search now" in
+  a coordinator with a conversation behind it starts a fresh session for the run.
+
+### Fixed
+
+- The coordinator no longer submits a sub-session's form itself, since that session's tab is in a group it cannot
+  see: it forwards the person's go-ahead, quoted, and the session submits.
+
 ## [0.44.3] - 2026-11-20
 
 Four lessons from the 20 Nov search, and the follow-ups of the 0.44.1 commit review.

@@ -27,8 +27,10 @@ waits on the person.
 - A job's prepared answers go stale after the person's later answers: fill the newer answer from the records and
   correct the prepared answers with it. Example: the prep says 6 years of Java, a later answer says 8: fill 8 and
   update the prep.
-- The person must be signed in to the site. Ask them to tick "Keep me signed in" or "Remember me" where the site
-  offers it, and to keep Chrome's "clear cookies when you close all windows" off.
+- The person must be signed in to the site: sign-ins are asked in one round, after every application that needs
+  nothing from the person (RULES.md, "Apply order"). Ask them to tick "Keep me signed in" or "Remember me" where
+  the site offers it, and to keep Chrome's "clear cookies when you close all windows" off. A sign-in that expired
+  before its site's turn is asked again in the last list.
 - Every fitting role at one employer is applied to at the same time: never wait for one application there to
   finish before sending the next.
 - Several applications at once: one `cenk-jobs:applier` subagent per application, started together, one tab each,
@@ -48,8 +50,8 @@ never take a screenshot.
 ## Sending
 
 - `send` not in `ASK_FIRST` (`choices.py show`): submit every form whose answers all come from the person's
-  records, then report; a form that sends a one-time code on Submit waits until the person is active or at the PC
-  (see "Filling").
+  records, then report; a form that sends a one-time code on Submit is filled and held before Submit, and its
+  Submit goes in the last list (RULES.md, "Apply order"; `../../references/filling.md`).
 - `send` in `ASK_FIRST` (or the older `APPLY_MODE=review`): stop at the review page; submit after the person's
   go-ahead for that job or batch.
 - `APPLY=list`: no form is filled; the fitting jobs are listed with their links.
