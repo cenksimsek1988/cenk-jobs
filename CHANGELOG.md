@@ -6,6 +6,22 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.46.5] - 2026-11-21
+
+Every pay figure typed into a form is rounded up until its significant part ends in 0 or 5 (a lesson of 21 Nov).
+
+### Changed
+
+- The significant part is the figure counted in its currency's salary unit (thousands a year, hundreds a month,
+  tens a day, ones an hour; TRY thousands a month too, and JPY, KRW, INR, HUF, CZK, SEK, NOK, DKK and RUB in the
+  units they are usually counted in, `paylib.COUNTED_IN`), rounded up to a whole number; it then goes up to the next
+  whole number ending in 0 or 5 (`paylib.py`). Examples: 87,920 USD a year -> 90,000; 6,667 EUR a month -> 7,000;
+  14,700 EUR a month -> 15,000; 220,000 TRY a month stays 220,000.
+- `fx.py` takes `--per year|month|day|hour` (required) and prints the typed figure after "typed:"; the same
+  currency twice gives it with no rate and no network. Example: "87920 USD a year; typed: 90000 USD".
+- The funnel's prep turns the fit check's salary, and every pay figure in a form answer, into the typed figure with
+  `fx.py`; the review checks it. `references/filling.md` holds the rule for the session and the applier's brief.
+
 ## [0.46.4] - 2026-11-21
 
 The last two of the ten lessons of 20-21 Nov: the tracker's ids and to-dos, and a faster folders build.

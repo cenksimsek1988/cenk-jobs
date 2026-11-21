@@ -61,9 +61,15 @@ site's notes in `sites/<site>.md`. The safety rules here are `RULES.md`'s, in sh
 - (session) A contractor pay field, from the person's rates and day counts in their records, by the contract's length: one
   year or longer, the day rate x the working days of a year / 12 for a month; about six months, the day rate x the
   working days of a month; no length, or only some hours a day, the hourly rate x the posting's hours. Always
-  round up. Example: 500 a day, 220 working days, 12 months: 500 x 220 / 12 = 9,167 a month.
-- (session) Any pay field in another currency, current pay included: `fx.py <amount> <from> <to>` (the day's ECB
-  rate, rounded up); its line is the answer's note. Example: `60000 EUR = 64872 USD (ECB 1.0812, 2026-11-19)`.
+  round up. Example: 500 a day, 220 working days, 12 months: 500 x 220 / 12 = 9,167 a month, typed 9,500.
+- Every pay figure typed into a form, current pay included, is rounded up until its significant part ends in 0 or 5:
+  the figure counted in its currency's salary unit (thousands a year, hundreds a month, tens a day, ones an hour;
+  others where that currency counts otherwise, `paylib.py`: TRY thousands a month too, JPY ten thousands), rounded up
+  to a whole number, then up to the next one ending in 0 or 5. (session)
+  `fx.py <amount> <from> <to> --per year|month|day|hour` prints it after "typed:", the same currency twice too
+  (no rate); its line is the answer's note, and the brief carries the typed figure. Examples: 87,920 USD a year
+  -> 90,000; 6,667 EUR a month -> 7,000; 14,700 EUR a month -> 15,000; 220,000 TRY a month stays 220,000. In another
+  currency at the day's ECB rate: `60000 EUR a year = 64872 USD; typed: 65000 USD (ECB 1.0812, 2026-11-19)`.
 - (session) A written answer (essay, motivation) is built only from the records; only a missing fact is asked. A
   number the person recalled with no record behind it never goes into one. An employer's AI rule (its posting, its
   form, its page on AI in hiring) is followed: Claude does only what it allows, and the job waits for the person,

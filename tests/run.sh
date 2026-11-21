@@ -2749,9 +2749,11 @@ cat >"$T/ecb.xml" <<'EOF'
 </gesmes:Envelope>
 EOF
 check "fx: the ECB rate of the saved day, rounded up, with the line naming ECB and the date; a missing rate exits 1" sh -c '
-    [ "$("$1" -I "$2/fx.py" 60000 EUR USD --rates "$3")" = "60000 EUR = 64872 USD (ECB 1.0812, 2026-11-19)" ] &&
-    [ "$("$1" -I "$2/fx.py" 64872 usd eur --rates "$3")" = "64872 USD = 60000 EUR (ECB 0.9249, 2026-11-19)" ] &&
-    ! "$1" -I "$2/fx.py" 100 EUR JPY --rates "$3" 2>/dev/null' _ "$PY" "$S" "$T/ecb.xml"
+    [ "$("$1" -I "$2/fx.py" 60000 EUR USD --per year --rates "$3")" = \
+      "60000 EUR a year = 64872 USD; typed: 65000 USD (ECB 1.0812, 2026-11-19)" ] &&
+    [ "$("$1" -I "$2/fx.py" 64872 usd eur --per year --rates "$3")" = \
+      "64872 USD a year = 60000 EUR; typed: 60000 EUR (ECB 0.9249, 2026-11-19)" ] &&
+    ! "$1" -I "$2/fx.py" 100 EUR JPY --per month --rates "$3" 2>/dev/null' _ "$PY" "$S" "$T/ecb.xml"
 if command -v node >/dev/null 2>&1; then
     # The page's own calculations, with the runtime's shapes: list fields as JSON text, numbers as numbers, and a
     # fixed "today". Seen 19 Nov: list fields as text emptied Do now, Sessions and Hiring steps.
@@ -3822,6 +3824,35 @@ OV=$(ls "$H"/job-applications/pending/*/overview.md 2>/dev/null | head -n 1)
 "$PY" -I "$S/build_app_folders.py" --env "$ENVF" >/dev/null 2>&1
 check "build_app_folders 0.46.4: an unchanged file is not written again" \
     "$PY" -I -c 'import os, sys; sys.exit(0 if os.path.getmtime(sys.argv[1]) == 1 else 1)' "$OV"
+# --- 0.46.5: every pay figure typed into a form is rounded up until its significant part ends in 0 or 5 -------------
+check "paylib 0.46.5: the significant part, in the currency's salary unit, goes up to end in 0 or 5" "$PY" -I -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+import paylib
+cases = [((87920, "USD", "year"), 90000), ((6667, "EUR", "month"), 7000), ((14700, "EUR", "month"), 15000),
+         ((220000, "TRY", "month"), 220000), ((6500, "EUR", "month"), 6500), ((6700, "EUR", "month"), 7000),
+         ((75000, "EUR", "year"), 75000), ((9167, "EUR", "month"), 9500), ((487, "EUR", "day"), 500),
+         ((63, "EUR", "hour"), 65), ((2640000, "TRY", "year"), 2640000), ((221001, "try", "month"), 225000),
+         ((5123000, "JPY", "year"), 5150000), ((1234567, "INR", "year"), 1500000), ((45123, "SEK", "month"), 50000)]
+bad = [(args, paylib.typed(*args), want) for args, want in cases if paylib.typed(*args) != want]
+assert not bad, bad
+try:
+    paylib.typed(100, "EUR", "week")
+    sys.exit("a week was accepted")
+except ValueError:
+    pass
+' "$S"
+check "fx 0.46.5: the same currency twice gives the typed figure with no rate; no --per is refused" sh -c '
+    [ "$("$1" -I "$2/fx.py" 87920 USD USD --per year)" = "87920 USD a year; typed: 90000 USD" ] &&
+    [ "$("$1" -I "$2/fx.py" 6,667 eur EUR --per month)" = "6,667 EUR a month; typed: 7000 EUR" ] &&
+    [ "$("$1" -I "$2/fx.py" 220000 TRY TRY --per month)" = "220000 TRY a month; typed: 220000 TRY" ] &&
+    ! "$1" -I "$2/fx.py" 87920 USD USD >/dev/null 2>&1' _ "$PY" "$S"
+check "workflow 0.46.5: the prep and the review make every salary and pay answer the figure fx.py types" sh -c '
+    grep -q "^const FX = " "$1" && grep -q "becomes the figure the form gets: run \${FX}" "$1" &&
+    grep -q "a pay figure in an answer (current or expected pay) is the one \${FX} prints" "$1" &&
+    grep -q "is the figure \${FX} prints after .typed:." "$1" &&
+    grep -q "fx.py <amount> <from> <to> --per year|month|day|hour" "$2"' \
+    _ "$S/../workflows/screen-and-prepare.js" "$S/../references/filling.md"
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

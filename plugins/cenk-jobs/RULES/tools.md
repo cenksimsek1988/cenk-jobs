@@ -49,7 +49,8 @@ of its file) has every command and option. Run one as RULES.md, "Where things ar
 - `build_app_folders.py`: the application folders; never deletes what the person or Claude wrote.
 - `export_dashboard.py`: the dashboard's files, what to upload and the `check:` lines (`--check`, `--uploaded`).
 - `cheat_sheet.py`: a step's `keywords.md` as one page beside the call.
-- `fx.py`: a pay figure in another currency at the ECB's rate of the day, rounded up.
+- `fx.py`: a pay figure as typed into a form (`--per year|month|day|hour`): in another currency at the ECB's rate of
+  the day, and rounded up until its significant part ends in 0 or 5 (`paylib.py`).
 
 ## Setup and cost
 
