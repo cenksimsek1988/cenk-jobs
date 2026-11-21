@@ -21,11 +21,19 @@ week: not known yet."
 3. Applying: fill and send where the records answer everything (about 210k to 280k W an application), or only a
    list of fitting jobs with links, sent by the person (the fit check alone, about 60k W an employer).
    `APPLY=auto|list`, default auto.
-4. Which fits: the fit score weighs each requirement by its place in the posting (title skill 4, must-have with
-   years 3, must-have 2, nice-to-have 1) against the record: 80+ high, 65-79 normal, 50-64 long-shot, under 50
-   weak. Send high and normal, or only high. Each application less saves about 280k W. `APPLY_FITS=normal|high`,
-   default normal. Long-shots a day on top: `LONG_SHOTS_PER_DAY`, default 0 (none; about 180k-1.1M W each). A weak
-   fit is listed, never sent. Weights and bands: `FIT_SETTINGS` (`templates/fit-settings-example.json`).
+4. Which fits: the fit check names each gap between the posting and the record. A hard gap (place, work mode,
+   eligibility, a required language, a clearance) skips the job; the kinds of soft gaps count: none high, one normal,
+   two long-shot, three or more weak (a domain gap with no adjacent fact counts two). Send high and normal, or only
+   high. Each application less saves about 280k W. `APPLY_FITS=normal|high`, default normal. Long-shots and weak
+   fits a day on top: `LONG_SHOTS_PER_DAY`, default 0 (none, listed for the person; about 180k-1.1M W each). The
+   weighted score stays as information; the soft kinds and channel notes: `FIT_SETTINGS`
+   (`templates/fit-settings-example.json`).
+   After `APPLY_FITS` goes from high to normal, or `LONG_SHOTS_PER_DAY` up from 0: `track.py reopen` lists the fits
+   the old setting skipped, never sent; on the person's yes, `track.py reopen --apply --per-day 15` sets them back to
+   found, 15 a day newest first (one fit check and one preparation each). Example: "64 to reopen".
+   The fit check's model: Sonnet (about 60k W an employer), Opus at medium effort (about 100k W, estimated), which
+   reads the requirements against the record closer, or Opus at max effort (about 150-300k W, estimated; up to 30M W
+   on a day of 100 employers). `FIT_MODEL=sonnet|opus|opus-max`, default sonnet.
 5. Cover letters: where the form has or may have a field, always, or never; about 68k W a letter with its review.
    `LETTERS=asked|always|never`, default asked.
 6. What waits for the person (only with `APPLY=auto`), one answer per step: sending an application (`send`); a

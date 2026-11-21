@@ -23,8 +23,13 @@ country ("Turin, Italy" with NOT_PLACES=Turin); carried postings pass the same p
 search file gets its city's pay from PAY_TABLE (career_view.py pay) when the table has it.
 A remote posting passes only when its place also holds one of the search's places or one of
 REMOTE_REGIONS (job-search.env), or reads just "Remote". Example: "Remote, EU" passes with REMOTE_REGIONS=EU;
-"Remote, US" does not. Example: searches.py add "Acme jobs" "engineer, architect" source=greenhouse
-board=acme place="Rome, Italy".
+"Remote, US" does not. A board's own remote flag (Ashby, Lever, Workable, SmartRecruiters) makes the place
+"Remote - <place>", and a place that names only a region ("EMEA", "Europe") is checked as a remote one.
+Example: searches.py add "Acme jobs" "engineer, architect" source=greenhouse board=acme place="Rome, Italy".
+A board row read for the first time takes every open posting of the board, whatever its date; later reads start at
+the row's last read. The posting text a board's list carries (Greenhouse, Lever, Ashby), and a LinkedIn remote
+posting's text read for its remote check, is saved in POSTINGS_DIR as <id>.md for each posting that goes to the
+funnel, and passed as its text_file.
 A row's own place narrows the person's places, never widens them: a posting that is not remote must also be in one
 of PLACES (or the scope's any_mode_places). Example: a LinkedIn row "Berlin" with PLACES=Rome, Italy passes nothing
 from a Berlin office.
@@ -34,13 +39,18 @@ page, so daily), himalayas-search (board=<country>; discovery only: apply_url is
 fit check finds the employer's own page; the himalayas feed too), workable-search (remote postings; kept only with a
 place or region of the person's). Before the funnel, each posting's own page is read (LOCATION_CHECKS a run, default
 60; Ashby and Greenhouse from their APIs): one whose every place is outside the person's places, that must be based
-in another country, or works US hours is left out. A posting whose employer and title are already in the tracker
-under another link is left out. A "team lead" title needs an engineering word. A job the last fit check could not
-read ("unread" in the tracker) gets its text saved (fetch_jd.py --posting) and passed as text_file; one whose text
-could not be saved (a page drawn by script) is named in a "no text saved" line, for the session to save from Chrome.
+in another country, or works US hours is left out ("some overlap with US hours" is no reason). A posting whose
+employer and title are already in the tracker under another link is left out, unless that job closed or was skipped
+only by a setting's cut the person's settings no longer make (track.py reopen). A "team lead" title needs an
+engineering word. A job the last fit check could not read ("unread" in the tracker) gets its text saved (fetch_jd.py
+--posting) and passed as text_file; one whose text could not be saved (a page drawn by script) is named in a "no text
+saved" line, for the session to save from Chrome. A job track.py reopen set back to found joins the funnel too, from
+its "reopened" day.
 Remote Rocketship: a title or stack with no page (404) is skipped with one line; the row fails only when every page
 does.
-LinkedIn: up to 3 pages per search over the window since its start, 4.5 s between calls and a job text 6 s after
+LinkedIn: up to 5 pages per search over the window since its start, newest first, each page from the posting after
+the last one read, the row's terms (else ROLE_TERMS) joined with OR (linkedin_keywords), 4.5 s between calls and a
+job text 6 s after
 the last call; one refusal (429) pauses 60 s and slows to 8 s, an error or a second refusal stops LinkedIn for this
 run and its remaining searches stay due. A board that answers 404 twice is marked gone (searches.py fail).
 found_by is script:<source>:<board>; the run report counts script and agent finds apart.
@@ -72,14 +82,20 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import choices  # noqa: E402
 import jsenv  # noqa: E402
 import reposts  # noqa: E402
 from trackerlib import flat_jobs, pay_for, pay_table, scope_of, terms, title_has  # noqa: E402
+from fetch_jd import to_text  # noqa: E402
 from variants import runs, usage_rows  # noqa: E402
 
 UA = {"User-Agent": "Mozilla/5.0 (job-search assistant)"}
+# The posting texts a board's list already carries (Greenhouse with content=true, Lever, Ashby), by link: saved as
+# the posting's text file when it goes to the fit check, which then reads it whole instead of fetching it (0.46.0).
+TEXTS = {}
+BOARDS = ("greenhouse", "lever", "ashby", "smartrecruiters", "workable")  # each lists every open posting
 API = {
-    "greenhouse": "https://boards-api.greenhouse.io/v1/boards/{board}/jobs",
+    "greenhouse": "https://boards-api.greenhouse.io/v1/boards/{board}/jobs?content=true",
     "lever": "https://api.lever.co/v0/postings/{board}?mode=json",
     "ashby": "https://api.ashbyhq.com/posting-api/job-board/{board}",
     "smartrecruiters": "https://api.smartrecruiters.com/v1/companies/{board}/postings",
@@ -119,6 +135,7 @@ LOCATION_CHECKS = 60  # postings whose own page is read for the location check, 
 # LinkedIn: 4.5 s between calls, a job text 6 s after the last call; one refusal (429) pauses 60 s and slows to 8 s;
 # a second one stops LinkedIn for the run. Seen on 17 Nov: 4.5 s ran into 429 after ~46 texts, 8 s ran through.
 LINKEDIN_GAP, TEXT_GAP, SLOW_GAP, PAUSE = 4.5, 6.0, 8.0, 60
+LINKEDIN_PAGES = 5  # calls per search, newest first: 10 postings a page since Nov 2026 (25 before)
 TEXT_FETCHES = 40  # LinkedIn job texts read per run for the remote check (TEXT_FETCHES in job-search.env)
 # A remote LinkedIn search returns city hybrid jobs too (18 Nov: 73 of 82): its posting goes to the funnel only when
 # its own text speaks of remote work.
@@ -192,24 +209,53 @@ def parse(source, board, text):
         return feed_postings(source, data, board)
     name = board
     if source == "greenhouse":
+        for j in data.get("jobs", []):
+            keep_text(j.get("absolute_url", ""), html.unescape(j.get("content") or ""))
         return [(j.get("title", ""), name, (j.get("location") or {}).get("name", ""),
                  day(j.get("first_published") or j.get("updated_at")), j.get("absolute_url", "")) for j in data.get("jobs", [])]
     if source == "lever":
-        return [(j.get("text", ""), name, (j.get("categories") or {}).get("location", ""), day(j.get("createdAt")),
-                 j.get("hostedUrl", "")) for j in data]
+        for j in data:
+            lists = "".join(f"<h3>{x.get('text')}</h3><ul>{x.get('content') or ''}</ul>" for x in j.get("lists") or [])
+            keep_text(j.get("hostedUrl", ""), (j.get("description") or "") + lists + (j.get("additional") or ""))
+        return [(j.get("text", ""), name, remote_flagged((j.get("categories") or {}).get("location", ""),
+                                                         str(j.get("workplaceType", "")).lower() == "remote"),
+                 day(j.get("createdAt")), j.get("hostedUrl", "")) for j in data]
     if source == "ashby":
-        return [(j.get("title", ""), name, j.get("location", ""), day(j.get("publishedAt")), j.get("jobUrl", ""))
-                for j in data.get("jobs", []) if j.get("isListed", True)]
+        listed = [j for j in data.get("jobs", []) if j.get("isListed", True)]
+        for j in listed:
+            keep_text(j.get("jobUrl", ""), j.get("descriptionHtml") or j.get("descriptionPlain") or "")
+        return [(j.get("title", ""), name, remote_flagged(j.get("location", ""), bool(j.get("isRemote"))
+                                                          or str(j.get("workplaceType", "")).lower() == "remote"),
+                 day(j.get("publishedAt")), j.get("jobUrl", "")) for j in listed]
     if source == "smartrecruiters":
         return [(j.get("name", ""), (j.get("company") or {}).get("name", name),
-                 ", ".join(x for x in ((j.get("location") or {}).get("city"), (j.get("location") or {}).get("country")) if x),
+                 remote_flagged(", ".join(x for x in ((j.get("location") or {}).get("city"),
+                                                     (j.get("location") or {}).get("country")) if x),
+                                bool((j.get("location") or {}).get("remote"))),
                  day(j.get("releasedDate")), f"https://jobs.smartrecruiters.com/{board}/{j.get('id', '')}")
                 for j in data.get("content", [])]
     if source == "workable":
         return [(j.get("title", ""), data.get("name") or name,
-                 ", ".join(x for x in (j.get("city"), j.get("country")) if x), day(j.get("published_on")),
-                 j.get("url") or j.get("shortlink", "")) for j in data.get("jobs", [])]
+                 remote_flagged(", ".join(x for x in (j.get("city"), j.get("country")) if x),
+                                bool(j.get("telecommuting"))),
+                 day(j.get("published_on")), j.get("url") or j.get("shortlink", "")) for j in data.get("jobs", [])]
     return []
+
+
+def remote_flagged(place, remote):
+    """A board's own remote flag, in the place's words, so the place check treats the posting as remote (0.46.0;
+    before, a remote job filed under a city outside the person's places was dropped). Example: "Remote - Berlin,
+    Germany"."""
+    if not remote or "remote" in (place or "").lower():
+        return place or ("Remote" if remote else "")
+    return f"Remote - {place}" if place else "Remote"
+
+
+def keep_text(url, markup):
+    """A board's own posting text, kept by link for the fit check (TEXTS)."""
+    text = to_text(markup)
+    if url and len(text) >= 300:
+        TEXTS[url] = text
 
 
 def next_data(text):
@@ -360,8 +406,17 @@ def rocketship_pages(row, words, from_dir=None):
     return out
 
 
+def linkedin_keywords(words):
+    """The search's terms as one LinkedIn query: each term of two or more words quoted, the terms joined with OR, so a
+    posting with any one of them matches (0.46.0; before, "a, b" asked LinkedIn for the words of every term, and a
+    row with no terms of its own read every job in its place). Example: ["engineering manager", "CTO"] ->
+    '"engineering manager" OR CTO'."""
+    return " OR ".join(f'"{w}"' if " " in w else w for w in (str(w).strip() for w in words) if w)
+
+
 def answers(row, from_dir, queue, start, words=()):
-    """The source's answer texts for this search: one for a board, up to 3 pages for LinkedIn, a feed's pages."""
+    """The source's answer texts for this search: one for a board, up to LINKEDIN_PAGES for LinkedIn, a feed's
+    pages."""
     source, board = row["source"], row.get("board", "")
     if source == "remoterocketship":
         return rocketship_pages(row, list(words), from_dir)
@@ -398,14 +453,18 @@ def answers(row, from_dir, queue, start, words=()):
         return [fetch(API[source].format(board=urllib.parse.quote(board)))]
     seconds = max(3600, int((datetime.datetime.now() - start).total_seconds()))
     filters = {"f_WT": "2"} if row.get("mode") == "remote" else {}
-    out = []
-    for page in range(3):
-        query = urllib.parse.urlencode({"keywords": row.get("query", ""), "location": row.get("place", ""),
-                                        **filters, "f_TPR": f"r{seconds}", "start": 25 * page})
+    out, offset = [], 0
+    for _ in range(LINKEDIN_PAGES):
+        query = urllib.parse.urlencode({"keywords": linkedin_keywords(list(words)), "location": row.get("place", ""),
+                                        **filters, "f_TPR": f"r{seconds}", "sortBy": "DD", "start": offset})
         text = queue.call(lambda: fetch(LINKEDIN.format(query=query)))
         out.append(text)
-        if "base-card" not in text:
+        held = text.count('<div class="base-card')
+        if not held:
             break
+        # "start" counts postings: a page held 25 before Nov 2026 and 10 since (seen 21 Nov: steps of 25 skipped
+        # postings 10-24 and 35-49), so the next page starts after the last posting read.
+        offset += held
     return out
 
 
@@ -453,7 +512,11 @@ def location_out(p, from_dir, regions):
     if only and not any(place_ok("Remote, " + x, PLACES, regions) for x in only):
         return "hires only in " + only[0]
     zones = TIME_ZONES.search(text)
-    if zones and not place_ok("Remote, US", PLACES, regions):
+    # "some overlap with US hours" asks for a few shared hours, not US working hours; "full overlap" asks for them.
+    near = text[max(0, zones.start() - 60):zones.end() + 20] if zones else ""
+    overlap = re.search(r"(?i)\boverlap", near) and not re.search(r"(?i)\b(full|fully|complete|completely|entire)\s+"
+                                                                  r"overlap|\boverlap\s+(fully|completely)\b", near)
+    if zones and not overlap and not place_ok("Remote, US", PLACES, regions):
         return "works " + zones.group(0)
     return ""
 
@@ -563,17 +626,28 @@ def wanted(row, title, place, role_terms, regions):
     if not place_ok(place, own or PLACES, regions):
         return False
     where = place.lower()
-    remote_only = "remote" in where and not re.search(r"\b(hybrid|office|on-?site)\b", where)
+    remote_only = remote_like(where)
     return not own or row.get("mode") == "remote" or remote_only or place_ok(place, PLACES, regions)
+
+
+def remote_like(where):
+    """A place that is remote, or names only regions ("Europe", "EMEA; Worldwide": no city or country), with no
+    hybrid or office part. 0.46.0: a region-only place was read as an office place and dropped. "Berlin, EMEA" is
+    no region-only place."""
+    if re.search(r"\b(hybrid|office|on-?site)\b", where):
+        return False
+    region_only = bool(WIDE.search(where)) and not re.sub(r"[\s,;/|()&+.\-–]+|\band\b", "", WIDE.sub("", where))
+    return "remote" in where or region_only
 
 
 def place_ok(place, places, regions):
     """A place the person ruled out (NOT_PLACES) never passes, even inside a place they accept ("Turin, Italy" with
-    Turin ruled out); then the place must hold one of places, where a remote posting needs one of places or regions."""
+    Turin ruled out); then the place must hold one of places, where a remote or region-only posting needs one of
+    places or regions."""
     where = place.lower()
     if title_has(where, NOT_PLACES):
         return False
-    if "remote" in where:
+    if "remote" in where or remote_like(where):
         return where.strip(" ()-") == "remote" or title_has(where, places + regions)
     return not places or title_has(where, places)
 
@@ -589,15 +663,31 @@ def run(script, *more):
 
 
 def tracked_keys():
-    """(employer key, title key) -> job id for every job in the tracker, whatever its status."""
+    """(employer key, title key) -> job id for every job in the tracker, except a closed one (a new posting is a new
+    opening) and one the fit check skipped only by a setting's cut the person's settings no longer make
+    (choices.setting_cut on a "fit:" note; 0.46.0: such a cut kept the title out for good). The new posting then comes
+    in, and track.py reopen leaves the old row skipped."""
     with open(ENV.path("TRACKER"), encoding="utf-8") as fh:
         jobs = flat_jobs(json.load(fh))
     out = {}
     for j in jobs:
+        note = str(j.get("note") or j.get("outcome") or "")
+        if j.get("status") == "closed" or (j.get("status") == "skipped" and note.startswith("fit:")
+                                           and choices.setting_cut(note, ENV)):
+            continue
         tk = reposts.title_key(j.get("title", ""))
         for k in reposts.employer_keys(ENV, j.get("company", ""), {}):
             out.setdefault((k, tk), j.get("id", ""))
     return out
+
+
+def save_text(path, p, text):
+    """A posting's text from a board's list, in fetch_jd.py --posting's form."""
+    d = datetime.date.today()
+    body = re.sub(r"\n{3,}", "\n\n", text).strip()
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(f"# Job description: {p['company']} - {p['title']}\n\n- **Source:** {p['url']}\n"
+                 f"- **Fetched:** {d.day} {d:%b %Y} (the posting can change or close later)\n\n{body}\n")
 
 
 def window_start(since, rows_of_log):
@@ -680,10 +770,12 @@ def main():
             continue
         refusals[row["source"]] = 0  # an answer ends a run of refusals
         postings = [p for text in texts for p in parse(row["source"], row.get("board", ""), text)]
-        since = start.date().isoformat()
+        # A board lists only open postings: its first read takes them all, so the posting that led to the board is
+        # never lost to the window (0.46.0); later reads start at the row's last read.
+        since = "" if row["source"] in BOARDS and not last[:10] else start.date().isoformat()
         kept, dropped = [], {}
         for t, c, p, d, u in postings:
-            if not u or not wanted(row, t, p, role_terms, regions) or (d and d < since):
+            if not u or not wanted(row, t, p, role_terms, regions) or (d and since and d < since):
                 continue
             why = title_out(t, rules)  # before any text is read: the person's title rules
             if why:
@@ -744,7 +836,11 @@ def main():
                             location=j.get("location", ""), date=j.get("date", ""), found_by=j.get("found_by", ""),
                             search=j.get("search", ""), unread=j.get("unread", ""))
                        for j in flat_jobs(json.load(fh))
-                       if j.get("status") == "found" and str(j.get("found_by", "")).startswith("script:")
+                       # track.py reopen: any finder, from its "reopened" day on (--per-day paces them); the
+                       # field stays on the row, so a reopened job left found and unprepared comes back next run
+                       if j.get("status") == "found"
+                       and (str(j["reopened"]) <= datetime.date.today().isoformat() if j.get("reopened")
+                            else str(j.get("found_by", "")).startswith("script:"))
                        and not j.get("prep") and j["id"] not in {p["id"] for p in new}]
         for p in backlog:
             row = rows_by_id.get(int(p["search"])) if str(p["search"]).isdigit() else None
@@ -813,6 +909,7 @@ def main():
                     left[p["id"]] = "location: its text says nothing of remote work (LinkedIn remote search)"
                     print(f"left out: {p['id']} | {p['company']} | {p['title']} | {left[p['id']]}")
                     continue
+                keep_text(p["url"], text)  # the guest page holds the whole posting: the fit check needs no fetch
             elif checks > 0 and not p["found_by"].startswith("script:linkedin"):
                 checks -= 1  # the posting's own page, before any token is spent on it (19 Nov: 32 of 40 out)
                 why = location_out(p, opts.get("--from"), regions)
@@ -839,6 +936,17 @@ def main():
         unread_ids = [p["id"] for p in chosen if p.get("unread")]
         if unread_ids and not opts.get("--from"):
             print(run("fetch_jd.py", *unread_ids, "--posting").strip())
+        # A board's list carried the posting text (TEXTS): saved now, so the fit check reads it whole, with no fetch
+        # and no "check in browser" (0.46.0).
+        saved = 0
+        for p in chosen:
+            text_file = os.path.join(postings, p["id"] + ".md")
+            if p["url"] in TEXTS and not os.path.isfile(text_file):
+                os.makedirs(postings, exist_ok=True)
+                save_text(text_file, p, TEXTS[p["url"]])
+                saved += 1
+        if saved:
+            print(f"{saved} posting texts saved for the fit check (boards' lists, LinkedIn remote checks)")
         for p in chosen:
             # A page drawn by script (seen: jobs.dover.com) gives no text to a script or to the fit check.
             text_file = os.path.join(postings, p["id"] + ".md")
@@ -852,7 +960,7 @@ def main():
             companies.setdefault(p["company"], []).append({k: p[k] for k in ("id", "title", "url", "location", "date", "found_by")}
                                                           | ({"pay": p["pay"]} if p["pay"] else {})
                                                           | ({"text_file": text_file.replace(os.sep, "/")}
-                                                             if p.get("unread") and os.path.isfile(text_file) else {})
+                                                             if os.path.isfile(text_file) else {})
                                                           | ({"apply_url": "", "apply_note": "apply on the employer's "
                                                               "own careers page (this site's posting pages are blocked)"}
                                                              if discovery else {"apply_url": p["url"]}))

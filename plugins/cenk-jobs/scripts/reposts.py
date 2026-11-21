@@ -10,7 +10,9 @@ Example: "Senior Software Engineer (m/f/d)" sent at "Acme (Parent)" makes "Softw
 repost; "Staff Software Engineer" there is not one.
 A job counts as applied to when its tracker status is submitted or declined, or it has an applied date.
 collect_postings.py --out leaves reposts out of the funnel, and a posting whose employer and title match a job the
-funnel skipped for fit in the last 30 days (the fit cache). Add --env <job-search.env> anywhere to pick the env file.
+funnel skipped for fit in the last 30 days (the fit cache); a skip by a setting's cut the person's settings no longer
+make (choices.setting_cut, example: APPLY_FITS=high, now normal) does not count. Add --env <job-search.env> anywhere
+to pick the env file.
 """
 import datetime
 import json
@@ -20,6 +22,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import choices  # noqa: E402
 import employerlib as el  # noqa: E402
 import jsenv  # noqa: E402
 from trackerlib import companies  # noqa: E402
@@ -71,8 +74,9 @@ class Index:
         for company, job in companies(tracker):
             last = (job.get("history") or [{}])[-1]
             note = last.get("note") or last.get("outcome") or ""  # the older tracker shape keeps it in "outcome"
+            # A cut by a setting the person no longer has (choices.setting_cut) is no fit skip any more (0.46.0).
             if job.get("status") == "skipped" and str(note).startswith("fit:") \
-                    and str(last.get("date", ""))[:10] >= since:
+                    and str(last.get("date", ""))[:10] >= since and not choices.setting_cut(note, env):
                 name = job.get("company") or company.get("name", "")
                 for k in employer_keys(env, name, self.employers):
                     self.fit_skipped.setdefault((k, title_key(job.get("title", ""))), job["id"])

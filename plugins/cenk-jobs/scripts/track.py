@@ -45,6 +45,13 @@ python -I track.py brief <id> [<id> ...]                                  the fi
                                                                            OPTIONAL_FIELDS), then a compact view of
                                                                            prepared jobs: links, CV,
                                                                            letter, answers, open points
+python -I track.py reopen [--apply [--per-day N]]                        the fits skipped only by a setting's cut the
+                                                                           person's settings no longer make (APPLY_FITS
+                                                                           =high, LONG_SHOTS_PER_DAY=0), never sent;
+                                                                           --apply sets them back to found (old fit
+                                                                           result in the history row) for the next run;
+                                                                           --per-day N: the newest N join the next run,
+                                                                           N more each day after
 python -I track.py list [<status>]                                        one line per job
 python -I track.py summary                                                counts by status (and screening verdict)
 python -I track.py sync <journal.jsonl> [...]                             merge screening and preparation results
@@ -488,16 +495,20 @@ def sync(journals):
     save(collapse(data, PATH))  # rows with a detail file go back to summary rows and their files
     queue = [(c["name"], j) for c in data["companies"] if c.get("verdict", "") in ("clear", "allow", "discuss", "")
              for j in c["jobs"] if "prep" in j and j["status"] == "pending"]
-    # The best grades first, then the newest: the order the applications go in.
+    # The best grades first; inside a grade a job without a scope gap before one with it (a staff, head or director
+    # role after a lead or EM role: no positive reply from those in the 19 Nov analysis), then the newest.
     queue.sort(key=lambda q: str(q[1].get("date") or next((h.get("date") for h in q[1].get("history") or []
                                                             if h.get("date")), "")), reverse=True)
-    queue.sort(key=lambda q: {"high": 0, "normal": 1, "long-shot": 2}.get(q[1]["prep"].get("grade"), 3))
-    # Long-shots: at most LONG_SHOTS_PER_DAY a day, counting today's submitted ones; the rest wait for a later day.
+    queue.sort(key=lambda q: any(g.get("kind") == "scope" for g in q[1]["prep"].get("gaps") or []
+                                 if isinstance(g, dict)))
+    queue.sort(key=lambda q: {"high": 0, "normal": 1, "long-shot": 2, "weak": 3}.get(q[1]["prep"].get("grade"), 4))
+    # Long-shots and weak fits: at most LONG_SHOTS_PER_DAY a day together, counting today's submitted ones; the rest
+    # wait for a later day.
     room = long_shot_room(data)
-    held = [q for q in queue if q[1]["prep"].get("grade") == "long-shot"][room:]
+    held = [q for q in queue if q[1]["prep"].get("grade") in LONG_SHOTS][room:]
     queue = [q for q in queue if q not in held]
     if held:
-        print(f"long-shots waiting for a later day (LONG_SHOTS_PER_DAY): {len(held)}")
+        print(f"long-shots and weak fits waiting for a later day (LONG_SHOTS_PER_DAY): {len(held)}")
     for name, j in queue:
         p = j["prep"]
         print(j["id"], "|", name, "|", j["title"][:55], "|", p.get("action"), "|", p.get("grade") or "-", "|", p.get("open"), "|",
@@ -508,11 +519,14 @@ def sync(journals):
     print("verdicts:", counts, "| queue:", len(queue))
 
 
+LONG_SHOTS = ("long-shot", "weak")  # the grades LONG_SHOTS_PER_DAY limits together (0.46.0: a weak fit is no skip)
+
+
 def long_shot_room(data):
-    """How many more long-shots may go today: LONG_SHOTS_PER_DAY minus the long-shots submitted today."""
+    """How many more long-shots and weak fits may go today: LONG_SHOTS_PER_DAY minus those submitted today."""
     cap = int(choices.value(env, "LONG_SHOTS_PER_DAY")[0] or 0)
     sent = sum(1 for _, j in entries(data) if j.get("status") == "submitted" and j.get("applied") == today
-               and (j.get("grade") or (j.get("prep") or {}).get("grade")) == "long-shot")
+               and (j.get("grade") or (j.get("prep") or {}).get("grade")) in LONG_SHOTS)
     return max(cap - sent, 0)
 
 
@@ -750,7 +764,7 @@ def outcome_command(pipeline, job, rest):
 
 # --- the commands -------------------------------------------------------------------------------------------------
 if not args or args[0] not in ("add", "set", "todo", "wait", "step", "outcome", "show", "brief", "list", "summary",
-                               "sync", "split"):
+                               "sync", "split", "reopen"):
     sys.exit(__doc__)
 cmd = args[0]
 
@@ -936,6 +950,69 @@ elif cmd == "brief":
         for n in needs_of(p):
             print("   NEED:", n[:230])
         print("   reason:", (p.get("reason") or job.get(NOTE) or "")[:260])
+elif cmd == "reopen":
+    # A fit skipped only by a setting's cut the person's settings no longer make (APPLY_FITS=high on a normal fit,
+    # LONG_SHOTS_PER_DAY=0 on a long-shot or weak one), never sent: back to found with the old fit result in its
+    # history row, so the next run's funnel checks and prepares it (collect_postings.py takes "reopened" rows).
+    # A cut job posted again under a new link is already back in the tracker (collect_postings.py lets it in): the
+    # newer row wins and the old one stays skipped, so one job never gets two fit checks; of two cut rows of one job,
+    # only the newest comes back.
+    import reposts  # noqa: E402
+    cuts = [(c, row, choices.setting_cut(row.get(NOTE, ""), env)) for c, row in companies(data)
+            if row.get("status") == "skipped" and not row.get("applied") and str(row.get(NOTE, "")).startswith("fit:")]
+    cuts = sorted([t for t in cuts if t[2]], key=lambda t: str(t[1].get("date") or ""), reverse=True)
+
+    def job_keys(c, row):
+        return {(k, reposts.title_key(title_of(row))) for k in reposts.employer_keys(env, c.get("name", "")
+                                                                                     or row.get("company", ""), {})}
+    cut_ids = {row["id"] for _, row, _ in cuts}
+    taken = {k: row["id"] for c, row in companies(data) if row["id"] not in cut_ids and row.get("status") != "closed"
+             for k in job_keys(c, row)}
+    kept, twins = [], 0
+    for c, row, cut in cuts:
+        keys = job_keys(c, row)
+        if any(k in taken for k in keys):
+            twins += 1
+            continue
+        taken.update({k: row["id"] for k in keys})
+        kept.append((c, row, cut))
+    cuts = kept
+    for c, row, cut in cuts:
+        print(f"{row['id']} | {c.get('name', '') or row.get('company', '')} | {title_of(row)[:60]} | {cut} no longer "
+              "cuts it")
+    if twins:
+        print(f"{twins} left skipped: the same job is in the tracker under a newer row")
+    if not cuts:
+        print("nothing to reopen: no fit skip by a setting the person's settings no longer make")
+    elif "--apply" not in args[1:]:
+        print(f"{len(cuts)} to reopen; dry run: nothing was changed (reopen --apply"
+              + (" --per-day " + args[args.index("--per-day") + 1] if "--per-day" in args[:-1] else "") + " does it)")
+    else:
+        # --per-day N: the newest N join the next run, the next N a day later, and so on (the "reopened" date is the
+        # day a job joins the funnel). Example: 64 at 15 a day take 5 days.
+        at = args.index("--per-day") if "--per-day" in args else -1
+        raw = args[at + 1] if 0 <= at < len(args) - 1 else ("?" if at >= 0 else "")
+        if raw and not (raw.isdigit() and int(raw) > 0):
+            sys.exit(f"--per-day is a whole number above 0: got {raw!r}")
+        per_day = int(raw) if raw else len(cuts)
+        ready()
+        start = datetime.date.today()
+        for i, (c, row, cut) in enumerate(cuts):
+            job = expand_row(PATH, row)
+            change = {"date": today, "status": "found", NOTE: f"reopened: {cut} no longer cuts it"}
+            if job.get("prep"):
+                change["prep"] = job.pop("prep")
+            job.pop("grade", None)
+            job.setdefault("history", []).append(change)
+            day = (start + datetime.timedelta(days=i // per_day)).isoformat()
+            job.update({"status": "found", NOTE: change[NOTE], "reopened": day})
+            collapse_row(PATH, row, job, is_company_shape(data))
+        save(data, [row["id"] for _, row, _ in cuts])
+        last = (start + datetime.timedelta(days=(len(cuts) - 1) // per_day)).isoformat()
+        print(f"reopened {len(cuts)}: the next run takes {min(per_day, len(cuts))}"
+              + (f", then {per_day} a day until {last}" if last != today else "")
+              + "; each gets a fit check and, if it passes, a preparation")
+        print(PAGES_BEHIND)
 elif cmd == "list":
     for company, job in companies(data):
         if len(args) < 2 or job.get("status") == args[1]:

@@ -15,9 +15,14 @@ Keys (default first):
     WRITER_MODEL    opus | sonnet            letters and free text by Opus, or by the cheaper model with its review
     EMPLOYER_CHECK  cheap | free             the cheap model check where the free lookup cannot decide, or none
     APPLY           auto | list              fill and send, or only a list of fitting jobs with links
-    APPLY_FITS      normal | high            auto-send high and normal fits (score 65 or more), or only high (80)
-    LONG_SHOTS_PER_DAY 0 | <n>               long-shots (score 50-64) auto-sent a day, after the high and normal
-                                             ones; 0: none, they stay listed for the person
+    APPLY_FITS      normal | high            auto-send high and normal fits (at most one kind of soft gap), or only
+                                             high (none)
+    LONG_SHOTS_PER_DAY 0 | <n>               long-shots and weak fits (two or more kinds of soft gaps) auto-sent a day,
+                                             after the high and normal ones; 0: none, they stay listed for the
+                                             person
+    FIT_MODEL       sonnet | opus | opus-max the fit check's model: Sonnet (about 60k tokens an employer), Opus at
+                                             medium effort (about 100k), which reads the requirements closer, or
+                                             Opus at max effort (about 150-300k, estimated)
     LETTERS         asked | always | never   a letter where the form has or may have a field (an optional field
                                              gets it too), always, or never
     EMAILED_CODES   off | on                 on: the session reads an application's emailed code or confirmation
@@ -58,12 +63,15 @@ KEYS = {
     "MAX_NEW_PER_RUN": (None, "30"),
     "LONG_SHOTS_PER_DAY": (None, "0"),
     "SESSION_MODEL": (("sonnet", "opus", "haiku", ""), "sonnet"),
+    "FIT_MODEL": (("sonnet", "opus", "opus-max"), "sonnet"),
     "EMAILED_CODES": (("off", "on"), "off"),
     "OPTIONAL_FIELDS": (("off", "fill"), "off"),
     "PLAN": (("pro", "max5", "max20", "max", "other", ""), ""),
 }
 SUGGEST = {"pro": {"APPLY": "list", "LETTERS": "never", "SEARCH_DAYS": "Mon"}, "max5": {}, "max20": {}, "max": {}, "other": {}}
-SOFT = ("missing_must_have", "pay_below", "seniority")
+# The gap kinds that never skip a job (0.46.0); any other kind ("hard") does. One list: the workflow gets it as
+# args.fit.soft (workflow_args), so the two graders never drift.
+SOFT = ("missing_must_have", "pay_below", "seniority", "stack", "domain", "scope", "relocation")
 
 
 def problem(key, value):
@@ -92,11 +100,11 @@ def ask_first(env):
     return [s for s in value(env, "ASK_FIRST")[0].split(",") if s in STEPS]
 
 
-# The fit score's defaults (19 Nov reply analysis): a requirement's weight by its place in the posting, and the
-# grade bands. The person's own values: FIT_SETTINGS (default apply/fit-settings.json), as in
-# templates/fit-settings-example.json.
+# The fit settings' defaults: a requirement's weight by its place in the posting (the score, kept as information
+# since 0.46.0), the score bands (read by feedback.py's analysis only), the channel notes, and the soft gap kinds.
+# The person's own values: FIT_SETTINGS (default apply/fit-settings.json), as in templates/fit-settings-example.json.
 FIT_DEFAULTS = {"weights": {"title": 4, "must_years": 3, "must": 2, "nice": 1},
-                "grades": {"high": 80, "normal": 65, "long_shot": 50}, "channel_notes": {}}
+                "grades": {"high": 80, "normal": 65, "long_shot": 50}, "channel_notes": {}, "soft": list(SOFT)}
 LEVEL_MATCH = {"hands_on": 1.0, "adjacent": 0.5, "absent": 0.0}
 
 
@@ -140,48 +148,63 @@ def score(job, settings=None):
 
 def workflow_args(env):
     get = lambda k: value(env, k)[0]  # noqa: E731
-    return {"writerModel": get("WRITER_MODEL"), "employerCheck": get("EMPLOYER_CHECK"), "apply": get("APPLY"),
-            "applyFits": get("APPLY_FITS"), "longShots": int(get("LONG_SHOTS_PER_DAY") or 0),
+    return {"writerModel": get("WRITER_MODEL"), "fitModel": get("FIT_MODEL"), "employerCheck": get("EMPLOYER_CHECK"),
+            "apply": get("APPLY"), "applyFits": get("APPLY_FITS"), "longShots": int(get("LONG_SHOTS_PER_DAY") or 0),
             "letters": get("LETTERS"), "askFirst": ask_first(env), "fit": fit_settings(env)}
+
+
+def setting_cut(note, env):
+    """The key of the setting whose cut skipped a fit, when the person's settings no longer make it, else "".
+    Example: "fit: not a high fit (APPLY_FITS=high): Go" with APPLY_FITS=normal -> "APPLY_FITS"; a hard gap -> ""."""
+    note = str(note or "")
+    if "(APPLY_FITS=high)" in note and value(env, "APPLY_FITS")[0] != "high":
+        return "APPLY_FITS"
+    room = value(env, "LONG_SHOTS_PER_DAY")[0]
+    if "LONG_SHOTS_PER_DAY=0" in note and room.isdigit() and int(room) > 0:
+        return "LONG_SHOTS_PER_DAY"
+    return ""
+
+
+def gap_count(gaps):
+    """The soft gap kinds, counted (the 19 Nov reply analysis' gap groups): each kind 1, however many gaps it holds;
+    a domain kind with a gap of no adjacent real fact (closest "none" or empty) 2. Example: Go and Kubernetes
+    missing -> 1 (stack); Go missing and a payments domain with no adjacent fact -> 3."""
+    none = any(g.get("kind") == "domain" and str(g.get("closest") or "").strip().lower() in ("", "none") for g in gaps)
+    return len({g.get("kind") for g in gaps}) + (1 if none else 0)
 
 
 def grade(job, apply_fits="normal", settings=None, long_shots=0):
     """(grade, reason): high, normal, long-shot, weak or unread; a reason means the job is a skip, listed with it.
 
-    A hard gap (place, work mode, eligibility, a required language, a security clearance) is a skip with grade "".
-    A posting not read in full is "unread", a skip that waits for the next run's fit check with the posting text.
-    Else the score's band (FIT_SETTINGS grades): 80+ high, 65-79 normal, 50-64 long-shot, under 50 weak (a skip,
-    listed for the person). A normal fit with APPLY_FITS=high, and a long-shot with LONG_SHOTS_PER_DAY=0, is a skip
-    too. A job without requirements (before 0.41.0) is graded from its gaps: none high, one soft normal, more weak.
-    Example: requirements scoring 72 -> ("normal", ""); scoring 40 -> ("weak", "weak fit: score 40")."""
+    A hard gap (place, work mode, eligibility, a required language, a security clearance, pay far under the rule) is
+    a skip with grade "". A posting not read in full is "unread", a skip that waits for the next run's fit check with
+    the posting text. Else the kinds of soft gaps decide (0.46.0; 19 Nov reply analysis: 72% of rejections had two
+    or more gap groups, 31% of invitations): 0 high, 1 normal, 2 long-shot, 3 or more weak (gap_count). A long-shot or
+    a weak fit goes on only within LONG_SHOTS_PER_DAY (0: a skip, listed for the person); a normal fit with
+    APPLY_FITS=high is a skip. A read posting with no must-haves and no requirements counts one kind ("no
+    evidence"): never high. The weighted score stays on the job as information (graded). Example: two stack gaps ->
+    ("normal", ""); a domain gap with no adjacent fact -> ("long-shot", "long-shot: 2 soft gap kinds
+    (LONG_SHOTS_PER_DAY=0): <what>")."""
     gaps = job.get("gaps")
     if job.get("action") != "apply" or (gaps is None and job.get("requirements") is None):
         return job.get("grade", ""), ""
     gaps = gaps or []
+    soft = (settings or FIT_DEFAULTS).get("soft") or SOFT
     what = "; ".join(str(g.get("what", "")) for g in gaps)
-    if any(g.get("kind") not in SOFT for g in gaps):
+    if any(g.get("kind") not in soft for g in gaps):
         return "", "a hard gap: " + what
-    # Before the score: a posting read in part or not at all may have no requirements, hence no score.
     if job.get("read", "full") != "full":
         return "unread", "unread: the posting text was not read; the next run checks it again"
-    s = score(job, settings)
-    if s is not None:
-        bands = (settings or FIT_DEFAULTS)["grades"]
-        g = ("high" if s >= bands["high"] else "normal" if s >= bands["normal"]
-             else "long-shot" if s >= bands["long_shot"] else "weak")
-        if g == "weak":
-            return g, f"weak fit: score {s}"
-        if g == "long-shot" and not long_shots:
-            return g, f"long-shot: score {s} (LONG_SHOTS_PER_DAY=0)"
-        if g == "normal" and apply_fits == "high":
-            return g, f"not a high fit (APPLY_FITS=high): score {s}"
-        return g, ""
-    soft = len(gaps)
-    if soft > 1:
-        return "weak", "weak fit: " + what
-    if soft == 1 and apply_fits == "high":
-        return "normal", "not a high fit (APPLY_FITS=high): " + what
-    return ("high" if soft == 0 else "normal"), ""
+    n = gap_count(gaps)
+    reqs = [r for r in job.get("requirements") or [] if isinstance(r, dict)]
+    if isinstance(job.get("must_haves"), list) and not job["must_haves"] and not reqs and not n:
+        n, what = 1, "no evidence: no must-haves read"  # a read posting with nothing checked is never high
+    g = "high" if n == 0 else "normal" if n == 1 else "long-shot" if n == 2 else "weak"
+    if g in ("long-shot", "weak") and not long_shots:
+        return g, f"{g}: {n} soft gap kinds (LONG_SHOTS_PER_DAY=0): {what}"
+    if g == "normal" and apply_fits == "high":
+        return g, f"not a high fit (APPLY_FITS=high): {what}"
+    return g, ""
 
 
 def graded(job, apply_fits="normal", settings=None, long_shots=0):

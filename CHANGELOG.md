@@ -6,6 +6,52 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.46.0] - 2026-11-21
+
+The fit check grades by the kinds of soft gaps, and more postings reach it: boards' remote flags and region-only
+places, LinkedIn's pages without gaps, a board's first read whole, and the posting texts saved at collect time.
+
+### Added
+
+- `track.py reopen [--apply [--per-day N]]`: the fits skipped only by a setting's cut the person's settings no longer
+  make (`APPLY_FITS=high` on a normal fit, `LONG_SHOTS_PER_DAY=0` on a long-shot or a weak one), never sent; `--apply`
+  sets them back to found with the old fit result in the history row, and the funnel takes them, whoever found them,
+  from their "reopened" day: with `--per-day N` the newest N the next run, N more each day after. Example: "reopened
+  64: the next run takes 15, then 15 a day until 2026-11-25". Only a skip note starting "fit:" counts, and one whose
+  job is in the tracker under a newer row (a repost) stays skipped. A weak fit skipped before 0.46.0 ("weak fit:
+  score N") names no setting and is not reopened.
+- `FIT_MODEL=sonnet|opus|opus-max` (default sonnet): Opus runs the fit check at medium effort (about 100k W an
+  employer against 60k W on Sonnet) or at max effort (about 150-300k W, estimated).
+- Gap kinds `stack`, `domain` (with `closest`, or "none"), `scope` and `relocation`, all soft; one list of soft kinds
+  (`choices.SOFT`), passed to the workflow as `args.fit.soft`.
+- `fetch_jd.py`: a page's JSON-LD JobPosting, Workday's public job JSON, Workable links without the account; LinkedIn
+  3 s apart with one 60 s retry after a 429; a text under 300 characters is never saved as the posting.
+
+### Changed
+
+- The grade is the count of soft gap kinds (the 19 Nov reply analysis' gap groups): 0 high, 1 normal, 2 long-shot,
+  3 or more weak; two stack gaps count once, a domain kind with no adjacent fact twice. Only a hard gap skips. A
+  weak fit goes on within `LONG_SHOTS_PER_DAY`, after the long-shots; the weighted score stays as information. A
+  read posting with no must-haves and no requirements is never high ("no evidence"). The workflow and `choices.py
+  grade` give the same grade.
+- The fitter reads a LinkedIn job with no saved text at its public guest page (`jobs-guest/jobs/api/jobPosting/<n>`):
+  seen 21 Nov, two of three LinkedIn postings came back unread from the view link and gave their full text there.
+- The fitter reads the person's level from the record's largest scope: a staff, principal, head or director role is
+  one `scope` gap, never hard; inside a grade, a job with a scope gap goes after one without in the sync queue. A
+  cloud or Kubernetes must-have the record lacks is a `stack` gap with a warning.
+- `collect_postings.py`:
+  - LinkedIn: newest first (`sortBy=DD`); the row's terms (else `ROLE_TERMS`) joined with OR, a term of two or more
+    words quoted; up to 5 pages, each from the posting after the last one read. Seen 21 Nov: the guest search gives
+    10 postings a page, so steps of 25 skipped postings 10-24 and 35-49.
+  - A board's own remote flag (Ashby, Lever, Workable, SmartRecruiters) makes the place "Remote - <place>"; a place
+    that names only regions ("EMEA") is checked against the remote regions, not as an office.
+  - "Some overlap with US hours" no longer leaves a posting out; "works US hours" still does.
+  - A board row's first read takes every open posting, whatever its date; later reads keep their window.
+  - The posting text a board's list carries (Greenhouse with `content=true`, Lever, Ashby) is saved in
+    `POSTINGS_DIR` and passed as `text_file`: the fit check reads it whole, with no fetch.
+  - The same employer and title in the tracker no longer blocks a posting when that job closed, or was skipped only
+    by a setting's cut no longer made; the fit cache passes such a cut too.
+
 ## [0.45.1] - 2026-11-21
 
 The person's name and contact line come from their profile; `job-search.env`'s lines only override them.
