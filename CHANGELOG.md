@@ -6,6 +6,32 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.46.6] - 2026-11-21
+
+More fits from the catch-up's lessons of 21 Nov, and fewer fit checks spent on postings the person cannot take.
+
+### Added
+
+- `track.py reopen --weak`: also the skips the old score graded weak before 0.46.0 ("weak fit: ..."), inside the
+  person's places, back to found for a fresh fit check by the kinds of gaps, at `--per-day` pace. Example: "48 to
+  reopen", "179 left skipped: outside the person's places now".
+- `collect_postings.py --rows <id,id>`: a widening round reads only its own new search rows (seen 21 Nov: about 160
+  rows, 30-40 minutes a round); a listed row not due is named. The search skill gets the stop rule: stop widening
+  after 3 rounds in a row below the best round's real fits.
+
+### Changed
+
+- Remote Rocketship: a posting's place is the countries it hires in (its own `locationCountries`, else `location`),
+  not the board's ("Remote, Europe"), so one open only in another country is left out before any token (seen 21 Nov:
+  36 such hard skips in one catch-up); a posting whose `requiredLanguages` holds a language the master record does
+  not list is left out too, counted in one line (9 language skips).
+- A LinkedIn remote search's posting in a place the person takes in any work mode (the scope's any_mode_places,
+  example Lisbon) no longer needs the word remote in its text.
+- "Full Remote", "Fully remote" and "100% remote" read as "Remote" in the place check; they were dropped.
+- The grade: a stack the job title names that the record shows no use of counts as two gap kinds, so such a job is
+  at least a long-shot (Python and the workflow alike); the fit prompt marks such a title stack "absent", never
+  "adjacent". Example: a C#/.NET role for a Java record, normal before.
+
 ## [0.46.5] - 2026-11-21
 
 Every pay figure typed into a form is rounded up until its significant part ends in 0 or 5 (a lesson of 21 Nov).

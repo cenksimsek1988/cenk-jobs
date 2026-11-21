@@ -203,6 +203,13 @@ def grade(job, apply_fits="normal", settings=None, long_shots=0):
     reqs = [r for r in job.get("requirements") or [] if isinstance(r, dict)]
     if isinstance(job.get("must_haves"), list) and not job["must_haves"] and not reqs and not n:
         n, what = 1, "no evidence: no must-haves read"  # a read posting with nothing checked is never high
+    # A stack the job title names that the record shows no use of counts as two kinds: at least a long-shot (0.46.6;
+    # seen 21 Nov: a C#/.NET role graded normal for a Java record).
+    title_absent = [str(r.get("text") or "").strip() for r in reqs
+                    if r.get("place") == "title" and r.get("level") == "absent" and str(r.get("text") or "").strip()]
+    if title_absent:
+        n = max(n + 1, 2)
+        what = "; ".join(x for x in (what, "the title asks " + ", ".join(title_absent) + ", not held") if x)
     g = "high" if n == 0 else "normal" if n == 1 else "long-shot" if n == 2 else "weak"
     if g in ("long-shot", "weak") and not long_shots:
         return g, f"{g}: {n} soft gap kinds (LONG_SHOTS_PER_DAY=0): {what}"

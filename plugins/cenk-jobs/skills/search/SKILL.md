@@ -81,6 +81,9 @@ tracker, and nothing is prepared or sent.
    changes by hand go in one `track.py set --file`), `variants.py funnel <the workflow's result>`, and `employer.py
    recheck-running` (RULES/employers.md, "Running applications").
 5. Record every finding as found (RULES.md, "Employer rules"). Postings that closed: `track.py set <id> closed`.
+   A run that widens in rounds (new search rows each round): a round reads only its new rows (`collect_postings.py
+   --rows <ids> --out ... --add`), and the widening stops after 3 rounds in a row below the best round's real fits
+   (high and normal). Example: real fits 12, 5, 3, 2: stop after the fourth round.
 6. `build_app_folders.py` and the dashboard refresh.
 7. The first run of the week: `../../references/weekly.md` (reply clues, board discovery).
 

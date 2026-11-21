@@ -1,8 +1,9 @@
 """Collect new postings without a model: every saved search with method "script" (searches.py), read from the job
 board's public API or LinkedIn's guest search, filtered by its terms and places, minus what the tracker already has.
 
-python -I collect_postings.py [--since <YYYY-MM-DD[THH:MM]>] [--out <search file>] [--add] [--from <dir>]
+python -I collect_postings.py [--since <YYYY-MM-DD[THH:MM]>] [--out <search file>] [--add] [--from <dir>] [--rows <ids>]
     prints one line per new posting: company | title | place | date | link | found_by, then one line per search read.
+    --rows <id,id>: only these due searches (a widening round's new rows); a listed one not due is named, not read.
     --since: where the window starts for a search never read; default the start of the last finished run in the
     usage log, else 7 days back. A search read before starts at its own last read. Postings dated before the start are left out.
     --out: also writes the postings for workflows/screen-and-prepare.js ({companies: [{name, jobs: [{id, title, url,
@@ -47,7 +48,8 @@ engineering word. A job the last fit check could not read ("unread" in the track
 saved" line, for the session to save from Chrome. A job track.py reopen set back to found joins the funnel too, from
 its "reopened" day.
 Remote Rocketship: a title or stack with no page (404) is skipped with one line; the row fails only when every page
-does.
+does. A posting's place is the countries it hires in (its locationCountries, else location), not the board's; one
+whose required language the master record does not list is left out, counted in one line.
 LinkedIn: up to 5 pages per search over the window since its start, newest first, each page from the posting after
 the last one read, the row's terms (else ROLE_TERMS) joined with OR (linkedin_keywords), 4.5 s between calls and a
 job text 6 s after
@@ -76,6 +78,7 @@ import re
 import subprocess
 import sys
 import time
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -125,6 +128,8 @@ DISCOVERY_ONLY = ("himalayas", "himalayas-search")  # the apply link is the empl
 SOURCE_GAP, SOURCE_REFUSALS = 3.0, 2
 # A posting open to more than one country, or to a region: the Workable search keeps it (with remote work).
 WIDE = re.compile(r"(?i)\b(EU|EMEA|Europe|European Union|worldwide|anywhere)\b")
+# A place that says remote with a word of degree before it: read as plain "remote" (0.46.6). Example: "Full Remote".
+FULL_REMOTE = re.compile(r"(?i)(?:\b(?:full|fully|completely|entirely)|\b100\s*%)[\s-]+remote\b")
 # Hiring only in another country (18 Nov gate): the person's places decide whether it is "another" one.
 ONLY_IN = re.compile(r"\b(?i:must|need to|needs to|required to|should|have to)\s+(?i:be\s+)?(?i:based|located|"
                      r"reside|residing|resident|live|living)\s+(?i:in)\s+(?:the\s+)?([A-Z][A-Za-z.]+(?: [A-Z][A-Za-z.]+)*)")
@@ -278,16 +283,73 @@ def rocketship_title_page(data):
     return "query" not in data or bool((data.get("query") or {}).get("jobsInput"))
 
 
+LANGUAGES = None  # the words of the person's languages, from the master record's "languages" (read once)
+LANGUAGE_LEFT = {}  # a required language the records do not list -> the postings it left out this run
+# A language's own name, accents dropped, read as its English one, so the record may spell it either way.
+NATIVE_NAMES = {"deutsch": "german", "turkce": "turkish", "espanol": "spanish", "castellano": "spanish",
+                "francais": "french", "italiano": "italian", "portugues": "portuguese", "nederlands": "dutch",
+                "polski": "polish", "svenska": "swedish", "norsk": "norwegian", "dansk": "danish", "suomi": "finnish",
+                "cestina": "czech", "magyar": "hungarian", "romana": "romanian"}
+
+
+def language_words(text):
+    """A language entry's words in ASCII and lowercase, a native name read as its English one. Example: "Deutsch (C1)"
+    -> {"german", "c"}."""
+    plain = unicodedata.normalize("NFKD", str(text)).encode("ascii", "ignore").decode().lower()
+    return {NATIVE_NAMES.get(w, w) for w in re.findall(r"[a-z]+", plain)}
+
+
+def known_languages():
+    """The words of the languages the master record lists (strings, or {"language": ...}); empty when it lists none."""
+    global LANGUAGES
+    if LANGUAGES is None:
+        LANGUAGES = set()
+        env = globals().get("ENV")  # set by main(); a test may call this without it
+        path = env.path("MASTER_RECORD") if env is not None and env.get("MASTER_RECORD") else ""
+        try:
+            with open(path, encoding="utf-8") as fh:
+                items = (json.load(fh) or {}).get("languages") or []
+        except (OSError, ValueError, AttributeError):
+            items = []
+        for item in items if isinstance(items, list) else []:
+            name = item.get("language") or item.get("name") if isinstance(item, dict) else item
+            if name:
+                LANGUAGES |= language_words(name)
+    return LANGUAGES
+
+
+def language_ok(job):
+    """False when a Remote Rocketship posting requires a language the records do not list at all, so it never costs a
+    fit check (0.46.6; seen 21 Nov: 9 hard skips for a language). A language matches by any word of its name, in its
+    own spelling too ("Deutsch" is German). With no languages recorded, every posting passes."""
+    need = [str(x).strip() for x in job.get("requiredLanguages") or [] if str(x).strip()]
+    known = known_languages() if need else set()
+    missing = [x for x in need if known and not language_words(x) & known]
+    for x in missing:
+        LANGUAGE_LEFT[x] = LANGUAGE_LEFT.get(x, 0) + 1
+    return not missing
+
+
 def feed_postings(source, data, board=""):
     """[(title, company, place, date, url)] from a remote feed's answer; the place reads "Remote, <its region>". A
     posting that names no region never reads as a bare "Remote" (which passes anywhere): often it is US-only."""
     remote = lambda where: "Remote, " + (where.strip() or "no region given")  # noqa: E731
     if source == "remoterocketship":
         country = board.replace("-", " ").title()
-        return [(j.get("roleTitle", ""), ((j.get("company") or {}) if isinstance(j.get("company"), dict) else {}).get("name", ""),
-                 remote(country) if j.get("locationType", "remote") == "remote" else f"{j.get('locationType')}, {country}",
-                 day(j.get("created_at")), j.get("url", ""))
-                for j in data.get("jobs", []) if not (j.get("dateDeleted") or j.get("isEntryLevel") or j.get("isJunior"))]
+        out = []
+        for j in data.get("jobs", []):
+            if j.get("dateDeleted") or j.get("isEntryLevel") or j.get("isJunior") or not language_ok(j):
+                continue
+            # The posting's own countries, else the board's (0.46.6; seen 21 Nov: a posting open only in Poland read
+            # "Remote, Europe" from the europe board, and 36 such hard skips cost a fit check each in one catch-up).
+            own = ", ".join(str(c) for c in j.get("locationCountries") or [] if c) or str(j.get("location") or "")
+            where = own or country
+            kind = j.get("locationType", "remote")
+            out.append((j.get("roleTitle", ""),
+                        ((j.get("company") or {}) if isinstance(j.get("company"), dict) else {}).get("name", ""),
+                        remote(where) if kind == "remote" else f"{kind}, {where}",
+                        day(j.get("created_at")), j.get("url", "")))
+        return out
     if source == "himalayas-search":
         return [(j.get("title", ""), j.get("companyName", ""),
                  remote(", ".join(j.get("locationRestrictions") or []) or "Worldwide"), day(j.get("pubDate")),
@@ -636,6 +698,18 @@ def saved_rows(env):
 PLACES, NOT_PLACES = [], []  # from job-search.env in main()
 
 
+def remote_gate(row, location):
+    """True when a LinkedIn remote search's posting must say remote work in its text to go on. A posting in a place
+    the person takes in any work mode needs no such word (0.46.6; seen 21 Nov: hybrid postings in the scope's own
+    any_mode_places city were left out by a remote search). Example: "Lisbon, Portugal (Hybrid)" with any_mode_places
+    Lisbon goes on."""
+    if row.get("source") != "linkedin" or row.get("mode") != "remote":
+        return False
+    where = str(location or "").lower()
+    any_mode = bool(PLACES) and "remote" not in where and title_has(where, PLACES) and not title_has(where, NOT_PLACES)
+    return not any_mode
+
+
 def load_places(env):
     """Set PLACES and NOT_PLACES from job-search.env, then the master record's search scope field by field (one
     missing keeps the env's); return the regions a remote posting must name."""
@@ -678,8 +752,8 @@ def remote_like(where):
 def place_ok(place, places, regions):
     """A place the person ruled out (NOT_PLACES) never passes, even inside a place they accept ("Turin, Italy" with
     Turin ruled out); then the place must hold one of places, where a remote or region-only posting needs one of
-    places or regions."""
-    where = place.lower()
+    places or regions. "Full Remote", "Fully remote" and "100% remote" read as "Remote" (0.46.6: they were dropped)."""
+    where = FULL_REMOTE.sub("remote", place.lower())
     if title_has(where, NOT_PLACES):
         return False
     if "remote" in where or remote_like(where):
@@ -738,7 +812,7 @@ def main():
     global ENV
     args = sys.argv[1:]
     opts = {}
-    for flag in ("--env", "--out", "--from", "--since"):
+    for flag in ("--env", "--out", "--from", "--since", "--rows"):
         if flag in args:
             i = args.index(flag)
             if i + 1 >= len(args):
@@ -759,6 +833,17 @@ def main():
     rules = title_rules(ENV)
     since_args = ["--since", opts["--since"]] if opts.get("--since") else []
     rows = [r for r in json.loads(run("searches.py", "due", "--json", *since_args) or "[]") if r.get("method") == "script"]
+    if opts.get("--rows"):
+        # A widening round reads only its own new rows, not every due row again (0.46.6; seen 21 Nov: about 160
+        # rows, 30-40 minutes a round). Example: --rows 181,182.
+        ids = [x.strip() for x in opts["--rows"].split(",") if x.strip()]
+        if not ids or not all(x.isdigit() for x in ids):
+            sys.exit(f"--rows takes search ids, comma-separated: got {opts['--rows']!r}")
+        wanted_ids = {int(x) for x in ids}  # numbers: "0181" is row 181
+        not_due = sorted(wanted_ids - {int(r["id"]) for r in rows})
+        rows = [r for r in rows if int(r["id"]) in wanted_ids]
+        if not_due:
+            print(f"--rows: not due, not read: {', '.join(map(str, not_due))} (searches.py list)")
     rows.sort(key=rank)  # boards and feeds first: a LinkedIn refusal never costs them
     found, read, linkedin_stopped, refusals = [], [], "", {}
     queue = LinkedInQueue(live=not opts.get("--from"))
@@ -822,7 +907,7 @@ def main():
         own_name = row["source"] == "linkedin" or row["source"] in FEEDS  # each posting names its employer
         name = (lambda c: c or row["site"]) if own_name else (lambda c: employer)
         found += [dict(title=t, company=name(c), location=p, date=d, url=u, found_by=by, search=row["id"],
-                       rank=rank(row), gate=row["source"] == "linkedin" and row.get("mode") == "remote")
+                       rank=rank(row), gate=remote_gate(row, p))
                   for t, c, p, d, u in kept]
         read.append((row, len(kept), by))
     links = os.path.join(os.path.dirname(ENV.path("TRACKER")), ".collect-links.txt")
@@ -874,7 +959,7 @@ def main():
         for p in backlog:
             row = rows_by_id.get(int(p["search"])) if str(p["search"]).isdigit() else None
             p["rank"] = rank(row) if row else (2 if p["found_by"].startswith("script:linkedin") else 0)
-            p["gate"] = bool(row and row.get("source") == "linkedin" and row.get("mode") == "remote")
+            p["gate"] = bool(row and remote_gate(row, p.get("location", "")))
         # A role applied to before, posted again (a new link, the same employer and title), never goes in again;
         # nor one the funnel skipped for fit in the last FIT_CACHE_DAYS days (the fit cache).
         with open(ENV.path("TRACKER"), encoding="utf-8") as fh:
@@ -1018,6 +1103,9 @@ def main():
         row, n, by = item
         run("searches.py", "done", str(row["id"]), f"found={sum(1 for p in new if p['search'] == row['id'])}")
         print(f"search {row['id']} {row['site']}: {n} matching, read")
+    if LANGUAGE_LEFT:
+        print("Remote Rocketship postings left out for a required language the records do not list: "
+              + ", ".join(f"{k} {v}" for k, v in sorted(LANGUAGE_LEFT.items())))
     print(f"{len(new)} new postings from {sum(1 for x in read if not isinstance(x, str))} searches read by script"
           + (", added to the tracker" if add and new else "") + f"; window from {run_start:%Y-%m-%d %H:%M}")
 

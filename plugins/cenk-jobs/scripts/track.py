@@ -47,13 +47,15 @@ python -I track.py brief <id> [<id> ...]                                  the fi
                                                                            OPTIONAL_FIELDS), then a compact view of
                                                                            prepared jobs: links, CV,
                                                                            letter, answers, open points
-python -I track.py reopen [--apply [--per-day N]]                        the fits skipped only by a setting's cut the
+python -I track.py reopen [--weak] [--apply [--per-day N]]               the fits skipped only by a setting's cut the
                                                                            person's settings no longer make (APPLY_FITS
                                                                            =high, LONG_SHOTS_PER_DAY=0), never sent;
-                                                                           --apply sets them back to found (old fit
-                                                                           result in the history row) for the next run;
-                                                                           --per-day N: the newest N join the next run,
-                                                                           N more each day after
+                                                                           --weak: also the old score grade's "weak
+                                                                           fit" skips, for a fresh fit check; --apply
+                                                                           sets them back to found (old fit result in
+                                                                           the history row) for the next run, inside
+                                                                           the person's places only; --per-day N: the
+                                                                           newest N join the next run, N more each day
 python -I track.py list [<status>]                                        one line per job
 python -I track.py summary                                                counts by status (and screening verdict)
 python -I track.py sync <journal.jsonl> [...]                             merge screening and preparation results
@@ -978,8 +980,18 @@ elif cmd == "reopen":
     # A cut job posted again under a new link is already back in the tracker (collect_postings.py lets it in): the
     # newer row wins and the old one stays skipped, so one job never gets two fit checks; of two cut rows of one job,
     # only the newest comes back.
+    # --weak: also a fit the score graded weak before 0.46.0 ("weak fit: ..."): the kinds of gaps may grade it a fit
+    # now, so it gets a fresh fit check (seen 21 Nov: 55 such skips inside the places).
     import reposts  # noqa: E402
-    cuts = [(c, row, choices.setting_cut(row.get(NOTE, ""), env)) for c, row in companies(data)
+    old_weak = "--weak" in args
+
+    def cut_of(row):
+        note = str(row.get(NOTE, "") or "").strip()
+        cut = choices.setting_cut(note, env)
+        if not cut and old_weak and re.match(r"(?i)(fit:\s*)?weak fit\b", note):
+            cut = "the score grade (before 0.46.0)"
+        return cut
+    cuts = [(c, row, cut_of(row)) for c, row in companies(data)
             if row.get("status") == "skipped" and not row.get("applied")]
     cuts = sorted([t for t in cuts if t[2]], key=lambda t: str(t[1].get("date") or ""), reverse=True)
     # The person's places now (env, then the search scope): a cut fit outside them stays skipped, as the funnel would
@@ -1012,10 +1024,12 @@ elif cmd == "reopen":
     if twins:
         print(f"{twins} left skipped: the same job is in the tracker under a newer row")
     if not cuts:
-        print("nothing to reopen: no fit skip by a setting the person's settings no longer make")
+        print("nothing to reopen: no fit skip by a setting the person's settings no longer make"
+              + (", and no old weak skip inside the places" if old_weak else ""))
     elif "--apply" not in args[1:]:
-        print(f"{len(cuts)} to reopen; dry run: nothing was changed (reopen --apply"
-              + (" --per-day " + args[args.index("--per-day") + 1] if "--per-day" in args[:-1] else "") + " does it)")
+        print(f"{len(cuts)} to reopen; dry run: nothing was changed (reopen" + (" --weak" if old_weak else "")
+              + " --apply" + (" --per-day " + args[args.index("--per-day") + 1] if "--per-day" in args[:-1] else "")
+              + " does it)")
     else:
         # --per-day N: the newest N join the next run, the next N a day later, and so on (the "reopened" date is the
         # day a job joins the funnel). Example: 64 at 15 a day take 5 days.

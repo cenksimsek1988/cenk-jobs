@@ -3853,6 +3853,133 @@ check "workflow 0.46.5: the prep and the review make every salary and pay answer
     grep -q "is the figure \${FX} prints after .typed:." "$1" &&
     grep -q "fx.py <amount> <from> <to> --per year|month|day|hour" "$2"' \
     _ "$S/../workflows/screen-and-prepare.js" "$S/../references/filling.md"
+# --- 0.46.6: more fits from the catch-up's lessons, fewer fit checks wasted on hard skips -------------------------
+mkhome "$T/r466" flat
+use "$T/r466"
+cat >"$T/grade466.json" <<'EOF'
+{"jobs": [
+ {"id": "T1", "action": "apply", "read": "full", "gaps": [{"kind": "stack", "what": "C#/.NET"}],
+  "requirements": [{"text": "C#/.NET", "place": "title", "level": "absent"}]},
+ {"id": "T2", "action": "apply", "read": "full", "gaps": [],
+  "requirements": [{"text": "Rust", "place": "title", "level": "absent"}]},
+ {"id": "T3", "action": "apply", "read": "full", "gaps": [{"kind": "stack", "what": "Kotlin"}],
+  "requirements": [{"text": "Kotlin", "place": "title", "level": "adjacent"}]},
+ {"id": "T4", "action": "apply", "read": "full", "gaps": [{"kind": "stack", "what": "Go"}, {"kind": "scope", "what": "head"}],
+  "requirements": [{"text": "Go", "place": "title", "level": "absent"}]}]}
+EOF
+"$PY" -I - "$S" "$T/grade466.json" >"$T/grade466-py.out" <<'PYEOF'
+import json
+import sys
+
+sys.path.insert(0, sys.argv[1])
+import choices
+
+for j in json.load(open(sys.argv[2], encoding="utf-8"))["jobs"]:
+    g, why = choices.grade(j)
+    print(" | ".join([j["id"], g, why]))
+PYEOF
+check "grade 0.46.6: a stack the title names and the record lacks makes a long-shot; adjacent stays normal" sh -c '
+    grep -q "^T1 | long-shot | long-shot: 2 soft gap kinds (LONG_SHOTS_PER_DAY=0): C#/.NET; the title asks C#/.NET, not held$" "$1" &&
+    grep -q "^T2 | long-shot | " "$1" && grep -q "^T3 | normal | $" "$1" && grep -q "^T4 | weak | " "$1"' _ "$T/grade466-py.out"
+if command -v node >/dev/null 2>&1; then
+    cat >"$T/grade466.js" <<'EOF'
+const fs = require('fs')
+const src = fs.readFileSync(process.argv[2], 'utf8')
+const part = src.slice(src.indexOf('const SOFT = '), src.indexOf('const CHANNEL_NOTES'))
+const gradeOf = new Function('A', part + '; return gradeOf')({ applyFits: 'normal', longShots: 0 })
+for (const j of JSON.parse(fs.readFileSync(process.argv[3], 'utf8')).jobs) console.log([j.id, ...gradeOf(j)].join(' | '))
+EOF
+    node "$T/grade466.js" "$S/../workflows/screen-and-prepare.js" "$T/grade466.json" >"$T/grade466-js.out" 2>&1
+    check "grade 0.46.6: the workflow (JS) grades a title stack the record lacks as choices.py does" \
+        diff --strip-trailing-cr "$T/grade466-py.out" "$T/grade466-js.out"
+else
+    echo "SKIP title-stack grade in JS: no node"
+fi
+"$PY" -I - "$H/apply/targets.json" <<'PYEOF'
+import json
+import sys
+
+def job(i, title, note, location):
+    return {"id": i, "company": "Lambda", "title": title, "url": f"https://example.com/{i}", "status": "skipped",
+            "note": note, "location": location,
+            "history": [{"date": "2026-11-12", "status": "skipped", "note": note}]}
+
+jobs = [job("W1", "Platform Lead", "fit: weak fit: Kubernetes in production", "Rome, Italy"),
+        job("W2", "Data Lead", "fit: weak fit: 8+ years asked", "Oslo, Norway"),
+        job("W3", "QA Lead", "the person: weak fit for me", "Rome, Italy")]
+json.dump({"jobs": jobs}, open(sys.argv[1], "w", encoding="utf-8"))
+PYEOF
+echo "PLACES=Rome" >>"$ENVF"
+track reopen >"$T/r466-plain.out" 2>&1
+track reopen --weak >"$T/r466-weak.out" 2>&1
+track reopen --weak --apply --per-day 15 >"$T/r466-apply.out" 2>&1
+check "track reopen --weak 0.46.6: an old weak skip inside the places comes back for a fresh fit check; none without --weak" sh -c '
+    grep -q "^nothing to reopen" "$1" &&
+    grep -q "^W1 | Lambda | Platform Lead | the score grade (before 0.46.0) no longer cuts it$" "$2" &&
+    ! grep -q "^W[23] " "$2" && grep -q "^1 left skipped: outside the person.s places now$" "$2" &&
+    grep -q "^1 to reopen; dry run: nothing was changed (reopen --weak --apply does it)$" "$2" &&
+    grep -q "^reopened 1: the next run takes 1" "$3" &&
+    "$4" -I "$5/dq.py" "$6" "[(j[\"id\"], j[\"status\"]) for j in R[\"jobs\"] if j.get(\"reopened\")] == [(\"W1\", \"found\")]"' \
+    _ "$T/r466-plain.out" "$T/r466-weak.out" "$T/r466-apply.out" "$PY" "$T" "$H/apply/targets.json"
+check "collect 0.46.6: Postings in an any-mode city pass a LinkedIn remote search's text gate; Full Remote reads as Remote" "$PY" -I -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+import collect_postings as c
+c.PLACES, c.NOT_PLACES = ["lisbon"], []
+li = {"source": "linkedin", "mode": "remote"}
+assert c.remote_gate(li, "Lisbon, Portugal (Hybrid)") is False
+assert c.remote_gate(li, "Berlin, Germany") is True and c.remote_gate(li, "Remote, Lisbon") is True
+assert c.remote_gate({"source": "greenhouse", "mode": "remote"}, "Berlin") is False
+for place in ("Full Remote", "Fully remote", "100% Remote", "Fully-Remote"):
+    assert c.place_ok(place, c.PLACES, []), place
+assert not c.place_ok("Remote, Germany", c.PLACES, ["europe"])
+' "$S"
+check "collect 0.46.6: a Remote Rocketship posting is placed in its own countries; a language the record lacks leaves it out" "$PY" -I -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+import collect_postings as c, jsenv
+c.ENV = jsenv.load(sys.argv[2])
+c.PLACES, c.NOT_PLACES = ["lisbon"], []
+jobs = [{"roleTitle": "Engineering Manager", "company": {"name": "Acme"}, "locationType": "remote",
+         "locationCountries": ["Poland", "Malta"], "location": "Poland", "url": "https://example.com/a"},
+        {"roleTitle": "Platform Lead", "company": {"name": "Beta"}, "locationType": "remote", "location": "Portugal",
+         "url": "https://example.com/b"},
+        {"roleTitle": "Data Lead", "company": {"name": "Gamma"}, "locationType": "remote", "requiredLanguages": ["German"],
+         "url": "https://example.com/c"},
+        {"roleTitle": "QA Lead", "company": {"name": "Delta"}, "locationType": "remote", "url": "https://example.com/d"}]
+out = c.feed_postings("remoterocketship", {"jobs": jobs}, "europe")
+places = [p[2] for p in out]
+assert places == ["Remote, Poland, Malta", "Remote, Portugal", "Remote, Europe"], places
+assert c.LANGUAGE_LEFT == {"German": 1}, c.LANGUAGE_LEFT
+assert not c.place_ok(places[0], c.PLACES, ["portugal", "europe"]) and c.place_ok(places[1], c.PLACES, ["portugal"])
+c.LANGUAGES = c.language_words("Deutsch (C1)") | c.language_words("English")
+assert c.language_ok({"requiredLanguages": ["German", "English"]}) and not c.language_ok({"requiredLanguages": ["Dutch"]})
+' "$S" "$ENVF"
+searches add "Remote Rocketship Europe" "engineering manager" source=remoterocketship board=europe >/dev/null 2>&1
+searches add "Remote Rocketship Portugal" "engineering manager" source=remoterocketship board=portugal >/dev/null 2>&1
+mkdir -p "$T/r466-src"
+"$PY" -I - "$T/r466-src" <<'PYEOF'
+import json
+import os
+import sys
+
+for board in ("europe", "portugal"):
+    job = {"id": 1, "roleTitle": "Engineering Manager", "company": {"name": "Acme " + board}, "locationType": "remote",
+           "url": f"https://example.com/{board}", "created_at": "2026-11-20T10:00:00Z"}
+    data = {"props": {"pageProps": {"initialJobOpenings": [job]}}, "query": {"jobsInput": "engineering-manager"}}
+    with open(os.path.join(sys.argv[1], f"remoterocketship-{board}.json"), "w", encoding="utf-8") as f:
+        f.write('<html><script id="__NEXT_DATA__" type="application/json">' + json.dumps(data) + "</script></html>")
+PYEOF
+SECOND=$("$PY" -I -c 'import json, sys; d = json.load(open(sys.argv[1], encoding="utf-8")); print(max(r["id"] for r in d["searches"]))' "$H/apply/searches.json")
+"$PY" -I "$S/collect_postings.py" --since 2026-11-01 --from "$T/r466-src" --rows "$SECOND,999" --env "$ENVF" >"$T/r466-rows.out" 2>&1
+check "collect --rows 0.46.6: a widening round reads only its own rows and names a listed one that is not due" sh -c '
+    grep -q "^search $2 Remote Rocketship Portugal: " "$1" && ! grep -q "^search [0-9]* Remote Rocketship Europe" "$1" &&
+    grep -q "^--rows: not due, not read: 999" "$1"' _ "$T/r466-rows.out" "$SECOND"
+check "0.46.6 text: the search stop rule, the title stack in the fit prompt and the grade, reopen --weak" sh -c '
+    grep -q "stops after 3 rounds in a row below the best round.s real fits" "$1/skills/search/SKILL.md" &&
+    grep -q "is \"absent\", never \"adjacent\": example, C#/.NET in the title" "$1/workflows/screen-and-prepare.js" &&
+    grep -q "a C#/.NET role for a Java record is a long-shot" "$1/references/choices.md" &&
+    grep -q "^python -I track.py reopen \[--weak\]" "$1/scripts/track.py"' _ "$S/.."
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]
