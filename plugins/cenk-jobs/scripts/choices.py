@@ -10,6 +10,10 @@
                                     the reason)
     choices.py fit                  the fit settings in use (FIT_SETTINGS, default apply/fit-settings.json, over the
                                     defaults), as JSON
+    choices.py fit --set work_languages=Java,Kotlin
+                                    the main programming languages the person has used at work, into the fit settings
+                                    file (made when missing); a role in none of them is a skip (other_language). Empty
+                                    clears it
 
 Keys (default first):
     WRITER_MODEL    opus | sonnet            letters and free text by Opus, or by the cheaper model with its review
@@ -73,6 +77,39 @@ SUGGEST = {"pro": {"APPLY": "list", "LETTERS": "never", "SEARCH_DAYS": "Mon"}, "
 # The gap kinds that never skip a job (0.46.0); any other kind ("hard") does. One list: the workflow gets it as
 # args.fit.soft (workflow_args), so the two graders never drift.
 SOFT = ("missing_must_have", "pay_below", "seniority", "stack", "domain", "scope", "relocation")
+# The main programming languages (0.46.8), name: [pattern, flags ("i": any case)]. A role whose job title, or whose
+# must-haves, name only languages the person has not used at work is a hard gap at every level (other_language).
+# One list: the workflow gets it as args.fit.languages and Python compiles it with re.ASCII, so both graders match
+# alike (spaces as [ \t], since JS's \s takes more). Plain C and R are left out: one letter matches too much. Example:
+# "Lead Golang Engineer" names Go; "Go-to-market", "Go the extra mile" and "JavaScript" name neither Go nor Java. A
+# must-have that starts with "Go" or "Swift" as an everyday word still matches: the fit check's hands-on level and a
+# work language in the title or the must-haves keep such a role.
+LANGUAGES = {
+    "Go": [r"\bGo\b(?!-|[ \t]+(?:to|live|above|beyond|the)\b)|\b[Gg][Oo][Ll][Aa][Nn][Gg]\b", ""],
+    "C#/.NET": [r"\bC#|\.NET\b|\b[Dd]ot[Nn]et\b", ""],
+    "Python": [r"\bpython\b", "i"],
+    "Rust": [r"\bRust\b", ""],
+    "Java": [r"\bjava\b(?!\s*script)", "i"],
+    "Kotlin": [r"\bkotlin\b", "i"],
+    "Scala": [r"\bscala\b", "i"],
+    "Groovy": [r"\bgroovy\b", "i"],
+    "Clojure": [r"\bclojure\b", "i"],
+    "C++": [r"C\+\+", ""],
+    "Ruby": [r"\bruby\b", "i"],
+    "PHP": [r"\bphp\b", "i"],
+    "JavaScript": [r"\bjavascript\b|\bnode\.?js\b", "i"],
+    "TypeScript": [r"\btypescript\b", "i"],
+    "Swift": [r"\bSwift\b", ""],
+    "Objective-C": [r"\bobjective-c\b", "i"],
+    "Dart": [r"\bDart\b", ""],
+    "Elixir": [r"\belixir\b", "i"],
+    "Erlang": [r"\berlang\b", "i"],
+    "Haskell": [r"\bhaskell\b", "i"],
+    "F#": [r"\bF#", ""],
+    "OCaml": [r"\bocaml\b", "i"],
+    "Perl": [r"\bperl\b", "i"],
+    "Lua": [r"\bLua\b", ""],
+}
 
 
 def problem(key, value):
@@ -102,17 +139,31 @@ def ask_first(env):
 
 
 # The fit settings' defaults: a requirement's weight by its place in the posting (the score, kept as information
-# since 0.46.0), the score bands (read by feedback.py's analysis only), the channel notes, and the soft gap kinds.
+# since 0.46.0), the score bands (read by feedback.py's analysis only), the channel notes, the soft gap kinds, the
+# main programming languages and the person's work languages (empty: the fit check's hands-on levels tell).
 # The person's own values: FIT_SETTINGS (default apply/fit-settings.json), as in templates/fit-settings-example.json.
 FIT_DEFAULTS = {"weights": {"title": 4, "must_years": 3, "must": 2, "nice": 1},
-                "grades": {"high": 80, "normal": 65, "long_shot": 50}, "channel_notes": {}, "soft": list(SOFT)}
+                "grades": {"high": 80, "normal": 65, "long_shot": 50}, "channel_notes": {}, "soft": list(SOFT),
+                "languages": LANGUAGES, "work_languages": []}
 LEVEL_MATCH = {"hands_on": 1.0, "adjacent": 0.5, "absent": 0.0}
 
 
-def fit_settings(env):
-    """The fit settings: the person's file over the defaults, key by key."""
-    path = env.path("FIT_SETTINGS") if env.get("FIT_SETTINGS") else os.path.join(env.home, "apply",
-                                                                                 "fit-settings.json")
+def fit_path(env):
+    return env.path("FIT_SETTINGS") if env.get("FIT_SETTINGS") else os.path.join(env.home, "apply", "fit-settings.json")
+
+
+def set_work_languages(env, value):
+    """work_languages into the person's fit settings file, made when missing; its other keys stay. Each name must
+    be a main language (LANGUAGES). Example: "Java,Kotlin" -> {"work_languages": ["Java", "Kotlin"], ...}."""
+    given = [x.strip() for x in value.split(",") if x.strip()]
+    langs = fit_settings(env)["languages"]
+    unknown = [x for x in given if not languages_in(x, langs)]
+    if unknown:
+        sys.exit(f"not a main language: {', '.join(unknown)} (the list: {', '.join(langs)})")
+    names = []  # the list's own names: "golang" is stored as "Go"
+    for x in given:
+        names += [n for n in languages_in(x, langs) if n not in names]
+    path = fit_path(env)
     own = {}
     if os.path.isfile(path):
         try:
@@ -120,8 +171,36 @@ def fit_settings(env):
                 own = json.load(fh)
         except ValueError as problem:
             sys.exit(f"{path}: not readable as JSON: {problem}")
-    return {k: ({**v, **(own.get(k) or {})} if isinstance(v, dict) else own.get(k, v))
-            for k, v in FIT_DEFAULTS.items()}
+    own["work_languages"] = names
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path + ".tmp", "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(own, fh, ensure_ascii=False, indent=1)
+        fh.write("\n")
+    os.replace(path + ".tmp", path)
+    print(f"work_languages={','.join(names)} in {path}")
+
+
+def fit_settings(env):
+    """The fit settings: the person's file over the defaults, key by key."""
+    path = fit_path(env)
+    own = {}
+    if os.path.isfile(path):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                own = json.load(fh)
+        except ValueError as problem:
+            sys.exit(f"{path}: not readable as JSON: {problem}")
+    if not isinstance(own, dict) or any(not isinstance(own.get(k) or {}, dict)
+                                        for k, v in FIT_DEFAULTS.items() if isinstance(v, dict)):
+        sys.exit(f"{path}: an object whose weights, grades, channel_notes and languages are objects")
+    out = {k: ({**v, **(own.get(k) or {})} if isinstance(v, dict) else own.get(k, v))
+           for k, v in FIT_DEFAULTS.items()}
+    bad = [name for name, entry in out["languages"].items()
+           if not (isinstance(entry, list) and len(entry) == 2 and all(isinstance(x, str) for x in entry))]
+    if bad or not isinstance(out["work_languages"], list):
+        sys.exit(f"{path}: " + (f"languages {', '.join(bad)}: each is [pattern, flags], two strings" if bad else
+                                "work_languages is a list of names"))
+    return out
 
 
 def match_of(req):
@@ -177,11 +256,64 @@ def gap_count(gaps):
     return len({g.get("kind") for g in gaps}) + (1 if none else 0)
 
 
+_PATTERNS = {}
+
+
+def languages_in(text, langs):
+    """The main programming languages a text names, in the order of langs (the fit settings' languages).
+    Example: "Go/Golang and Python" -> ["Go", "Python"]."""
+    found = []
+    for name, (pattern, flags) in langs.items():
+        key = (pattern, flags)
+        if key not in _PATTERNS:
+            try:
+                _PATTERNS[key] = re.compile(pattern, re.ASCII | (re.I if "i" in str(flags or "") else 0))
+            except re.error as problem:
+                sys.exit(f"fit settings: languages {name!r}: not a valid pattern: {problem}")
+        if _PATTERNS[key].search(str(text or "")):
+            found.append(name)
+    return found
+
+
+def other_language(job, settings=None):
+    """Why a fit is an other-language role, "" when it is none (0.46.8; seen 21-22 Nov: four Go roles graded normal
+    to weak and sent to a Java record): the job title names main languages and none of them is a work language, or
+    the must-haves name some, none a work language, while neither the title nor another must-have asks one. Work
+    languages: the fit settings' work_languages; without them this rule is off and the fit check marks such a role a
+    hard gap by its own reading (the fit prompt). Seen: a "lead level" title requirement naming Golang graded
+    hands-on, so the fit check's levels cannot stand in for the list. A hands-on must-have ("Go or similar") never
+    counts: the fit check found the person meets it. Nice-to-haves never count. Example: "Lead Golang Engineer" for
+    work_languages ["Java"] -> "other-language role (title: Go): no work use in the record"; a Java role whose
+    must-haves also ask Python -> ""."""
+    settings = settings or FIT_DEFAULTS
+    langs = settings.get("languages") or {}
+    work = set(languages_in(", ".join(str(x) for x in settings.get("work_languages") or []), langs)) if langs else set()
+    if not work:
+        return ""
+    reqs = [r for r in job.get("requirements") or [] if isinstance(r, dict)]
+    title = languages_in(" | ".join([str(job.get("title") or "")] + [str(r.get("text") or "") for r in reqs
+                                                                      if r.get("place") == "title"]), langs)
+    parts = ["title: " + ", ".join(title)] if title and not work & set(title) else []
+    ok, asked = bool(work & set(title)), []
+    for r in reqs:
+        if r.get("place") not in ("must_years", "must"):
+            continue
+        found = languages_in(r.get("text"), langs)
+        if work & set(found):
+            ok = True
+        elif found and r.get("level") != "hands_on":
+            asked += [x for x in found if x not in asked]
+    if asked and not ok:
+        parts.append("must-haves: " + ", ".join(asked))
+    return f"other-language role ({'; '.join(parts)}): no work use in the record" if parts else ""
+
+
 def grade(job, apply_fits="normal", settings=None, long_shots=0):
     """(grade, reason): high, normal, long-shot, weak or unread; a reason means the job is a skip, listed with it.
 
-    A hard gap (place, work mode, eligibility, a required language, a security clearance, pay far under the rule) is
-    a skip with grade "". A posting not read in full is "unread", a skip that waits for the next run's fit check with
+    A hard gap (place, work mode, eligibility, a required language, a security clearance, pay far under the rule, an
+    other-language role: other_language) is a skip with grade "", the title alone suffices for the last one. A
+    posting not read in full is "unread", a skip that waits for the next run's fit check with
     the posting text. Else the kinds of soft gaps decide (0.46.0; 19 Nov reply analysis: 72% of rejections had two
     or more gap groups, 31% of invitations): 0 high, 1 normal, 2 long-shot, 3 or more weak (gap_count). A long-shot or
     a weak fit goes on only within LONG_SHOTS_PER_DAY (0: a skip, listed for the person); a normal fit with
@@ -197,6 +329,9 @@ def grade(job, apply_fits="normal", settings=None, long_shots=0):
     what = "; ".join(str(g.get("what", "")) for g in gaps)
     if any(g.get("kind") not in soft for g in gaps):
         return "", "a hard gap: " + what
+    other = other_language(job, settings)
+    if other:
+        return "", "a hard gap: " + other
     if job.get("read", "full") != "full":
         return "unread", "unread: the posting text was not read; the next run checks it again"
     n = gap_count(gaps)
@@ -228,6 +363,29 @@ def graded(job, apply_fits="normal", settings=None, long_shots=0):
     if why:
         out.update(action="skip", reason=why)
     return out
+
+
+# The skip reasons grade() itself writes ("fit: " before them in a tracker note): such a skip was an "apply" of the
+# fit check, cut by the grade.
+OWN_SKIP = re.compile(r"^(fit:\s*)?(a hard gap: |unread: |(long-shot|weak): \d+ soft gap|not a high fit \()")
+
+
+def regraded(prep, apply_fits="normal", settings=None, long_shots=0):
+    """A stored fit (a tracker row's prep) graded again under today's rules (track.py regrade, reopen; tune-search
+    reuses it): the grade's own cut undone, then graded. A skip the fit check made itself (a closed posting) stays.
+    A fit from before 0.46.0 has no gap kinds: only the other-language rule grades it again, its grade stays.
+    Example: a fit stored "normal" on 21 Nov whose title asks Go, for a Java record -> action "skip", reason "a hard
+    gap: other-language role (title: Go): no work use in the record"."""
+    prep = dict(prep or {})
+    # The cut's message replaced the fit check's reason line: it goes with the cut.
+    fit = dict(prep, action="apply", reason="") \
+        if prep.get("action") == "skip" and OWN_SKIP.match(str(prep.get("reason") or "")) else prep
+    if fit.get("action") != "apply":
+        return prep
+    if "gaps" not in fit:
+        other = other_language(fit, settings)
+        return dict(fit, action="skip", grade="", reason="a hard gap: " + other) if other else prep
+    return graded(fit, apply_fits, settings, long_shots)
 
 
 def write(env, pairs):
@@ -272,6 +430,13 @@ def main():
         return
     env = jsenv.load(explicit, __file__)
     if cmd == "fit":
+        if rest[:1] == ["--set"]:
+            key, sep, val = (rest[1] if len(rest) > 1 else "").partition("=")
+            if key != "work_languages" or not sep or len(rest) > 2:
+                sys.exit("fit --set takes work_languages=<names, comma-separated>: the other fit settings are the "
+                         "file's own keys")
+            set_work_languages(env, val)
+            return
         print(json.dumps(fit_settings(env)))
         return
     if cmd == "show":

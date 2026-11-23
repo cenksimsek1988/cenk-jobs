@@ -66,7 +66,9 @@ scope in its own location field: "Remote, Europe" passes with the region Europe,
 LinkedIn remote search's posting goes on only when its own text speaks of remote work (one text read, no model,
 TEXT_FETCHES a run; seen: 73 of 82 were hybrid in one city). The location check, seen 19 Nov: 32 of 40 "Europe"
 postings were single-country elsewhere. A repost of a role already applied to or declined, or skipped for fit in
-the last 30 days, is left out (reposts.py).
+the last 30 days, is left out (reposts.py). So is a title that names only main programming languages outside the
+fit settings' work_languages (an other-language role, choices.py other_language), recorded skipped with no fit check.
+Example: "Staff Golang Engineer" for work_languages Java.
 Add --env <job-search.env> anywhere to pick the env file.
 """
 import datetime
@@ -328,6 +330,19 @@ def language_ok(job):
     for x in missing:
         LANGUAGE_LEFT[x] = LANGUAGE_LEFT.get(x, 0) + 1
     return not missing
+
+
+def language_left(postings, fit):
+    """{posting id: why} for the postings whose title alone makes an other-language role (0.46.8,
+    choices.other_language): a skip with no fit check, in the fit check's own words. None without work_languages.
+    Example: "Staff Golang Engineer" for work_languages ["Java"] -> "fit: a hard gap: other-language role (title:
+    Go): no work use in the record"."""
+    out = {}
+    for p in postings:
+        other = choices.other_language({"title": p["title"]}, fit)
+        if other:
+            out[p["id"]] = "fit: a hard gap: " + other
+    return out
 
 
 def feed_postings(source, data, board=""):
@@ -980,6 +995,11 @@ def main():
         # A posting carried from an earlier run passes the person's places too (seen: 19 of 263 outside them).
         left.update({p["id"]: "outside your places: " + p["location"] for p in backlog
                      if p["id"] not in left and p["location"] and not place_ok(p["location"], PLACES, regions)})
+        try:
+            fit = choices.fit_settings(ENV)
+            left.update(language_left([p for p in new + backlog if p["id"] not in left], fit))
+        except SystemExit as problem:  # a broken fit settings file stops this filter only, never the search
+            print(f"the other-language filter is off this run: {problem}")
         for p in new + backlog:
             if p["id"] in left:
                 print(f"left out: {p['id']} | {p['company']} | {p['title']} | {left[p['id']]}")

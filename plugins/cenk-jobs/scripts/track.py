@@ -55,7 +55,16 @@ python -I track.py reopen [--weak] [--apply [--per-day N]]               the fit
                                                                            sets them back to found (old fit result in
                                                                            the history row) for the next run, inside
                                                                            the person's places only; --per-day N: the
-                                                                           newest N join the next run, N more each day
+                                                                           newest N join the next run, N more each day;
+                                                                           a cut whose stored fit is a hard gap under
+                                                                           today's fit rules stays skipped
+python -I track.py regrade [--apply]                                      every fit waiting to be sent (pending,
+                                                                           to-apply, account-needed, needs-*) graded
+                                                                           again from its stored fit under today's
+                                                                           rules: a skip now is skipped with its
+                                                                           reason, a changed grade is written; a sent
+                                                                           job never changes (its hard gaps today are
+                                                                           counted); a dry run without --apply
 python -I track.py list [<status>]                                        one line per job
 python -I track.py summary                                                counts by status (and screening verdict)
 python -I track.py sync <journal.jsonl> [...]                             merge screening and preparation results
@@ -128,7 +137,7 @@ from trackerlib import (DETAILS, ENDED_STAGE, ENDED_STATUS, ISO_DATE, STATUSES, 
                         collapse_row,
                         companies, date_in, employer_link, entries, expand, expand_company, job_urls, login_of,
                         workday_host, expand_row, flat_jobs, is_company_shape, json_indent, load_settings, needs_of,
-                        note_key, split_tracker, write_json)
+                        note_key, split_tracker, waits_on_person, write_json)
 from trackerlib import PAGES_BEHIND  # noqa: E402
 
 args = sys.argv[1:]
@@ -773,7 +782,7 @@ def outcome_command(pipeline, job, rest):
 
 # --- the commands -------------------------------------------------------------------------------------------------
 if not args or args[0] not in ("add", "set", "todo", "wait", "step", "outcome", "show", "brief", "list", "summary",
-                               "sync", "split", "reopen"):
+                               "sync", "split", "reopen", "regrade"):
     sys.exit(__doc__)
 cmd = args[0]
 
@@ -1015,6 +1024,13 @@ elif cmd == "reopen":
     regions = cp.load_places(env)
     outside = [t for t in cuts if t[1].get("location") and not cp.place_ok(t[1]["location"], cp.PLACES, regions)]
     cuts = [t for t in cuts if t not in outside]
+    # A cut whose stored fit is a hard gap under today's fit rules stays skipped: a fresh fit check would skip it
+    # again (0.46.8: an other-language role).
+    rules = (choices.value(env, "APPLY_FITS")[0], choices.fit_settings(env),
+             int(choices.value(env, "LONG_SHOTS_PER_DAY")[0] or 0))
+    hard = [t for t in cuts if str(choices.regraded(expand_row(PATH, t[1]).get("prep"), *rules).get("reason")
+                                   or "").startswith("a hard gap")]
+    cuts = [t for t in cuts if t not in hard]
 
     def job_keys(c, row):
         return {(k, reposts.title_key(title_of(row))) for k in reposts.employer_keys(env, c.get("name", "")
@@ -1036,6 +1052,8 @@ elif cmd == "reopen":
               "cuts it")
     if outside:
         print(f"{len(outside)} left skipped: outside the person's places now")
+    if hard:
+        print(f"{len(hard)} left skipped: a hard gap under today's fit rules")
     if twins:
         print(f"{twins} left skipped: the same job is in the tracker under a newer row")
     if not cuts:
@@ -1070,6 +1088,61 @@ elif cmd == "reopen":
         print(f"reopened {len(cuts)}: the next run takes {min(per_day, len(cuts))}"
               + (f", then {per_day} a day until {last}" if last != today else "")
               + "; each gets a fit check and, if it passes, a preparation")
+        print(PAGES_BEHIND)
+elif cmd == "regrade":
+    # A fit waiting to be sent, graded again from its stored fit under today's fit rules (0.46.8; seen 21-22 Nov: four
+    # Go roles graded on 0.46.4, before the rules that skip them, then sent): a skip now is skipped with its reason, a
+    # changed grade is written to the row and its prep. A sent job never changes: its hard gaps today are counted, as
+    # information. Found and ended rows stay (a found one gets a fresh fit check; reopen grades its cuts again). A fit
+    # the person chose to send over a cut stays, unless it is a hard gap now; an "unread" result changes nothing.
+    rules = (choices.value(env, "APPLY_FITS")[0], choices.fit_settings(env),
+             int(choices.value(env, "LONG_SHOTS_PER_DAY")[0] or 0))
+    skips, changes, same, sent_hard = [], [], 0, 0
+    for c, row in companies(data):
+        status = row.get("status") or ""
+        if not (status in ("pending", "to-apply", "submitted") or waits_on_person(status)):
+            continue
+        prep = expand_row(PATH, row).get("prep") or {}
+        if not (prep.get("requirements") or prep.get("gaps")):
+            continue
+        new = choices.regraded(prep, *rules)
+        hard = new.get("action") == "skip" and str(new.get("reason") or "").startswith("a hard gap")
+        if status == "submitted":
+            sent_hard += hard
+        elif new.get("grade") == "unread":
+            same += 1
+        elif new.get("action") == "skip" and (hard or prep.get("action") != "skip"):
+            skips.append((c, row, prep, new))
+        elif prep.get("action") == "skip":  # a cut the person chose to send over: only a hard gap changes it
+            same += 1
+        elif (new.get("grade") or "") != (prep.get("grade") or ""):
+            changes.append((c, row, prep, new))
+        else:
+            same += 1
+    for c, row, prep, new in skips:
+        print(f"{row['id']} | {c.get('name', '') or row.get('company', '')} | {title_of(row)[:60]} | "
+              f"{row.get('status')} -> skipped | {str(new.get('reason') or '')[:160]}")
+    for c, row, prep, new in changes:
+        print(f"{row['id']} | {c.get('name', '') or row.get('company', '')} | {title_of(row)[:60]} | "
+              f"grade {prep.get('grade') or '-'} -> {new.get('grade') or '-'}")
+    print(f"regrade: {len(skips) + len(changes) + same} waiting to be sent with a stored fit: {len(skips)} a skip now, "
+          f"{len(changes)} grade(s) changed, {same} unchanged; {sent_hard} sent are a hard gap under today's rules "
+          "(sent: never changed)")
+    if (skips or changes) and "--apply" not in args[1:]:
+        print("dry run: nothing was changed (regrade --apply does it)")
+    elif skips or changes:
+        ready()
+        for c, row, prep, new in changes + skips:
+            job = expand_row(PATH, row)
+            job["prep"] = dict(new, regraded=today)
+            if new.get("grade"):
+                job["grade"] = new["grade"]
+            else:
+                job.pop("grade", None)
+            collapse_row(PATH, row, job, is_company_shape(data))
+        for c, row, prep, new in skips:
+            set_one(data, row["id"], "skipped", f"fit: {new.get('reason', '')} (graded again {today})", [])
+        save(data, [row["id"] for _, row, _, _ in changes + skips])
         print(PAGES_BEHIND)
 elif cmd == "list":
     for company, job in companies(data):

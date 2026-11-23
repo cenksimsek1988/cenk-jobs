@@ -6,6 +6,39 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.46.8] - 2026-11-23
+
+An other-language role is a skip at every level, and a fit waiting to be sent is graded again under today's rules.
+Seen 21-22 Nov: four Go roles, graded normal to weak on 0.46.4, were sent to a Java record.
+
+### Added
+
+- An other-language role is a hard gap, whatever the level: the job title names only main programming languages
+  (Go, C#/.NET, Python, Rust, Java, Kotlin, C++, JavaScript/Node, TypeScript, Ruby, PHP, Swift, ...) outside the
+  person's work languages, whatever the must-haves; or the must-haves do, while neither the title nor another
+  must-have names a work language. A Java role that asks Python too stays a fit, with a stack gap. A hands-on
+  must-have ("Go or similar") and nice-to-haves never count. Both graders apply it (`choices.py other_language`, the
+  workflow's `gradeOf`, one language list in `args.fit`), and the fit prompt names it as a hard gap. Example: "Lead
+  Golang Engineer" for a Java record: "a hard gap: other-language role (title: Go; must-haves: Go): no work use in
+  the record".
+- `work_languages` in the fit settings, set with `choices.py fit --set work_languages=Java` (stored by the list's own
+  names: "golang" is "Go"); without it the rule runs only through the fit check's own reading, and `check_setup.py`
+  warns. A fit settings file of the wrong shape is refused by name.
+- `track.py regrade [--apply]`: every fit waiting to be sent (pending, to-apply, account-needed, needs-*) graded again
+  from its stored fit under today's rules: a skip now is skipped with its reason, a changed grade is written; a sent
+  job never changes, and its hard gaps today are counted. The plan and apply skills run it first.
+  `choices.regraded` grades one stored fit again (for tune-search too).
+- `collect_postings.py` leaves out a posting whose title alone makes an other-language role (with work_languages
+  set), recorded skipped with the fit check's reason and no fit check; an unreadable fit settings file turns only
+  this filter off, with one line.
+
+### Changed
+
+- `track.py reopen` leaves skipped a cut whose stored fit is a hard gap under today's rules ("N left skipped: a hard
+  gap under today's fit rules").
+- The title-stack rule of 0.46.6 (two soft gap kinds, at least a long-shot) now covers a framework or platform the
+  title names; a language there is the other-language rule's.
+
 ## [0.46.7] - 2026-11-21
 
 The rest of the catch-up's lessons of 21 Nov: applying and records.

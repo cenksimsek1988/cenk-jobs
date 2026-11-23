@@ -7,8 +7,8 @@ of its file) has every command and option. Run one as RULES.md, "Where things ar
 ## Records
 
 - `track.py`: the tracker: add, set (`--file` for many), wait, todo (add, done, list), show (`--full`), brief, list,
-  summary, sync (a screening run's journal), split (summary rows and detail files); `PIPELINE`: step (add, done,
-  cancel, set), outcome.
+  summary, sync (a screening run's journal), split (summary rows and detail files), reopen, regrade (the fits
+  waiting to be sent, graded again under today's fit rules); `PIPELINE`: step (add, done, cancel, set), outcome.
 - `records.py`: check: the records' faults by id (shape, sent, waits, links, dupes, steps, employer); writes nothing.
 - `recordlib.py` (a library): every write of the seven record files: STALE refusal, the changed rows checked,
   `changes.jsonl`.
@@ -37,7 +37,7 @@ of its file) has every command and option. Run one as RULES.md, "Where things ar
 - `workflows/screen-and-prepare.js`: the Workflow that screens employers and prepares the cleared jobs; it never
   submits.
 - `variants.py`: the run's variant, its models, the good-fit count, the funnel's numbers and the check order.
-- `choices.py`: the person's cost choices: show, set, workflow, suggest, grade, fit.
+- `choices.py`: the person's cost choices: show, set, workflow, suggest, grade, fit (`--set work_languages=`).
 
 ## Documents and pages
 

@@ -1,6 +1,7 @@
 {
- "_about": "The fit score's settings (FIT_SETTINGS, default apply/fit-settings.json); a key left out keeps its default. weights: a requirement's weight by its place in the posting (title: the skill in the job title; must_years: a must-have that asks years; must: another must-have; nice: a nice-to-have). grades: the lowest score of each band (under long_shot: weak). channel_notes: a note per place, added to the fit's reason line; it never changes the grade. Made-up example.",
+ "_about": "The fit score's settings (FIT_SETTINGS, default apply/fit-settings.json); a key left out keeps its default. weights: a requirement's weight by its place in the posting (title: the skill in the job title; must_years: a must-have that asks years; must: another must-have; nice: a nice-to-have). grades: the lowest score of each band (under long_shot: weak). channel_notes: a note per place, added to the fit's reason line; it never changes the grade. work_languages: the main programming languages the person has used at work; a role whose title or must-haves ask only others is a skip (choices.py fit --set work_languages=Java). Made-up example.",
  "weights": {"title": 4, "must_years": 3, "must": 2, "nice": 1},
  "grades": {"high": 80, "normal": 65, "long_shot": 50},
- "channel_notes": {"Springfield": "board applications here get few replies; a referral or a recruiter works better"}
+ "channel_notes": {"Springfield": "board applications here get few replies; a referral or a recruiter works better"},
+ "work_languages": ["Java", "Kotlin"]
 }

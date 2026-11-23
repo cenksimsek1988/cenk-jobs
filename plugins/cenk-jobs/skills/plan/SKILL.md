@@ -9,8 +9,10 @@ Read `../../RULES.md` first. This skill writes the plan into the tracker; it sen
 
 ## Steps
 
-1. Take the open jobs from the tracker (`track.py list`): cleared by the screen, waiting on the person, or ready to
-   send. Leave out excluded, skipped, closed and declined ones.
+1. First `track.py regrade --apply` (no model): a fit graded before today's fit rules is graded again and, when it
+   is a skip now, skipped with its reason. Example: a Go role graded normal on 21 Nov, skipped as an other-language
+   role. Then take the open jobs from the tracker (`track.py list`): cleared by the screen, waiting on the person, or
+   ready to send. Leave out excluded, skipped, closed and declined ones.
 2. Order them in the apply order's three groups (RULES.md): those that need nothing from the person, then those
    that need only a sign-in (`logins.py show`), then the rest; inside each, deadline first, then fit.
 3. For each job, the CV version that fits the role (`CV_VERSIONS_DIR`) and the letter the funnel prepared

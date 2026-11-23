@@ -22,10 +22,20 @@ week: not known yet."
    list of fitting jobs with links, sent by the person (the fit check alone, about 60k W an employer).
    `APPLY=auto|list`, default auto.
 4. Which fits: the fit check names each gap between the posting and the record. A hard gap (place, work mode,
-   eligibility, a required language, a clearance) skips the job; the kinds of soft gaps count: none high, one normal,
-   two long-shot, three or more weak (a domain gap with no adjacent fact counts two, and so does a stack the job
-   title names that the record shows no use of: a C#/.NET role for a Java record is a long-shot). Send high and
-   normal, or only high. Each application less saves about 280k W. `APPLY_FITS=normal|high`, default normal.
+   eligibility, a required language, a clearance, an other-language role) skips the job; the kinds of soft gaps
+   count: none high, one normal, two long-shot, three or more weak (a domain gap with no adjacent fact counts two,
+   and so does a framework or platform the job title names that the record shows no use of:
+   a Salesforce role for a Java record is a long-shot). Send high and normal, or only high. Each application less
+   saves about 280k W. `APPLY_FITS=normal|high`, default normal.
+   An other-language role, at every level: the job title names only main programming languages (Go, C#, Python,
+   Rust, ...) outside the person's work languages, whatever the must-haves; or the must-haves do, while neither the
+   title nor another must-have names a work language. Example: "Lead Golang Engineer" for a Java record is a skip;
+   a Java role that also asks Python stays a fit, with a stack gap. Ask the person which languages they used at work:
+   `choices.py fit --set work_languages=Java`. Without them, only the fit check's own reading skips such a role.
+   With them, a title alone suffices: the search leaves such a posting out with no fit check (`collect_postings.py`).
+   `track.py regrade` grades every fit waiting to be sent again from its stored fit under today's rules (a dry run;
+   `--apply` skips what is a skip now): the plan and apply skills run it first. Example: four Go roles graded on
+   21 Nov, before the rule.
    Long-shots and weak fits a day on top: `LONG_SHOTS_PER_DAY`, default 0 (none, listed for the person; about
    180k-1.1M W each). The weighted score stays as information; the soft kinds and channel notes: `FIT_SETTINGS`
    (`templates/fit-settings-example.json`).

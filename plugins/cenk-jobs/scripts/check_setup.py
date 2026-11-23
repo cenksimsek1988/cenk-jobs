@@ -18,6 +18,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import choices  # noqa: E402
 import jsenv  # noqa: E402  (jsenv.py sits next to this script)
 import profilelib as pl  # noqa: E402
 from trackerlib import flat_jobs, login_of, waits_on_person  # noqa: E402
@@ -216,6 +217,22 @@ else:
     report("WARN", "EMPLOYER_RULES", "not set: the plugin's defaults apply (every category: warn and ask)")
 if env.get("USAGE_SHARING", "").lower() not in ("yes", "no"):
     report("WARN", "USAGE_SHARING", "not set: ask the person once whether usage reports may go to the developer")
+# The other-language rule (0.46.8) runs in code only with the person's work languages.
+try:
+    fit = choices.fit_settings(env)
+    work = [str(x) for x in fit.get("work_languages") or []]
+    unknown = [x for x in work if not choices.languages_in(x, fit["languages"])]  # a bad pattern exits here too
+except SystemExit as problem:
+    fit = None
+    report("FAIL", "Fit settings (FIT_SETTINGS)", str(problem))
+if fit is not None:
+    if not work or unknown:
+        report("WARN", "Fit setting work_languages",
+               (f"not main languages: {', '.join(unknown)}" if unknown else "not set, so only the fit check's own "
+                "reading skips a role in a language the person has not used at work") + ": ask the person which "
+               "programming languages they used at work, then choices.py fit --set work_languages=Java,Kotlin")
+    else:
+        report("OK", "Fit setting work_languages", ", ".join(work))
 for level, what, detail in profile_checks():
     report(level, what, detail)
 master = load_json(env.path("MASTER_RECORD"), "Master record")

@@ -11,6 +11,8 @@ waits on the person.
 
 ## Before filling
 
+- First `track.py regrade --apply` (no model): a fit graded before today's fit rules is never sent; one that is a
+  skip now is skipped with its reason (an other-language role, a hard gap).
 - Check the posting is still open and its link lands on the employer's own form (RULES.md, "Links"). The site's
   own notes are in `../../references/sites/<site>.md` (greenhouse, ashby, linkedin, smartrecruiters, successfactors,
   workday, eightfold, remoteok, freelancermap, himalayas, indeed, bamboohr, dover):

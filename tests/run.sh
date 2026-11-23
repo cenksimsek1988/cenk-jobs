@@ -3978,7 +3978,7 @@ check "collect --rows 0.46.6: a widening round reads only its own rows and names
 check "0.46.6 text: the search stop rule, the title stack in the fit prompt and the grade, reopen --weak" sh -c '
     grep -q "stops after 3 rounds in a row below the best round.s real fits" "$1/skills/search/SKILL.md" &&
     grep -q "is \"absent\", never \"adjacent\": example, C#/.NET in the title" "$1/workflows/screen-and-prepare.js" &&
-    grep -q "a C#/.NET role for a Java record is a long-shot" "$1/references/choices.md" &&
+    grep -q "a Salesforce role for a Java record is a long-shot" "$1/references/choices.md" &&
     grep -q "^python -I track.py reopen \[--weak\]" "$1/scripts/track.py"' _ "$S/.."
 # --- 0.46.7: the catch-up's lessons on applying and records -------------------------------------------------------
 check "reposts 0.46.7: a title's Stack names nothing of the role: two links of one job match" "$PY" -I -c '
@@ -4025,6 +4025,182 @@ check "0.46.7 text: application limits, a form-only pay band, the end-list title
     grep -q "Jane: Acme end list" "$1/RULES.md" && grep -q "Never call .tabs_context_mcp. with .createIfEmpty." "$1/agents/applier.md" &&
     for f in himalayas indeed bamboohr; do grep -q "^- Draft: " "$1/references/sites/$f.md" || exit 1; done &&
     grep -q "Turnstile on Apply" "$1/references/sites/dover.md" && grep -q "comboboxes" "$1/references/sites/smartrecruiters.md"' \
+    _ "$S/.."
+# --- 0.46.8: an other-language role is a skip at every level; fits waiting to be sent are graded again --------------
+mkhome "$T/r468" old
+use "$T/r468"
+"$PY" -I "$S/choices.py" fit --set work_languages=Cobol --env "$ENVF" >"$T/r468-badset.out" 2>&1
+"$PY" -I "$S/check_setup.py" --env "$ENVF" >"$T/r468-setup0.out" 2>&1
+"$PY" -I "$S/choices.py" fit --set work_languages=java --env "$ENVF" >"$T/r468-set.out" 2>&1
+"$PY" -I "$S/check_setup.py" --env "$ENVF" >"$T/r468-setup1.out" 2>&1
+"$PY" -I "$S/choices.py" fit --env "$ENVF" >"$T/r468-fit.json" 2>&1
+check "choices fit --set 0.46.8: work_languages is written by the list's names and read back; no main language is refused" sh -c '
+    grep -q "^not a main language: Cobol" "$1" && grep -q "^work_languages=Java in " "$2" &&
+    "$3" -I -c "import json, sys; d = json.load(open(sys.argv[1], encoding=\"utf-8\")); assert d[\"work_languages\"] == [\"Java\"] and \"Go\" in d[\"languages\"]" "$4"' \
+    _ "$T/r468-badset.out" "$T/r468-set.out" "$PY" "$T/r468-fit.json"
+{ cat "$ENVF"; echo "FIT_SETTINGS=apply/bad-fit.json"; } >"$H/bad-fit.env"
+echo '{"languages": {"Go": "Go"}}' >"$H/apply/bad-fit.json"
+"$PY" -I "$S/choices.py" fit --env "$H/bad-fit.env" >"$T/r468-badfit.out" 2>&1
+"$PY" -I "$S/check_setup.py" --env "$H/bad-fit.env" >"$T/r468-badfit-setup.out" 2>&1
+check "fit settings 0.46.8: a languages entry of the wrong shape is refused by name; check_setup reports it, no crash" sh -c '
+    grep -q "languages Go: each is \[pattern, flags\], two strings" "$1" &&
+    grep -q "^FAIL  Fit settings (FIT_SETTINGS) - .*languages Go: each is" "$2" && grep -q "CV versions" "$2"' \
+    _ "$T/r468-badfit.out" "$T/r468-badfit-setup.out"
+check "check_setup 0.46.8: work_languages unset is a WARN naming the command; set, it is OK" sh -c '
+    grep -q "^WARN  Fit setting work_languages - not set" "$1" && grep -q "choices.py fit --set work_languages=" "$1" &&
+    grep -q "^OK    Fit setting work_languages - Java$" "$2"' _ "$T/r468-setup0.out" "$T/r468-setup1.out"
+# The four shapes of 21-22 Nov (made-up employers and words), then roles that stay fits.
+"$PY" -I - "$T/grade468.json" <<'PYEOF'
+import json
+import sys
+
+def job(i, title, reqs, gaps=(), read="full"):
+    return {"id": i, "title": title, "action": "apply", "read": read, "must_haves": ["x"], "gaps": list(gaps),
+            "requirements": [{"text": t, "place": p, "level": lv} for t, p, lv in reqs]}
+
+stack = lambda what: {"kind": "stack", "what": what}  # noqa: E731
+jobs = [
+    job("G1", "Lead Golang Software Engineer, Billing",
+        [("Lead Golang Software Engineer (lead level)", "title", "hands_on"), ("Golang (title)", "title", "absent"),
+         ("Experience with software development in Golang", "must", "absent")], [stack("Golang")]),
+    job("G2", "Senior Software Engineer, Go SDK",
+        [("Senior Software Engineer, Go SDK", "title", "absent"), ("Deep Go expertise", "must", "absent"),
+         ("Beyond Go, one more of our client languages (Python, JavaScript, Java)", "must", "hands_on")],
+        [stack("Go SDK"), stack("Go concurrency"), stack("A Go module others use"), stack("Go runtime")]),
+    job("G3", "Staff Software Engineer, Golang",
+        [("Golang", "title", "absent"), ("Deep proficiency in Go", "must", "absent")],
+        [stack("Go"), {"kind": "scope", "what": "staff"}]),
+    job("G4", "Staff Software Engineer for Identity (Go/Golang)",
+        [("Go/Golang (title)", "title", "absent"), ("Using Go and Python", "must", "absent")],
+        [stack("Go"), {"kind": "scope", "what": "staff"}, {"kind": "domain", "what": "identity", "closest": "none"}]),
+    job("N1", "Senior Java Engineer", [("Java and Python", "must", "hands_on"), ("Python scripting", "must", "adjacent")],
+        [stack("Python")]),
+    job("N2", "Tech Lead", [("One modern stack (.NET, Python, Go or similar)", "must", "hands_on")]),
+    job("N3", "Go-to-market Engineer", [("Java", "must", "hands_on")]),
+    job("N4", "Backend Lead", [("Java", "must", "hands_on"), ("Go", "nice", "absent")]),
+    job("N5", "Backend Engineer (Java/Kotlin)", [("Kotlin", "must", "adjacent")], [stack("Kotlin")]),
+    job("U1", "Staff Golang Engineer", [], read="summary"),
+]
+json.dump({"jobs": jobs}, open(sys.argv[1], "w", encoding="utf-8"))
+PYEOF
+"$PY" -I - "$S" "$T/grade468.json" "$T/r468-fit.json" >"$T/grade468-py.out" 2>"$T/grade468-py.err" <<'PYEOF'
+import json
+import sys
+
+sys.path.insert(0, sys.argv[1])
+import choices
+
+fit = json.load(open(sys.argv[3], encoding="utf-8"))
+for j in json.load(open(sys.argv[2], encoding="utf-8"))["jobs"]:
+    print(" | ".join([j["id"], *choices.grade(j, "normal", fit, 0)]))
+    print(" | ".join([j["id"], *choices.grade(j, "normal", None, 0)]), file=sys.stderr)  # no work_languages
+PYEOF
+check "grade 0.46.8: the four Go shapes are a hard gap with work_languages Java; a Java role asking Python stays a fit" sh -c '
+    grep -q "^G1 |  | a hard gap: other-language role (title: Go; must-haves: Go): no work use in the record$" "$1" &&
+    grep -q "^G2 |  | a hard gap: other-language role (title: Go): no work use in the record$" "$1" &&
+    grep -q "^G3 |  | a hard gap: other-language role (title: Go; must-haves: Go): no work use in the record$" "$1" &&
+    grep -q "^G4 |  | a hard gap: other-language role (title: Go; must-haves: Go, Python): no work use in the record$" "$1" &&
+    grep -q "^U1 |  | a hard gap: other-language role (title: Go): no work use in the record$" "$1" &&
+    grep -q "^N1 | normal | $" "$1" && grep -q "^N2 | high | $" "$1" && grep -q "^N3 | high | $" "$1" &&
+    grep -q "^N4 | high | $" "$1" && grep -q "^N5 | normal | $" "$1" &&
+    grep -q "^G1 | long-shot | " "$2" && ! grep -q "other-language" "$2"' _ "$T/grade468-py.out" "$T/grade468-py.err"
+if command -v node >/dev/null 2>&1; then
+    cat >"$T/grade468.js" <<'EOF'
+const fs = require('fs')
+const src = fs.readFileSync(process.argv[2], 'utf8')
+const part = src.slice(src.indexOf('const SOFT = '), src.indexOf('const CHANNEL_NOTES'))
+const fit = JSON.parse(fs.readFileSync(process.argv[4], 'utf8'))
+const [gradeOf, rawGrade] = new Function('A', part + '; return [gradeOf, rawGrade]')({ applyFits: 'normal', longShots: 0, fit })
+const jobs = JSON.parse(fs.readFileSync(process.argv[3], 'utf8')).jobs
+for (const j of jobs) console.log([j.id, ...gradeOf(j)].join(' | '))
+console.error(jobs.map(j => rawGrade(j)).join(','))
+EOF
+    node "$T/grade468.js" "$S/../workflows/screen-and-prepare.js" "$T/grade468.json" "$T/r468-fit.json" \
+        >"$T/grade468-js.out" 2>"$T/grade468-js.err"
+    check "grade 0.46.8: the workflow (JS) grades every case as choices.py does, from the languages in args.fit" \
+        diff --strip-trailing-cr "$T/grade468-py.out" "$T/grade468-js.out"
+    check "grade 0.46.8: the run's raw grade of an other-language role is hard" \
+        grep -q "^hard,hard,hard,hard,normal,high,high,high,normal,hard$" "$T/grade468-js.err"
+else
+    echo "SKIP other-language grade in JS: no node"
+fi
+check "collect 0.46.8: a title alone that makes an other-language role is left out with the fit check's words" "$PY" -I -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+import choices, collect_postings as c
+posts = [{"id": "P1", "title": "Staff Golang Engineer"}, {"id": "P2", "title": "Staff Java Engineer"},
+         {"id": "P3", "title": "Go-to-market Manager"}]
+left = c.language_left(posts, dict(choices.FIT_DEFAULTS, work_languages=["Java"]))
+assert left == {"P1": "fit: a hard gap: other-language role (title: Go): no work use in the record"}, left
+assert c.language_left(posts, choices.FIT_DEFAULTS) == {}
+assert choices.languages_in("Go the extra mile; Go live; JavaScript", choices.LANGUAGES) == ["JavaScript"]
+' "$S"
+# Stored fits in a split company tracker: one waiting Go role, one sent, two cuts, one Java role waiting.
+"$PY" -I - "$H/apply/targets.json" <<'PYEOF'
+import json
+import sys
+
+go_reqs = [{"text": "Golang (title)", "place": "title", "level": "absent"},
+           {"text": "Golang", "place": "must", "level": "absent"}]
+
+def job(i, title, status, prep, note):
+    return {"id": i, "title": title, "url": f"https://example.com/{i}", "status": status, "outcome": note,
+            "applied": "2026-11-21" if status == "submitted" else "", "grade": prep.get("grade", ""),
+            "history": [{"date": "2026-11-21", "status": status, "outcome": note}], "prep": dict(prep, id=i, title=title)}
+
+fit = {"action": "apply", "grade": "normal", "read": "full", "gaps": [{"kind": "stack", "what": "Golang"}],
+       "requirements": go_reqs}
+cut = "long-shot: 2 soft gap kinds (LONG_SHOTS_PER_DAY=0): Kubernetes; staff"
+companies = [
+    {"name": "Acme Go", "verdict": "allow", "jobs": [
+        job("R1", "Lead Golang Engineer", "pending", fit, "fit: apply"),
+        job("R2", "Staff Go Engineer", "submitted", fit, "sent 21 Nov"),
+        job("R3", "Senior Go Engineer", "skipped", dict(fit, action="skip", grade="long-shot", reason=cut), "fit: " + cut)]},
+    {"name": "Examplia", "verdict": "allow", "jobs": [
+        job("R4", "Java Lead", "pending", {"action": "apply", "grade": "normal", "read": "full",
+                                          "gaps": [{"kind": "stack", "what": "Kafka"}],
+                                          "requirements": [{"text": "Java", "place": "must", "level": "hands_on"}]},
+            "fit: apply"),
+        job("R5", "Platform Lead", "skipped", {"action": "skip", "grade": "long-shot", "read": "full", "reason": cut,
+                                              "gaps": [{"kind": "stack", "what": "Kubernetes"}, {"kind": "scope", "what": "staff"}],
+                                              "requirements": [{"text": "Java", "place": "must", "level": "hands_on"}]},
+            "fit: " + cut),
+        # a cut the person chose to send over: weak today, but only a hard gap changes it
+        job("R6", "Data Platform Lead", "pending", {"action": "skip", "grade": "long-shot", "read": "full", "reason": cut,
+                                                   "gaps": [{"kind": "stack", "what": "Kubernetes"}, {"kind": "scope", "what": "staff"},
+                                                            {"kind": "domain", "what": "ads", "closest": "none"}],
+                                                   "requirements": [{"text": "Java", "place": "must", "level": "hands_on"}]},
+            "the person: send it")]}]
+json.dump({"companies": companies}, open(sys.argv[1], "w", encoding="utf-8"))
+PYEOF
+echo "LONG_SHOTS_PER_DAY=3" >>"$ENVF"
+track split --apply >/dev/null 2>&1
+track regrade >"$T/r468-regrade.out" 2>&1
+track regrade --apply >"$T/r468-apply.out" 2>&1
+track reopen >"$T/r468-reopen.out" 2>&1
+check "track regrade 0.46.8: a dry run names the waiting Go role and counts the sent one; it changes nothing" sh -c '
+    grep -q "^R1 | Acme Go | Lead Golang Engineer | pending -> skipped | a hard gap: other-language role (title: Go; must-haves: Go)" "$1" &&
+    grep -q "^regrade: 3 waiting to be sent with a stored fit: 1 a skip now, 0 grade(s) changed, 2 unchanged; 1 sent are a hard gap" "$1" &&
+    grep -q "^dry run: nothing was changed (regrade --apply does it)$" "$1" && ! grep -q "^R[23456] " "$1"' _ "$T/r468-regrade.out"
+check "track regrade --apply 0.46.8: the waiting Go role is skipped with the reason; the sent, the Java role and an override stay" sh -c '
+    "$1" -I "$2/q.py" "$3/apply/targets.json" companies.0.jobs.id=R1.status eq skipped &&
+    "$1" -I "$2/q.py" "$3/apply/targets.json" companies.0.jobs.id=R2.status eq submitted &&
+    "$1" -I "$2/q.py" "$3/apply/targets.json" companies.1.jobs.id=R4.status eq pending &&
+    "$1" -I "$2/q.py" "$3/apply/targets.json" companies.1.jobs.id=R6.status eq pending &&
+    "$1" -I "$2/q.py" "$3/apply/details/jobs/R6.json" prep.grade eq long-shot &&
+    "$1" -I "$2/q.py" "$3/apply/details/jobs/R1.json" prep.regraded eq "$(date +%F)" &&
+    "$1" -I "$2/dq.py" "$3/apply/targets.json" "R[\"companies\"][0][\"jobs\"][0][\"outcome\"].startswith(\"fit: a hard gap: other-language role\")"' \
+    _ "$PY" "$T" "$H"
+check "track reopen 0.46.8: a cut whose stored fit is a hard gap today stays skipped; the other comes back" sh -c '
+    grep -q "^1 left skipped: a hard gap under today.s fit rules$" "$1" &&
+    grep -q "^R5 | Examplia | Platform Lead | LONG_SHOTS_PER_DAY no longer cuts it$" "$1" && ! grep -q "^R3 " "$1"' \
+    _ "$T/r468-reopen.out"
+check "0.46.8 text: the rule in the fit prompt and the choices; regrade first in plan and apply; the tools list" sh -c '
+    grep -q "an other-language role at every level" "$1/workflows/screen-and-prepare.js" &&
+    grep -q "An other-language role, at every level" "$1/references/choices.md" &&
+    grep -q "First .track.py regrade --apply." "$1/skills/plan/SKILL.md" &&
+    grep -q "First .track.py regrade --apply." "$1/skills/apply/SKILL.md" &&
+    grep -q "regrade (the fits" "$1/RULES/tools.md" && grep -q "\"work_languages\"" "$1/templates/fit-settings-example.json"' \
     _ "$S/.."
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
