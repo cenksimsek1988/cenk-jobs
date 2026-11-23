@@ -48,6 +48,8 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
   with `python -I plugins/cenk-jobs/scripts/employer.py merge <report.json> ...`, and Cenk's own findings with
   `employer.py merge --from-checks`, both run here, never from a job-search session.
 - `release.py`: builds `dist/cenk-jobs.plugin` from HEAD; `dist/` is git-ignored.
+- `.gitignore` ignores the person's record names anywhere (`career.json`, `targets.json`, `pipeline.json`,
+  `logins.json`, `employer-checks.json`): a template or schema takes another name. Example: `pipeline.schema.json`.
 - `CHANGELOG.md`.
 
 ## Every change
@@ -64,6 +66,11 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
 - `sh tests/run.sh` (a throwaway folder; never touches real records). It takes about 15 to 25 minutes: run it in the
   background, on a copy (`cp -r tests plugins <scratch>/t`, then `sh <scratch>/t/tests/run.sh`) when edits go on
   meanwhile, since `sh` reads `run.sh` as it runs.
+- `tests/run.sh` takes no part argument: a new section is tried first as one file on a `C:/t` copy, made of the
+  header up to the first safety check, the helpers the section calls (example: `sessions()`), the section and the
+  last two lines.
+- A failing check's output is read by running the suite on an exported copy whose `trap` line is replaced by
+  `echo "T=$T"`, which keeps the throwaway folder; delete that folder after.
 - With the workbench: `sh <workbench>/scripts/check-plugin.sh --base main plugins/cenk-jobs` (the plugin folder: the
   repository root has no plugin.json). From workbench 0.23.0 its personal-data check reads the person's profile for
   the values it looks for; it prints none.
@@ -79,6 +86,14 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
 - `tests/run.sh` covers `export_dashboard.py`, `sessions.py`, `searches.py` and `track.py todo` on a made-up folder,
   and parses both page scripts with `node --check` on the extracted `<script>` (without node: one line, skipped).
 - `export_dashboard.py --check` writes nothing: safe on a copy of a real folder, and on the real one.
+- A plugin script run by hand always gets `--env <copy or throwaway>`: `JOB_SEARCH_ENV` in the user's settings names
+  the person's real `job-search.env`. Example: `python -I track.py list --env C:/t/r1/job-search.env`.
+- A records check on a copy of the person's folder copies only the record files to a short path with an env of path
+  keys only, prints counts per check id, never values, and deletes the copy after. Example: `records.py check --env
+  C:/t/rc/job-search.env`, then `rm -rf C:/t/rc`.
+- `collect_postings.py` is measured on a copy: an env with only the keys it reads (paths into the copy, an empty
+  tracker, the searches file, the master record's search scope), run with `--since` and `--out`, its output kept in
+  the copy and counted, never printed.
 - A fixture with a non-ASCII character (the middle dot of "Workday · Acme") is written by a Python heredoc with the
   escape `\u00b7`, never passed in argv: Git Bash on Windows mangles it. A script that prints one calls
   `sys.stdout.reconfigure(errors="replace")` first: a cp1252 console raises otherwise.
@@ -96,6 +111,9 @@ The **cenk-jobs** plugin (skills `setup`, `coordinate`, `search`, `plan`, `apply
   coordinator itself: it publishes the worktree's templates, exports with the worktree's scripts and checks every
   tab, chip and count against its records. This session sends it no values. Example: 0.42.0, 19 Nov 2026, three
   rounds.
+- A scheduled run is read with the scheduled-tasks tools: `list_task_runs` gives each run's session and one-line
+  summary, `list_events` its transcript, and the task's prompt is `~/.claude/scheduled-tasks/<task id>/SKILL.md`,
+  which only the person changes. Example: the runs skipped 16-23 Nov 2026 stopped on the prompt's own step.
 
 ## Release
 
