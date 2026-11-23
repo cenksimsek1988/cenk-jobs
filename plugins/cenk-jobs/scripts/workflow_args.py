@@ -13,6 +13,11 @@
         (career_view.py), and jobs/<employer>.json, one per employer with a unique name, which its entry names
         (jobs_file) and its fit check reads. --lookup: employer_lookup.py --out's file: "exclude" leaves the employer out, "undecided"
         passes it with quick and its lookup line.
+    workflow_args.py --search <file> --list [--fit-model sonnet|opus|opus-max] [--script <run.js>]
+        --list: a list run (APPLY=list: the fit check only; no letters, no drafts, each step's own model); --fit-model:
+        the fit check's model for this run; --script: also the run script, the workflow's own text with these args
+        written in and a counts-only return, for the Workflow tool's scriptPath (0.49.0, tune-search: the args of
+        hundreds of employers are too long to type into the call, and a workflow script reads no file).
 
 Per employer of the search file it runs employer.py check's view: "exclude" leaves it out; a second check due passes
 it with screen, known and own (those categories); its verdict and ties go with it. The rest comes from the scripts the
@@ -87,13 +92,18 @@ def main():
             sys.exit("--screen takes an employer's name")
         screens.append(args[i + 1])
         del args[i:i + 2]
-    for flag in ("--env", "--search", "--lookup", "--tag", "--person", "--out"):
+    for flag in ("--env", "--search", "--lookup", "--tag", "--person", "--out", "--fit-model", "--script"):
         if flag in args:
             i = args.index(flag)
             if i + 1 >= len(args):
                 sys.exit(f"{flag} takes a value")
             opts[flag] = args[i + 1]
             del args[i:i + 2]
+    listed = "--list" in args
+    if listed:
+        args.remove("--list")
+    if opts.get("--fit-model") and opts["--fit-model"] not in choices.KEYS["FIT_MODEL"][0]:
+        sys.exit(f"--fit-model is one of {', '.join(choices.KEYS['FIT_MODEL'][0])}: got {opts['--fit-model']!r}")
     if args or not (opts.get("--search") or (screens and opts.get("--out"))):
         sys.exit(__doc__)
     if hasattr(sys.stdout, "reconfigure"):
@@ -203,12 +213,27 @@ def main():
     clues = env.path("FIT_CLUES") if env.get("FIT_CLUES") else os.path.join(env.home, "apply", "fit-clues.md")
     if os.path.isfile(clues):
         result["fitClues"] = slash(clues)  # feedback.py clues: earlier replies, read by the fit check
+    if listed:
+        result.update(apply="list", letters="never", draftAnswers=False, models={})
+    if opts.get("--fit-model"):
+        result["fitModel"] = opts["--fit-model"]
     path = os.path.join(out_dir, "args.json")
     with open(path, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(result, fh, ensure_ascii=False, separators=(",", ":"))
     for line in left:
         print("left out: " + line)
     print(f"{slash(path)}: {os.path.getsize(path)} bytes, {len(passed)} employers, {len(left)} left out")
+    if opts.get("--script"):
+        with open(os.path.join(HERE, "..", "workflows", "screen-and-prepare.js"), encoding="utf-8") as fh:
+            funnel = fh.read()
+        marker = "\nconst A = args\n"
+        if marker not in funnel:
+            sys.exit("workflows/screen-and-prepare.js has no line 'const A = args': no run script written")
+        text = funnel.replace(marker, "\nconst A = " + json.dumps(dict(result, countsOnly=True), ensure_ascii=True)
+                              + "\n", 1)
+        with open(opts["--script"], "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+        print(f"{slash(os.path.abspath(opts['--script']))}: the run script, {len(text)} characters, args written in")
 
 
 if __name__ == "__main__":

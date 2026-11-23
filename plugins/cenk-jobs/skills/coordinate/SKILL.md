@@ -199,6 +199,7 @@ and runs no browser sweep: an apply sub-session's appliers share that sub-sessio
 | Prepare one step | `/cenk-jobs:prepare` prep notes for one hiring step, in its own folder. | `prep-acme-18nov` |
 | Study for one step | `/cenk-jobs:prepare` studying: brief, weak points, practice, with the person. | `study-acme-6nov` |
 | Search sweep | `/cenk-jobs:search`; one row per posting. | `search-2026-11-06` |
+| Tune the search | `/cenk-jobs:tune-search`, on the person's word: candidate searches over one week, the winner applied, its report. | `tune-2026-11-23` |
 | Employer check | Before an employer's first hiring step: `workflow_args.py --screen "<name>" --out <dir>` (it prints "screened on <date>" when the check ran in the last 90 days), the workflow on that `args.json`, and the journal's path in the handoff; the coordinator runs `track.py sync <journal>`. | `check-acme` |
 | Essays round | `/cenk-jobs:write` with the person, one question or letter at a time: the company and role, their background and gaps, a draft in their voice, revised together. | `write-acme-why` |
 

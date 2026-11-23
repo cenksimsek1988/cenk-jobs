@@ -6,6 +6,33 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.49.0] - 2026-11-23
+
+The tune-search skill: candidate searches compared by high fits over one fixed week. Seen 23 Nov 2026: the first
+run, done by hand, found a set of searches with 42 high fits in the week where the saved ones found 9.
+
+### Added
+
+- `skills/tune-search`: candidates (saved-search rows with title rules; never the person's places) run as filters
+  over one pool of postings per round; each job fit-checked once; the counted model (`FIT_MODEL`) decides, the screen
+  (Sonnet) checking every job and the counted model re-checking its highs; 3 rounds in a row without a new best end
+  the run; the winner replaces the saved searches and title rules without a question, and its new high fits go in
+  with their own fit results attached, each a pending high fit. The coordinator's session table names it.
+- `tune.py`: start, round (`--offline`), fit (`--recheck`), score, winner (`--apply`), clean. Raw answers are cached by
+  link in `TUNE_CACHE` (new key; default the system's temp folder; a later round reads them free) and deleted at the
+  end; a call waits 3 s after the last one to its host, 6 s on LinkedIn; a run makes at most 600 LinkedIn and 650
+  Himalayas calls; every fit result is kept whole (`fit-results.json`) and graded again under today's rules; `fit`
+  refuses past `TUNE_TOKENS` (new key, default 35000000).
+- `workflow_args.py --list --fit-model <model> --script <run.js>`: a list run's args, and the run script with them
+  written in; the workflow's new arg `countsOnly` returns the counts only (employers, fit checks run, the employers
+  whose check failed, grades), for the Workflow tool's scriptPath.
+
+### Changed
+
+- `collect_postings.py`: `employer_of` and `found_by` name a posting's employer and finder for the collector and
+  tune.py alike. `trackerlib.as_result` reads a journal's result for track.py sync and tune.py alike (moved from
+  track.py).
+
 ## [0.48.0] - 2026-11-23
 
 The collector part of the tune-search bundle: what the first tune run found the search losing. Seen 23 Nov: over

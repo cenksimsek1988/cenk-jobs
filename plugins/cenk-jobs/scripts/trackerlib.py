@@ -9,6 +9,8 @@ entries(tracker)     every job as (company name, the job's own dict), for script
                      note_key(tracker) names the field that holds a job's note in that shape.
 companies(tracker)   every job as (company dict, job dict); in the flat shape the company dict is {"name": ...}.
 needs_of(prep)       the open points only the person can answer ("needs", or an older "needs_<name>" list).
+as_result(value)     a workflow journal's result: JSON text, a Python dict's text, or the path of the JSON file an
+                     agent wrote; read alike by track.py sync and tune.py.
 waits_on_person(s)   True for statuses where the person must act: account-needed, needs-person, needs-captcha and
                      any other "needs-<word>" (an older tracker may name the person, e.g. "needs-jane").
 date_in(text)        the first "<day> <month>" in a note as YYYY-MM-DD, the year nearest to today (notes such as
@@ -51,6 +53,7 @@ split_tracker(tracker, names)  the summary tracker and the detail files, for the
 A job's summary row holds what flat_jobs needs (title, apply_url, platform, needs, resolved with flat_jobs's
 precedence); its detail holds prep, history and earlier. A company's detail holds ties*, hits, not_counted, checks.
 """
+import ast
 import copy
 import datetime
 import hashlib
@@ -124,6 +127,36 @@ def needs_of(prep):
     if prep.get("needs"):
         return prep["needs"]
     return next((v for k, v in prep.items() if k.startswith("needs_") and isinstance(v, list)), [])
+
+
+def parse_value(value):
+    """A journal's result: JSON text, or a Python dict's text (some workflow runs wrote that), or already a dict."""
+    if not isinstance(value, str):
+        return value
+    for reader in (json.loads, ast.literal_eval):
+        try:
+            return reader(value)
+        except (ValueError, SyntaxError):
+            continue
+    return value
+
+
+def as_result(value):
+    """A journal's result as track.py sync and tune.py read it. A prep agent replies with the path of the JSON file it
+    wrote instead of the JSON itself: a whole line, quoted or not, or an absolute path after a word; a Git Bash path
+    counts as its Windows one. Example: "Wrote C:/run/acme-1.json", or "/c/run/acme-1.json"."""
+    value = parse_value(value)
+    if isinstance(value, str):
+        for line in value.splitlines():
+            line = line.strip().strip("\"'`").strip()
+            # Every place a path may start, so "and/or C:/run/acme-1.json" still finds the file.
+            found = [m.group(1) for m in re.finditer(r"(?=((?:[A-Za-z]:[\\/]|/).*?\.json))", line)]
+            for path in (line, *found):
+                for candidate in (path, re.sub(r"^/([A-Za-z])/", r"\1:/", path)):
+                    if candidate.lower().endswith(".json") and os.path.isfile(candidate):
+                        with open(candidate, encoding="utf-8") as f:
+                            return json.load(f)
+    return value
 
 
 def no_pay(text):

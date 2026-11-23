@@ -63,6 +63,8 @@
 //                 levels, lists, notes (their own rules); trigger; the general levels
 //   known         optional {name: result of `employer.py check`} - what the shared blacklist and the person's own
 //                 checks already say, so the agents confirm or update it instead of starting from nothing
+//   countsOnly    optional: return the counts only (employers, fit_ran, failed names, grades); each result stays in
+//                 the journal (workflow_args.py --script writes it, for tune-search)
 // Each stage's model and short tool list are in agents/<name>.md: a default subagent starts at 66k context, these at 15k.
 // Agent labels (read back by track.py sync): prep-fit:, excl-quick:, excl-screen:, excl-verify:, excl-judge:, excl-own:, prep-jobs:,
 // write-jobs:, review-jobs:. prep-jobs: and write-jobs: work on the same prepared-jobs file; prep-fit: is the fit
@@ -541,6 +543,14 @@ const results = await pipeline(
     return { ...r, review }
   },
 )
+// A run script with its args written in (workflow_args.py --script, for tune-search): the counts only, since the
+// results of hundreds of employers do not fit its notification; each fit result is in the run's journal (0.49.0).
+if (A.countsOnly) {
+  const grades = {}
+  for (const r of results.filter(Boolean)) for (const j of (r.fit && r.fit.jobs) || []) grades[j.raw_grade || 'skip'] = (grades[j.raw_grade || 'skip'] || 0) + 1
+  return { employers: A.companies.length, fit_ran: results.filter(r => r && r.fit).length,
+    failed: A.companies.filter((c, i) => !(results[i] && (results[i].fit || results[i].route === 'quick-excluded'))).map(c => c.name), grades }
+}
 return results.filter(Boolean).map(r => ({
   name: r.c.name, route: r.route,
   verdict: r.final ? r.final.verdict : 'unknown',

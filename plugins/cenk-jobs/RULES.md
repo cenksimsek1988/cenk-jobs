@@ -2,7 +2,9 @@
 
 Every cenk-jobs skill reads this file first (`<plugin>/RULES.md`; `<plugin>` is two folders above the skill's
 folder). The skills: `setup` (first run, once), `coordinate` (the main session), `search`, `plan`, `apply`,
-`prepare`, `cheat-sheet` (one page beside a call), `schedule`, `write` (one free text with the person). The dashboard has no skill: setup creates it and every run refreshes it.
+`prepare`, `cheat-sheet` (one page beside a call), `schedule`, `write` (one free text with the person), `tune-search`
+(candidate searches compared by high fits, on demand). The dashboard has no skill: setup creates it and every run
+refreshes it.
 The parts in `RULES/`, beside this file, are read only when a heading below says so. Safety rules stay here.
 
 ## Where things are

@@ -131,7 +131,6 @@ reads.
 Older runs, search-result files to merge and per-company decisions
 come from the "sync" part of the TRACKER_SETTINGS file (see templates/tracker-settings-example.json).
 """
-import ast
 import collections
 import copy
 import datetime
@@ -147,8 +146,8 @@ import choices  # noqa: E402
 import employerlib as el  # noqa: E402
 import jsenv  # noqa: E402
 import recordlib  # noqa: E402
-from trackerlib import (DETAILS, ENDED_STAGE, ENDED_STATUS, ISO_DATE, STATUSES, TODO_KINDS, collapse,  # noqa: E402
-                        collapse_row,
+from trackerlib import (DETAILS, ENDED_STAGE, ENDED_STATUS, ISO_DATE, STATUSES, TODO_KINDS, as_result,  # noqa: E402
+                        collapse, collapse_row,
                         companies, date_in, employer_link, entries, expand, expand_company, job_urls, login_of,
                         workday_host, expand_row, flat_jobs, is_company_shape, json_indent, load_settings, needs_of,
                         note_key, pipeline_entry, split_tracker, waits_on_person, write_json)
@@ -294,36 +293,7 @@ def add_job(data, company, job):
 
 
 # --- sync ---------------------------------------------------------------------------------------------------------
-def parse(value):
-    # Results are JSON text, or a Python dict's text (some workflow runs wrote that), or already a dict.
-    if not isinstance(value, str):
-        return value
-    for reader in (json.loads, ast.literal_eval):
-        try:
-            return reader(value)
-        except (ValueError, SyntaxError):
-            continue
-    return value
-
-
-def as_result(value):
-    """A prep agent replies with the path of the JSON file it wrote instead of the JSON itself: a whole line, quoted
-    or not, or an absolute path after a word; a Git Bash path counts as its Windows one. Example: "Wrote
-    C:/run/acme-1.json", or "/c/run/acme-1.json"."""
-    value = parse(value)
-    if isinstance(value, str):
-        for line in value.splitlines():
-            line = line.strip().strip("\"'`").strip()
-            # Every place a path may start, so "and/or C:/run/acme-1.json" still finds the file.
-            found = [m.group(1) for m in re.finditer(r"(?=((?:[A-Za-z]:[\\/]|/).*?\.json))", line)]
-            for path in (line, *found):
-                for candidate in (path, re.sub(r"^/([A-Za-z])/", r"\1:/", path)):
-                    if candidate.lower().endswith(".json") and os.path.isfile(candidate):
-                        with open(candidate, encoding="utf-8") as f:
-                            return json.load(f)
-    return value
-
-
+# A journal's result, read as trackerlib.as_result reads it (JSON text, a dict's text, or the path of a JSON file).
 def results(journals):
     done = []
     for journal in journals:

@@ -850,6 +850,22 @@ def load_places(env):
     return scope_regions if scope_regions is not None else regions
 
 
+def employer_of(row, company):
+    """The name a posting goes under: its own employer on LinkedIn and the feeds; on a board the row's employer, else
+    its site without "(<source>)" or a trailing "jobs" or "careers". A site named "Examplia (ashby)" loses its board
+    too, or the employer check matches the board "Ashby". Example: a Greenhouse row "Acme careers" -> "Acme"."""
+    if row.get("source") == "linkedin" or row.get("source") in FEEDS:
+        return company or row.get("site", "")
+    site = re.sub(r"\s*\(" + re.escape(row.get("source", "")) + r"\)\s*$", "", row.get("site", ""), flags=re.I)
+    return row.get("employer") or re.sub(r"(?i)[\s-]+(jobs|careers|career site|careers page)$", "", site).strip()
+
+
+def found_by(row):
+    """A posting's found_by: script:<source>:<board>, else :feed for a feed, :search for LinkedIn. The discovery rule
+    (DISCOVERY_ONLY) and the funnel's order read it. Example: "script:himalayas-search:Italy"."""
+    return f"script:{row['source']}:{row.get('board') or ('feed' if row['source'] in FEEDS else 'search')}"
+
+
 def searches_by_terms(row):
     """True when the row's terms are its search at the source (SEARCHING, or a Jobicy row with tag=), not only a
     title filter. Example: a LinkedIn row "java" asks LinkedIn for java; a Greenhouse row's terms filter its titles."""
@@ -1048,14 +1064,9 @@ def main():
         if dropped:
             read.append(f"search {row['id']} {row['site']}: title rules left out "
                         + ", ".join(f"{n} ({why})" for why, n in sorted(dropped.items())))
-        by = f"script:{row['source']}:{row.get('board') or ('feed' if row['source'] in FEEDS else 'search')}"
+        by = found_by(row)
         # A board's postings carry the employer's name as the search row names it, never the board's slug.
-        # A site named "Examplia (ashby)" loses its board too, or the employer check matches the board "Ashby".
-        site = re.sub(r"\s*\(" + re.escape(row["source"]) + r"\)\s*$", "", row["site"], flags=re.I)
-        employer = row.get("employer") or re.sub(r"(?i)[\s-]+(jobs|careers|career site|careers page)$", "", site).strip()
-        own_name = row["source"] == "linkedin" or row["source"] in FEEDS  # each posting names its employer
-        name = (lambda c: c or row["site"]) if own_name else (lambda c: employer)
-        found += [dict(title=t, company=name(c), location=p, date=d, url=u, found_by=by, search=row["id"],
+        found += [dict(title=t, company=employer_of(row, c), location=p, date=d, url=u, found_by=by, search=row["id"],
                        rank=rank(row), gate=remote_gate(row, p))
                   for t, c, p, d, u in kept]
         read.append((row, len(kept), by))

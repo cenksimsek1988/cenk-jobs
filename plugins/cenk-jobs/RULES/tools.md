@@ -30,6 +30,7 @@ of its file) has every command and option. Run one as RULES.md, "Where things ar
 ## Search and the funnel
 
 - `collect_postings.py`: new postings from every due script search, without a model (`--out`, `--add`).
+- `tune.py`: the tune-search run: start, round, fit (`--recheck`), score, winner (`--apply`), clean.
 - `employer_lookup.py`: the free public-data lookup of an employer never checked (`--record`).
 - `reposts.py`: postings that repeat a role already applied to, declined, or skipped for fit in 30 days.
 - `fetch_jd.py`: a posting's full text as `job-description.md`; `--posting`: an unread posting's text for the next

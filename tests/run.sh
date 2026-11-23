@@ -4651,6 +4651,145 @@ check "0.48.0 text: setup writes the title rules; the search skill names WWR, Jo
     grep -q "rules (the title rules, checked" "$1/RULES/tools.md" && grep -q "Every place" "$1/scripts/collect_postings.py" &&
     grep -q "\"need\"" "$1/templates/search-rules-example.json" && ! grep -q "\"level\"" "$1/templates/search-rules-example.json" &&
     grep -q "^ROW_TERMS=$" "$1/templates/job-search.env.template" && grep -q "ROW_TERMS=filter" "$1/skills/search/SKILL.md"' _ "$S/.."
+# --- 0.49.0: tune-search: candidates over one pool, each job fit-checked once, the winner applied -------------------
+mkhome "$T/r490" old
+use "$T/r490"
+{ echo "PLACES=Rome"; echo "REMOTE_REGIONS=Italy, Europe"; echo "ROLE_TERMS=engineer"; echo "FIT_MODEL=opus";
+  echo "TUNE_CACHE=tune-cache"; } >>"$ENVF"
+"$PY" -I "$S/choices.py" fit --set work_languages=Java --env "$ENVF" >/dev/null 2>&1
+tune() { CLAUDE_CONFIG_DIR="$T/no-config" "$PY" -I "$S/tune.py" "$@" --env "$ENVF"; }
+searches add "Acme jobs" "engineer" source=greenhouse board=acme >/dev/null 2>&1
+searches add "Himalayas Italy" "java" source=himalayas-search board=Italy mode=remote >/dev/null 2>&1
+tune start >"$T/r490-start.out" 2>&1
+RUN490=$(ls -d "$H"/apply/tune/*/ | head -n 1)
+# Raw answers in the cache, as the collector asks for them (made-up employers); a known job in the tracker.
+"$PY" -I - "$S" "$H" "$RUN490" <<'PYEOF'
+import datetime
+import json
+import os
+import sys
+import urllib.parse
+
+sys.path.insert(0, sys.argv[1])
+import collect_postings as cp
+import tune
+
+home, run = sys.argv[2], sys.argv[3]
+raw = os.path.join(home, "tune-cache", "raw")
+os.makedirs(raw, exist_ok=True)
+put = lambda url, data: open(os.path.join(raw, tune.cache_key(url)), "w", encoding="utf-8").write(json.dumps(data))  # noqa: E731
+today = datetime.date.today().isoformat()
+gh = lambda n, title: {"title": title, "location": {"name": "Rome, Italy"}, "first_published": today + "T08:00:00Z",  # noqa: E731
+                       "absolute_url": f"https://boards.example.com/acme/jobs/{n}"}
+put(cp.API["greenhouse"].format(board="acme"), {"jobs": [gh(1, "Senior Engineer"), gh(2, "Data Analyst")]})
+him = lambda term: cp.FEED_API["himalayas-search"].format(board="Italy", term=urllib.parse.quote(term))  # noqa: E731
+hj = lambda title, company, n: {"title": title, "companyName": company, "locationRestrictions": ["Italy"],  # noqa: E731
+                                "pubDate": today, "applicationLink": f"https://jobs.example.com/{n}"}
+put(him("java"), {"jobs": [hj("Backend Developer", "Kappa Works", "kappa-1"), hj("Java Engineer", "Lambda Labs", "lambda-1")]})
+put(him("engineer"), {"jobs": [hj("Platform Engineer", "Mu Co", "mu-1"), hj("Senior Golang Engineer", "Nu Go", "nu-1"),
+                               hj("Java Engineer", "Lambda Labs", "lambda-1")]})
+for term in ("java", "engineer"):
+    put(him(term) + "&page=2", {"jobs": []})
+tracker_path = os.path.join(home, "apply", "targets.json")
+tracker = json.load(open(tracker_path, encoding="utf-8"))
+tracker["companies"].append({"name": "Lambda Labs", "verdict": "allow", "jobs": [{
+    "id": "L1", "title": "Java Engineer", "url": "https://jobs.example.com/lambda-1", "status": "submitted",
+    "applied": "2026-11-20", "outcome": "sent", "grade": "high",
+    "prep": {"action": "apply", "grade": "high", "read": "full", "must_haves": ["Java"], "gaps": [],
+             "requirements": [{"text": "Java", "place": "must", "level": "hands_on"}]}}]})
+json.dump(tracker, open(tracker_path, "w", encoding="utf-8"))
+greenhouse = {"site": "Acme jobs", "query": "engineer", "source": "greenhouse", "board": "acme"}
+json.dump({"candidates": [
+    {"name": "today", "rows": [greenhouse, {"site": "Himalayas Italy", "query": "java", "source": "himalayas-search",
+                                            "board": "Italy", "mode": "remote"}], "rules": None},
+    {"name": "wide", "rows": [greenhouse, {"site": "Himalayas Italy", "query": "java, engineer",
+                                           "source": "himalayas-search", "board": "Italy", "mode": "remote"}],
+     "rules": {"low": "\\bjunior\\b", "need": "engineer|developer"}}]},
+    open(os.path.join(run, "round-1.json"), "w", encoding="utf-8"))
+PYEOF
+tune round 1 --offline >"$T/r490-round.out" 2>&1
+check "tune 0.49.0: start fixes the window and the counted model; a round reads each row once from the cache" sh -c '
+    grep -q "window from .*, counted model opus, budget 35000000 tokens" "$1" &&
+    grep -q "^read: Acme jobs | engineer: 2 postings in the window$" "$2" &&
+    grep -q "^read: Himalayas Italy | java, engineer: 4 postings in the window$" "$2" &&
+    grep -q "^round 1: 6 postings in the window from " "$2"' _ "$T/r490-start.out" "$T/r490-round.out"
+check "tune 0.49.0: each candidate filters the same postings; a known job is graded; an other-language title is counted" sh -c '
+    "$1" -I "$2/dq.py" "$3/cands-1.json" "[R[c][k] for c in (\"today\", \"wide\") for k in (\"jobs\", \"known\", \"to check\", \"other-language title\", \"high (counted)\")] == [2, 1, 1, 0, 1, 4, 1, 3, 1, 1]"' \
+    _ "$PY" "$T" "$RUN490"
+"$PY" -I -c 'import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["budget"] = 1000; json.dump(d, open(p, "w"))' "$RUN490/run.json"
+tune fit 1 >"$T/r490-over.out" 2>&1; echo "exit $?" >>"$T/r490-over.out"
+"$PY" -I -c 'import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["budget"] = 35000000; json.dump(d, open(p, "w"))' "$RUN490/run.json"
+tune fit 1 >"$T/r490-fit0.out" 2>&1
+tune fit 1 >"$T/r490-fit.out" 2>&1
+check "tune fit 0.49.0: a run past the budget is refused; else the jobs to check and a script with its args inside" sh -c '
+    grep -q "3 employers on sonnet are about 114000 tokens, 1000 left of TUNE_TOKENS=1000: the run stops here" "$1" &&
+    grep -q "^exit 1$" "$1" && grep -q "^round 1: 3 jobs at 3 employers on sonnet, about 114000 tokens (114000 of 35000000 spent)" "$2" &&
+    grep -q "^const A = {" "$3/fit/1/run.js" && grep -q "\"countsOnly\": *true" "$3/fit/1/run.js" &&
+    grep -q "\"apply\": *\"list\"" "$3/fit/1/run.js" && grep -q "\"fitModel\": *\"sonnet\"" "$3/fit/1/run.js" &&
+    "$4" -I "$5/dq.py" "$3/fit/1/search.json" "sorted(c[\"name\"] for c in R[\"companies\"]) == [\"Acme\", \"Kappa Works\", \"Mu Co\"] and all(j.get(\"text_file\") is None or j[\"text_file\"] for c in R[\"companies\"] for j in c[\"jobs\"])"' \
+    _ "$T/r490-over.out" "$T/r490-fit.out" "$RUN490" "$PY" "$T"
+# The fit runs' journals, made up: the screen (Sonnet) grades, then the counted model re-checks the screen's high.
+"$PY" -I - "$RUN490" "$T/r490-j1.jsonl" "$T/r490-j1b.jsonl" "$T/r490-j2.jsonl" <<'PYEOF'
+import json
+import sys
+
+run = sys.argv[1]
+search = json.load(open(run + "/fit/1/search.json", encoding="utf-8"))
+ids = {c["name"]: c["jobs"][0]["id"] for c in search["companies"]}
+fit = lambda i, gaps: {"id": i, "title": "x", "action": "apply", "read": "full", "must_haves": ["Java"], "gaps": gaps,  # noqa: E731
+                       "requirements": [{"text": "Java", "place": "must", "level": "hands_on"}]}
+stack = {"kind": "stack", "what": "Kafka"}
+
+
+def journal(path, results):
+    with open(path, "w", encoding="utf-8") as fh:
+        for n, (name, jobs) in enumerate(results):
+            fh.write(json.dumps({"type": "started", "agentId": f"a{n}", "label": "prep-fit:" + name}) + "\n")
+            fh.write(json.dumps({"type": "result", "agentId": f"a{n}", "result": json.dumps({"company": name, "jobs": jobs})}) + "\n")
+
+
+journal(sys.argv[2], [("Kappa Works", [fit(ids["Kappa Works"], [])]), ("Mu Co", [fit(ids["Mu Co"], [stack])])])
+journal(sys.argv[3], [("Acme", [fit(ids["Acme"], [stack, {"kind": "scope", "what": "staff"}])])])
+journal(sys.argv[4], [("Kappa Works", [fit(ids["Kappa Works"], [])])])
+PYEOF
+# The first run's Acme check failed: the next fit run holds it alone, its tokens added to the first run's.
+tune score 1 "$T/r490-j1.jsonl" >"$T/r490-score1.out" 2>&1
+tune fit 1 >"$T/r490-fit2.out" 2>&1
+tune score 1 "$T/r490-j1b.jsonl" >"$T/r490-score1b.out" 2>&1
+tune fit 1 --recheck >"$T/r490-recheck.out" 2>&1
+tune score 1 "$T/r490-j2.jsonl" --recheck >"$T/r490-score2.out" 2>&1
+check "tune score 0.49.0: results kept whole; a failed check goes into the next fit run, its tokens added; the counted model's re-check decides the best" sh -c '
+    grep -q "^round 1: 2 fit results on sonnet kept$" "$1" && grep -q "^round 1 best: today, 1 high on opus$" "$1" &&
+    grep -q "^round 1: 1 jobs at 1 employers on sonnet, about 38000 tokens (152000 of 35000000 spent)" "$7" &&
+    grep -q "^round 1: 1 fit results on sonnet kept$" "$8" &&
+    grep -q "^round 1: 1 jobs at 1 employers on opus, about 100000 tokens (252000 of 35000000 spent)" "$2" &&
+    grep -q "^round 1: 1 fit results on opus kept$" "$3" && grep -q "^round 1 best: wide, 2 high on opus$" "$3" &&
+    grep -q "^best so far: 2 high on opus (round 1, wide); rounds since without a new best: 0$" "$3" &&
+    "$4" -I "$5/dq.py" "$6/cands-1.json" "[R[\"wide\"][k] for k in (\"checked\", \"to check\", \"high (screen)\", \"high (counted)\", \"normal\", \"long-shot\")] == [3, 0, 2, 2, 1, 1]"' \
+    _ "$T/r490-score1.out" "$T/r490-recheck.out" "$T/r490-score2.out" "$PY" "$T" "$RUN490" "$T/r490-fit2.out" "$T/r490-score1b.out"
+echo '{"need": "the person.s own"}' >"$H/apply/search-rules.json"
+tune winner 1 wide >"$T/r490-dry.out" 2>&1
+tune winner 1 wide --apply >"$T/r490-win.out" 2>&1
+tune winner 1 wide --apply >"$T/r490-win2.out" 2>&1
+tune clean >"$T/r490-clean.out" 2>&1
+check "tune winner 0.49.0: the person's rules are kept beside the new ones once, a second --apply changes nothing more" sh -c '
+    grep -q "the person.s own" "$1"/apply/search-rules.before-tune-*.json && grep -q "^saved searches: 0 added, 0 turned off, 0 turned on again$" "$2" &&
+    grep -q "0 high fits no tracker job holds" "$2"' _ "$H" "$T/r490-win2.out"
+check "tune winner 0.49.0: a dry run names the changes; --apply replaces the searches and rules, adds the new high fit" sh -c '
+    grep -q "^winner wide (round 1): 2 rows: 1 saved already (0 turned on again), 1 new; 1 saved script rows turned off; title rules replaced .*; 1 high fits no tracker job holds, added with their fit results$" "$1" &&
+    grep -q "^dry run: nothing was changed" "$1" &&
+    grep -q "^saved searches: 1 added, 1 turned off, 0 turned on again$" "$2" && grep -q "^added 1 found job(s) from new-high-fits.json$" "$2" &&
+    "$3" -I "$4/dq.py" "$5/apply/searches.json" "[(r[\"query\"], bool(r.get(\"off\"))) for r in R[\"searches\"]] == [(\"engineer\", False), (\"java\", True), (\"java, engineer\", False)]" &&
+    "$3" -I "$4/dq.py" "$5/apply/search-rules.json" "R == {\"low\": \"\\\\bjunior\\\\b\", \"need\": \"engineer|developer\"}" &&
+    "$3" -I "$4/dq.py" "$5/apply/targets.json" "[(j[\"status\"], j.get(\"grade\")) for c in R[\"companies\"] if c[\"name\"] == \"Kappa Works\" for j in c[\"jobs\"]] == [(\"pending\", \"high\")]" &&
+    [ ! -d "$5/tune-cache" ] && grep -q "^no cache at " "$6"' \
+    _ "$T/r490-dry.out" "$T/r490-win.out" "$PY" "$T" "$H" "$T/r490-clean.out"
+check "0.49.0 text: the skill, its tools line, the router, the coordinator's table and the env keys" sh -c '
+    grep -q "^name: tune-search$" "$1/skills/tune-search/SKILL.md" && grep -q "tune.py winner <round> <candidate>" "$1/skills/tune-search/SKILL.md" &&
+    grep -q "^- .tune.py.: the tune-search run" "$1/RULES/tools.md" && grep -q "tune-search" "$1/RULES.md" &&
+    grep -q "/cenk-jobs:tune-search" "$1/skills/coordinate/SKILL.md" &&
+    grep -q "^TUNE_TOKENS=35000000$" "$1/templates/job-search.env.template" && grep -q "^TUNE_CACHE=$" "$1/templates/job-search.env.template" &&
+    grep -q "countsOnly" "$1/workflows/screen-and-prepare.js"' _ "$S/.."
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]
