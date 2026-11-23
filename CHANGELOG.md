@@ -6,6 +6,30 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.49.2] - 2026-11-23
+
+Lessons from the job search of 20-23 Nov: the 19:00 run that stood aside, and a hand-off's stale "not sent".
+
+### Added
+
+- `sessions.py lock <id> --wait <minutes>`: one try a minute until the lock is taken (exit 0) or the minutes are over
+  (exit 1), the refusal printed once. Example: `sessions.py lock local_ab12 --wait 45`.
+- The hand-off's `Draft:` line: one per email draft left for the person, with its Gmail thread. Example: `Draft: J7,
+  reply to the recruiter at Acme, thread <id>`.
+
+### Changed
+
+- The scheduled run's takeover: after its message to the holder, the run waits for the lock in the background
+  (`--wait 45`) and runs once it holds it: on the reply, or when the holder unlocks or its beat is 30 minutes old.
+  The wait over: one notification to the person. A lost or held reply skips no day.
+- The scheduled task's prompt is the plugin's one line, "Run /cenk-jobs:coordinate for today's run.": no rule of its
+  own, no version, no one-off step. The health check reads it each run; another prompt becomes one question, and on
+  yes the task gets the line. Seen 16-23 Nov: a prompt's own "a coordinator is active: write nothing, stop" ended
+  five weekday runs before /cenk-jobs:coordinate loaded, so the takeover (0.41.0) never ran.
+- Before recording a hand-off's "not sent" or "waiting", the coordinator checks its source: the draft's Gmail thread
+  (a message from the person after the draft means sent), the tracker for a form, `PIPELINE` for a hiring step. Seen
+  23 Nov: a reply recorded as waiting was already in Sent.
+
 ## [0.49.1] - 2026-11-23
 
 A lesson from the job search of 23 Nov: what `track.py regrade --apply` saved.

@@ -104,9 +104,14 @@ state from these rows.
   (it refreshes the beat); `sessions.py unlock <id>` at the end. Refused (another coordinator's beat within 30
   minutes): it writes nothing, asks that coordinator to write its handoff and stop (as in the handoff check), and
   takes the lock once it is free. A scheduled run refused this way takes over: it sends the holder one message ("Today's
-  scheduled run takes over: write your handoff, unlock, reply 'handoff written' to <its id>, then stop."), ends
-  its turn, and on the reply takes the lock and runs as the day's coordinator. Seen: 16-18 Nov the run stood aside
-  and never ran. The holder that gets this message does just that, never a card. Example: a test coordinator started while the person's own one runs waits for its handoff.
+  scheduled run takes over: write your handoff, unlock, reply 'handoff written' to <its id>, then stop."), starts
+  `sessions.py lock <its id> --wait 45` in the background, ends its turn, and runs as the day's coordinator once it
+  holds the lock: on the reply, or when the wait takes the freed lock (the holder's unlock, or its beat 30 minutes
+  old), so a lost or held reply skips no day. The wait over (exit 1): one notification to the person
+  (RULES/urgent.md's tool), "Today's scheduled run did not start: the open Job search coordinator kept the lock; tell
+  it 'run my job search now'.", and the run ends. Seen: 16-18 Nov the run stood aside and never ran. The holder that
+  gets this message does just that, never a card. Example: a test coordinator started while the person's own one
+  runs waits for its handoff.
 - **Keeps the shared records**: `TRACKER`, `PIPELINE`, `LOGINS`, `SESSIONS`, `QUESTIONS`, `EMPLOYER_CHECKS` and
   the saved searches change only by their scripts, which refuse a file changed since it was read ("STALE": run the
   same command again), so a sub-session's own script call is safe. `MASTER_RECORD`, `EMPLOYER_RULES`, `USAGE_LOG`,
@@ -223,7 +228,9 @@ Written to `handoffs/<short name>.md` in the main folder (shared rules). One blo
 line each; a fact about the person themselves is already in the profile: only its key, such as `person.phone`); hiring steps or deadlines seen (date, time, name, link); sign-ins seen; employee reviews looked up
 (employer, rating, number of reviews, complaint topics, source); a study or after-a-step session's `Weak answers:`
 lines (`references/study.md`); a `write` session's approved text: its job, question and file
-(`handoffs/<short name>.answer.md`); one `Held:` line per form left open in a tab (`../../references/filling.md`).
+(`handoffs/<short name>.answer.md`); one `Held:` line per form left open in a tab (`../../references/filling.md`);
+one `Draft:` line per email draft left for the person to send, with its Gmail thread (`Draft: J7, reply to the
+recruiter at Acme, thread <id>`).
 Nothing else.
 
 The coordinator records it: `track.py set`, `step` and `outcome`, `MASTER_RECORD`, `logins.py set` and `sync`, `employer.py
@@ -233,6 +240,14 @@ removed, the session's state and title (`sessions.py set <name> state=done`), an
 missing), and `roadmap.md` is kept in order: what to study next first. An approved text: `questions.py answer
 <question id> --file handoffs/<short name>.answer.md` (after `questions.py add job "<question>" job=<id>` when the
 page never asked it), then that file is deleted with the handoff.
+
+A hand-off's "not sent" or "waiting" is checked against its source before it is recorded: the person may have acted
+after it was written. A mail (a reply, a withdrawal, an application by email): Gmail, the `Draft:` line's thread
+(`get_thread`; without one, `search_threads` with `in:sent to:<recipient> after:<the draft's date>`); a message from
+the person after the draft means sent (RULES/hiring-steps.md, "Mail"). A form: the tracker (`track.py show <id>`). A
+hiring step: `PIPELINE`. Sent: recorded as sent, the employer's message labelled done, its to-do removed. Example: a
+hand-off says the reply to Acme is not sent, and its thread holds the person's reply of that afternoon: recorded as
+sent. Seen 23 Nov: a reply recorded as waiting was already in Sent.
 
 ## Ending
 

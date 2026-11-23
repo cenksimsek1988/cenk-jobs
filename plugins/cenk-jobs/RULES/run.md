@@ -16,6 +16,8 @@ A step of the run (/cenk-jobs:coordinate, "Each run"):
    each one not checked since the run started in a `check:` line.
 3. The dashboard: `DASHBOARD_URL` set and readable. If not, create it now (see "Dashboard"). The same for
    `QUESTIONS_PAGE` (`RULES/questions.md`).
+4. The scheduled task (/cenk-jobs:schedule): its schedule against `SEARCH_TIME` and `SEARCH_DAYS`, its prompt
+   against the plugin's one line.
 
 ## Dashboard
 

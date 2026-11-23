@@ -4844,6 +4844,44 @@ check "track regrade --apply 0.49.1: the saved line counts the skips and the hel
     "$3" -I "$4/q.py" "$5/apply/targets.json" companies.0.jobs.id=G3.status eq needs-person &&
     grep -q "^regrade: 2 waiting to be sent with a stored fit: 0 a skip now, 1 held (the person is working on them), 0 grade(s) changed, 1 unchanged;" "$2" &&
     ! grep -q "^regrade --apply: saved" "$2"' _ "$T/r491-mixed.out" "$T/r491-again.out" "$PY" "$T" "$H"
+
+# --- 0.49.2: the scheduled run's takeover waits for the lock; prompt and hand-off rules -------------------------------
+# The 19:00 run stood aside on five weekdays (16-23 Nov): a lost or held reply must not skip the day, so the run waits
+# for the lock (lock --wait); the task's prompt is the plugin's one line; a hand-off's "not sent" is checked at its
+# source, its Draft line naming the thread.
+mkhome "$T/r492" old
+use "$T/r492"
+cat >"$T/r492.py" <<'PYEOF'
+import datetime
+import json
+import sys
+
+# A lock whose beat turns stale about 3 seconds from now (LOCK_MINUTES is 30).
+beat = (datetime.datetime.now() - datetime.timedelta(minutes=29, seconds=57)).isoformat(timespec="seconds")
+json.dump({"id": "local_h", "since": beat, "beat": beat}, open(sys.argv[1], "w", encoding="utf-8"))
+PYEOF
+sessions lock local_h >/dev/null 2>&1
+check "sessions lock --wait 0.49.2: a fresh lock stays refused; the refusal printed once, exit 1 naming the holder" sh -c '
+    ! "$1" -I "$2/sessions.py" lock local_r --wait 0.05 --env "$3" >"$4/r492-busy.out" 2>&1 &&
+    [ "$(grep -c "^another coordinator holds the lock: local_h" "$4/r492-busy.out")" -eq 1 ] &&
+    grep -q "^lock --wait: local_h still holds the lock after 0.05 min (last beat [0-9][0-9]:[0-9][0-9]): write no record; tell the person$" "$4/r492-busy.out"' \
+    _ "$PY" "$S" "$ENVF" "$T"
+"$PY" -I "$T/r492.py" "$H/.coordinator.lock"
+check "sessions lock --wait 0.49.2: the wait takes the lock once the holder's beat is 30 minutes old" sh -c '
+    "$1" -I "$2/sessions.py" lock local_r --wait 0.1 --env "$3" >"$4/r492-stale.out" 2>&1 &&
+    grep -q "^stale lock of local_h" "$4/r492-stale.out" && grep -q "^lock: local_r$" "$4/r492-stale.out" &&
+    "$1" -I "$4/q.py" "$5/.coordinator.lock" id eq local_r' _ "$PY" "$S" "$ENVF" "$T" "$H"
+check "sessions lock --wait 0.49.2: a wait that is no number is refused, the lock unchanged" sh -c '
+    ! "$1" -I "$2/sessions.py" lock local_x --wait soon --env "$3" >/dev/null 2>&1 &&
+    "$1" -I "$4/q.py" "$5/.coordinator.lock" id eq local_r' _ "$PY" "$S" "$ENVF" "$T" "$H"
+check "0.49.2 rules: the task's prompt is one line, read each run; the takeover waits; a hand-off's Draft line is checked" sh -c '
+    grep -q "^- The prompt is that one line, nothing else" "$1/skills/schedule/SKILL.md" &&
+    grep -q "Each run also reads the task.s prompt" "$1/skills/schedule/SKILL.md" &&
+    grep -q "sessions.py lock <id> --wait 45" "$1/skills/schedule/SKILL.md" &&
+    grep -q "sessions.py lock <its id> --wait 45" "$1/skills/coordinate/SKILL.md" &&
+    grep -q "one .Draft:. line per email draft" "$1/skills/coordinate/SKILL.md" &&
+    grep -q "in:sent to:<recipient> after:<the draft.s date>" "$1/skills/coordinate/SKILL.md" &&
+    grep -q "^4. The scheduled task (/cenk-jobs:schedule)" "$1/RULES/run.md"' _ "$S/.."
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

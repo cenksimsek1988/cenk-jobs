@@ -10,14 +10,18 @@ python -I sessions.py set <id|name> [key=value ...]     keys: state=you|ready|do
 python -I sessions.py order <id|name> ... | auto        these first, in this order; the rule orders the rest.
                                                         auto: the rule alone
 python -I sessions.py show                              the order, one line per session, and each title to set
-python -I sessions.py lock <session id>                 before a coordinator writes any record: takes the main
+python -I sessions.py lock <session id> [--wait <min>]  before a coordinator writes any record: takes the main
                                                         folder's lock (.coordinator.lock) or refreshes its own; exit 1
                                                         while another coordinator's lock is fresh (beat within 30
                                                         minutes), naming it. A stale lock is taken over and named.
+                                                        --wait: one try a minute until it is taken (exit 0) or the
+                                                        minutes are over (exit 1), the refusal printed once; a
+                                                        scheduled run's takeover runs it in the background
 python -I sessions.py unlock <session id>               at the end of the run: frees its own lock
 Two coordinators in one main folder write the same records (seen: two of them wrote the tracker for two and a half
 hours). Example: `sessions.py lock local_ab12` prints "lock: local_ab12" or "another coordinator holds the lock:
-local_cd34, last beat 18:02".
+local_cd34, last beat 18:02"; with `--wait 45` it ends with "lock: local_ab12" or "lock --wait: local_cd34 still
+holds the lock after 45 min (last beat 19:40): write no record; tell the person".
 The coordinator keeps this record; the dashboard only reads it (export_dashboard.py cannot call the app).
 A session: {id, name, title, state, waits, jobs, due, tab, steps, since, active, running, link}. state: you (it waits on
 the person), ready (it works alone), done (its report is recorded): the three title prefixes "You · ", "Ready · ",
@@ -43,6 +47,7 @@ import json
 import os
 import re
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jsenv  # noqa: E402
@@ -265,13 +270,13 @@ def show(env, data, today):
 
 
 LOCK_MINUTES = 30
+WAIT_EVERY = 60  # seconds between two tries of lock --wait
 
 
-def lock(env, sid, take):
-    """Take or free the main folder's coordinator lock; the exit code: 0 done, 1 another coordinator holds it.
-    Best effort: two coordinators starting in the same second can both take it; list_sessions is the second check."""
+def read_lock(env, now):
+    """The main folder's lock: its path, its content (an unreadable one is no lock), its beat, and whether the beat
+    is fresh (within LOCK_MINUTES of now)."""
     path = os.path.join(env.home, ".coordinator.lock")
-    now = datetime.datetime.now()
     held = {}
     if os.path.isfile(path):
         try:
@@ -281,12 +286,20 @@ def lock(env, sid, take):
             held = {}  # an unreadable lock is no lock
         if not isinstance(held, dict):
             held = {}
-    other = held.get("id") and held["id"] != sid
     try:
         beat = datetime.datetime.fromisoformat(held.get("beat", ""))
     except ValueError:
         beat = None
-    fresh = beat and now - beat < datetime.timedelta(minutes=LOCK_MINUTES)
+    return path, held, beat, beat and now - beat < datetime.timedelta(minutes=LOCK_MINUTES)
+
+
+def lock(env, sid, take, quiet=False):
+    """Take or free the main folder's coordinator lock; the exit code: 0 done, 1 another coordinator holds it (quiet:
+    that refusal is not printed, for lock --wait's later tries).
+    Best effort: two coordinators starting in the same second can both take it; list_sessions is the second check."""
+    now = datetime.datetime.now()
+    path, held, beat, fresh = read_lock(env, now)
+    other = held.get("id") and held["id"] != sid
     if not take:
         if held.get("id") == sid:
             os.remove(path)
@@ -295,8 +308,9 @@ def lock(env, sid, take):
             print(f"unlock: {sid} holds no lock here")
         return 0
     if other and fresh:
-        print(f"another coordinator holds the lock: {held['id']}, last beat {beat:%H:%M}: write no record; ask it to "
-              "hand off and stop, or wait")
+        if not quiet:
+            print(f"another coordinator holds the lock: {held['id']}, last beat {beat:%H:%M}: write no record; ask it "
+                  "to hand off and stop, or wait")
         return 1
     if other:
         print(f"stale lock of {held['id']} (last beat {held.get('beat', '?')}) taken over")
@@ -306,6 +320,26 @@ def lock(env, sid, take):
                    "beat": now.isoformat(timespec="seconds")}, fh)
     os.replace(tmp, path)
     print(f"lock: {sid}")
+    return 0
+
+
+def lock_wait(env, sid, minutes):
+    """lock --wait: one try a minute until the lock is taken (0) or the minutes are over (1); the refusal is printed
+    once. A scheduled run that asked the holder to hand off runs it in the background, so the freed lock (the holder's
+    unlock, or its beat LOCK_MINUTES old) wakes the run even when the holder's reply is lost or held (0.49.2)."""
+    end = time.monotonic() + minutes * 60
+    tries = 0
+    while lock(env, sid, True, quiet=tries > 0):
+        tries += 1
+        sys.stdout.flush()  # the refusal readable at once in a background command's output
+        left = end - time.monotonic()
+        if left <= 0:
+            _, held, beat, _ = read_lock(env, datetime.datetime.now())
+            when = f"{beat:%H:%M}" if beat else "?"
+            print(f"lock --wait: {held.get('id') or 'another coordinator'} still holds the lock after {minutes:g} min "
+                  f"(last beat {when}): write no record; tell the person")
+            return 1
+        time.sleep(min(WAIT_EVERY, left))
     return 0
 
 
@@ -322,9 +356,19 @@ def main():
         sys.stdout.reconfigure(errors="replace")  # a title may hold a character the console cannot print
     env = jsenv.load(env_arg, __file__)
     if args[0] in ("lock", "unlock"):
+        wait = None
+        if args[0] == "lock" and "--wait" in args:
+            i = args.index("--wait")
+            try:
+                wait = float(args[i + 1])
+            except (IndexError, ValueError):
+                wait = -1.0
+            if not wait >= 0:  # NaN too
+                sys.exit("sessions.py lock <session id> --wait <minutes, 0 or more>")
+            del args[i:i + 2]
         if len(args) < 2:
             sys.exit(f"sessions.py {args[0]} <session id>")
-        sys.exit(lock(env, args[1], args[0] == "lock"))
+        sys.exit(lock(env, args[1], args[0] == "lock") if wait is None else lock_wait(env, args[1], wait))
     data = load(env)
     today = datetime.date.today().isoformat()
     if args[0] == "show":
