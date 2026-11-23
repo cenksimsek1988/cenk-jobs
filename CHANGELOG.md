@@ -6,6 +6,45 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.47.0] - 2026-11-23
+
+The tracker and fit-check part of the tune-search bundle, and the real role of a talent marketplace's row. Seen 23
+Nov: the first tune run's lessons, and a regrade that skipped a row the person was in the vetting of.
+
+### Added
+
+- `track.py add --file <search file>`: every job of a search file (the funnel's form) as found, in one tracker
+  write, with its found_by, date, location, apply_url and search; a job whose id or own link the tracker holds is
+  named and left out (an apply link counts only when one tracked job alone has it). Example: a tune run's new high
+  fits.
+- `track.py role <id> "<the real role>"`: the role the person is really in (a talent marketplace's vetting) becomes
+  the job's title; the posting's title and stored fit move into its history row, so no regrade, reopen or sync
+  grades the row by the posting again; the status stays and no fit check runs. Its applications folder, named by the
+  old title, moves to the new name when its overview names the job (`build_app_folders.py`).
+- A posting that hires only in countries outside the person's places is a hard gap on every fit model: the fit check
+  lists the countries a remote worker must live in (`hires_in`, required in its schema), and both graders skip it
+  when none is a place or remote region of the person's, as the search's place rule reads them
+  (`choices.py hires_elsewhere`, the workflow's `hiresElsewhere`, the places in `args.fit.scope`); a region entry
+  (Europe, EMEA, Worldwide) always passes. Example: "remote, Poland only" for a person whose places are Rome and the
+  EU. Seen 23 Nov: one fit model graded 9 such roles high, another 1.
+- A listing that is no job (lessons or tutoring on a marketplace, a course, a referral scheme) is a hard gap in the
+  fit prompt. Seen 23 Nov: a tutoring marketplace's listing graded high on two fit models.
+- `references/sites/marketplaces.md`: a marketplace's posting advertises its talent pool; the role comes from the
+  vetting and is recorded with `track.py role`.
+
+### Changed
+
+- The other-language rule covers platform titles too (Android, iOS, SAP, Salesforce, ServiceNow, Frontend): a job
+  title that names only languages or platforms outside the work languages is a skip; a platform counts in the title
+  only, and a work language in the title keeps the role. A framework is no platform here: "Senior React Developer"
+  goes to the fit check. `work_languages` may name a platform (an Android developer's). Seen 23 Nov: 12 such titles
+  graded weak or long-shot for a Java record. The fit settings' `platforms` list has the languages' form;
+  `check_setup.py` checks its patterns.
+- `track.py regrade` holds a row the person is working on (an open to-do other than a sign-in click, or a PIPELINE
+  entry): it is named on a "held:" line and never skipped; the plan skill asks the person about each one.
+- The funnel's backlog takes a found job that was never prepared from any finder, not only a "script:" one
+  (`collect_postings.py`): a job added by `track.py add --file` or by hand reached no run before.
+
 ## [0.46.8] - 2026-11-23
 
 An other-language role is a skip at every level, and a fit waiting to be sent is graded again under today's rules.

@@ -1872,8 +1872,9 @@ check "collect_postings: the title and place filters, remote kept, the tracker's
     grep -q "^5 new postings from 2 searches read by script, added to the tracker; window from 2026-11-01 00:00$" "$1"' _ "$T/cp.out"
 check "collect_postings --add: each new posting is in the tracker with found_by" sh -c '
     "$1" -I "$2/dq.py" "$3/apply/targets.json" "len([j for j in R[\"jobs\"] if j.get(\"found_by\", \"\").startswith(\"script:\")]) == 5"' _ "$PY" "$T" "$H"
+# 0.47.0: the fixture's found row F2 (no finder, never prepared) joins too: the backlog takes any finder's.
 check "collect_postings --out: a search file the workflow reads" sh -c '
-    "$1" -I "$2/dq.py" "$3" "sorted(c[\"name\"] for c in R[\"companies\"]) == [\"Acme\", \"Zeta Works\"] and all(j[\"id\"].startswith(\"P\") for c in R[\"companies\"] for j in c[\"jobs\"])"' \
+    "$1" -I "$2/dq.py" "$3" "sorted(c[\"name\"] for c in R[\"companies\"]) == [\"Acme\", \"Beta Ltd\", \"Zeta Works\"] and all(j[\"id\"].startswith(\"P\") or j[\"id\"] == \"F2\" for c in R[\"companies\"] for j in c[\"jobs\"])"' \
     _ "$PY" "$T" "$T/cp-search.json"
 searches due >"$T/cp-due.out" 2>&1
 check "collect_postings: the script searches are marked read; the agent search is still due" sh -c '
@@ -1900,7 +1901,7 @@ check "collect_postings: LinkedIn refused (429) stops LinkedIn for the run; its 
     grep -q "not read (HTTP 429): LinkedIn stops for this run; it stays due" "$1" &&
     "$2" -I "$3/searches.py" due --env "$4" | grep -q "LinkedIn | developer"' _ "$T/cp2.out" "$PY" "$S" "$ENVF"
 check "collect_postings --out: at most MAX_NEW_PER_RUN jobs; the tracker's unprepared finds wait" sh -c '
-    grep -q "^1 postings for this run.s funnel (MAX_NEW_PER_RUN=1); 4 wait for the next run$" "$1" &&
+    grep -q "^1 postings for this run.s funnel (MAX_NEW_PER_RUN=1); 5 wait for the next run$" "$1" &&
     "$2" -I "$3/dq.py" "$4" "sum(len(c[\"jobs\"]) for c in R[\"companies\"]) == 1"' _ "$T/cp2.out" "$PY" "$T" "$T/cp2.json"
 "$PY" -I "$S/collect_postings.py" --from "$T/cp-src" --env "$ENVF" >/dev/null 2>&1
 searches list >"$T/cp-list.out" 2>&1
@@ -3574,7 +3575,7 @@ PYEOF
 check "collect 0.46.0: a board's first read takes its older postings; a region-only place passes; the list's text is the text_file" sh -c '
     grep -q "^Acme | Senior Engineer | Rome, Italy | 2026-10-20 | " "$1" && grep -q "^Acme | Platform Engineer | EMEA | " "$1" &&
     grep -q "^1 posting texts saved for the fit check (boards. lists, LinkedIn remote checks)$" "$1" &&
-    "$2" -I "$3/dq.py" "$4" "sorted((j[\"title\"], bool(j.get(\"text_file\"))) for c in R[\"companies\"] for j in c[\"jobs\"]) == [(\"Platform Engineer\", False), (\"Senior Engineer\", True)]" &&
+    "$2" -I "$3/dq.py" "$4" "sorted((j[\"title\"], bool(j.get(\"text_file\"))) for c in R[\"companies\"] for j in c[\"jobs\"]) == [(\"Analyst\", False), (\"Platform Engineer\", False), (\"Senior Engineer\", True)]" &&
     grep -q "Lead the payments platform team in Rome." "$5"/apply/postings/P*.md' _ "$T/r46b.out" "$PY" "$T" "$T/r46b.json" "$H"
 "$PY" -I "$T/mk46b.py" "$T/r46b-src/greenhouse-acme.json" again
 "$PY" -I "$S/collect_postings.py" --since 2026-11-01 --from "$T/r46b-src" --env "$ENVF" >"$T/r46b2.out" 2>&1
@@ -3653,8 +3654,8 @@ check "track reopen --apply --per-day 0.46.0: back to found with the old fit res
     "$("$PY" -I -c 'import datetime; print(datetime.date.today())')"
 mkdir -p "$T/r46-src"
 "$PY" -I "$S/collect_postings.py" --since 2026-11-01 --from "$T/r46-src" --out "$T/r46.json" --env "$ENVF" >"$T/r46-collect.out" 2>&1
-check "collect 0.46.0: a reopened job joins the funnel on its reopened day, whoever found it" sh -c '
-    "$1" -I "$2/dq.py" "$3" "sorted(j[\"id\"] for c in R[\"companies\"] for j in c[\"jobs\"]) == [\"K1\"]"' _ "$PY" "$T" "$T/r46.json"
+check "collect 0.46.0: a reopened job joins the funnel on its reopened day, whoever found it (0.47.0: any found job too)" sh -c '
+    "$1" -I "$2/dq.py" "$3" "sorted(j[\"id\"] for c in R[\"companies\"] for j in c[\"jobs\"]) == [\"K1\", \"K7\"]"' _ "$PY" "$T" "$T/r46.json"
 check "workflow 0.46.0: the fit check reads a LinkedIn job with no saved text at its public guest page" \
     grep -q "read its text at https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/<number>" "$S/../workflows/screen-and-prepare.js"
 check "choices 0.46.0: FIT_MODEL sonnet by default; opus and opus-max move the fit check to Opus, medium or max effort" sh -c '
@@ -3978,7 +3979,7 @@ check "collect --rows 0.46.6: a widening round reads only its own rows and names
 check "0.46.6 text: the search stop rule, the title stack in the fit prompt and the grade, reopen --weak" sh -c '
     grep -q "stops after 3 rounds in a row below the best round.s real fits" "$1/skills/search/SKILL.md" &&
     grep -q "is \"absent\", never \"adjacent\": example, C#/.NET in the title" "$1/workflows/screen-and-prepare.js" &&
-    grep -q "a Salesforce role for a Java record is a long-shot" "$1/references/choices.md" &&
+    grep -q "a Kafka role for a record without Kafka is a long-shot" "$1/references/choices.md" &&
     grep -q "^python -I track.py reopen \[--weak\]" "$1/scripts/track.py"' _ "$S/.."
 # --- 0.46.7: the catch-up's lessons on applying and records -------------------------------------------------------
 check "reposts 0.46.7: a title's Stack names nothing of the role: two links of one job match" "$PY" -I -c '
@@ -4202,6 +4203,238 @@ check "0.46.8 text: the rule in the fit prompt and the choices; regrade first in
     grep -q "First .track.py regrade --apply." "$1/skills/apply/SKILL.md" &&
     grep -q "regrade (the fits" "$1/RULES/tools.md" && grep -q "\"work_languages\"" "$1/templates/fit-settings-example.json"' \
     _ "$S/.."
+# --- 0.47.0: platform titles, hires_in, not a job; add --file and any finder's backlog; track.py role, regrade holds --
+mkhome "$T/r470" old
+use "$T/r470"
+{ echo "PLACES=Rome"; echo "REMOTE_REGIONS=Italy, EU"; echo "NOT_PLACES=Turin"; } >>"$ENVF"
+"$PY" -I "$S/choices.py" fit --set work_languages=Java --env "$ENVF" >/dev/null 2>&1
+"$PY" -I "$S/choices.py" fit --env "$ENVF" >"$T/r470-fit.json" 2>&1
+check "choices fit 0.47.0: the fit settings carry the platforms and the person's places as their scope" "$PY" -I -c '
+import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+assert "Android" in d["platforms"] and "Go" in d["languages"], sorted(d)
+assert d["scope"] == {"places": ["rome"], "regions": ["italy", "eu"], "not_places": ["turin"]}, d["scope"]
+' "$T/r470-fit.json"
+{ cat "$ENVF"; echo "FIT_SETTINGS=apply/fit-android.json"; } >"$H/android.env"
+"$PY" -I "$S/choices.py" fit --set work_languages=Java,android --env "$H/android.env" >"$T/r470-android.out" 2>&1
+"$PY" -I "$S/choices.py" fit --env "$H/android.env" >"$T/r470-android.json" 2>&1
+check "choices fit --set 0.47.0: work_languages may name a platform, stored by the list's name; its titles stay fits" "$PY" -I -c '
+import json, sys
+sys.path.insert(0, sys.argv[1])
+import choices
+fit = json.load(open(sys.argv[3], encoding="utf-8"))
+assert open(sys.argv[2], encoding="utf-8").read().startswith("work_languages=Java,Android in "), "set"
+assert fit["work_languages"] == ["Java", "Android"], fit["work_languages"]
+assert choices.other_language({"title": "Senior Android Engineer"}, fit) == ""
+assert choices.other_language({"title": "Senior iOS Engineer"}, fit).startswith("other-language role (title: iOS)")
+' "$S" "$T/r470-android.out" "$T/r470-android.json"
+{ cat "$ENVF"; echo "FIT_SETTINGS=apply/bad-platform.json"; } >"$H/bad-platform.env"
+echo '{"platforms": {"Android": "android"}}' >"$H/apply/bad-platform.json"
+{ cat "$ENVF"; echo "FIT_SETTINGS=apply/bad-pattern.json"; } >"$H/bad-pattern.env"
+echo '{"platforms": {"Broken": ["(", ""]}}' >"$H/apply/bad-pattern.json"
+"$PY" -I "$S/choices.py" fit --env "$H/bad-platform.env" >"$T/r470-badplat.out" 2>&1
+"$PY" -I "$S/check_setup.py" --env "$H/bad-pattern.env" >"$T/r470-badpat.out" 2>&1
+check "fit settings 0.47.0: a platforms entry of the wrong shape, or a pattern that does not compile, is named" sh -c '
+    grep -q "platforms Android: each is \[pattern, flags\], two strings" "$1" &&
+    grep -q "^FAIL  Fit settings (FIT_SETTINGS) - fit settings: platforms .Broken.: not a valid pattern" "$2"' \
+    _ "$T/r470-badplat.out" "$T/r470-badpat.out"
+# Platform titles and hires_in, made-up roles; the person: Java, places Rome, remote regions Italy and the EU, Turin ruled out.
+"$PY" -I - "$T/grade470.json" <<'PYEOF'
+import json
+import sys
+
+def job(i, title, reqs=(("Java", "must", "hands_on"),), hires=None, gaps=()):
+    out = {"id": i, "title": title, "action": "apply", "read": "full", "must_haves": ["x"], "gaps": list(gaps),
+           "requirements": [{"text": t, "place": p, "level": lv} for t, p, lv in reqs]}
+    if hires is not None:
+        out["hires_in"] = hires
+    return out
+
+jobs = [
+    job("A1", "Senior Android Engineer"),
+    job("A2", "Java Developer (Android)"),
+    job("A3", "Frontend Engineer (React)"),
+    job("A4", "Full Stack Engineer (Java, React)"),
+    job("A5", "SAP ABAP Developer"),
+    job("A6", "Java Developer", (("Java", "must", "hands_on"), ("Salesforce integrations", "must", "absent")),
+        gaps=[{"kind": "stack", "what": "Salesforce"}]),
+    job("A7", "Reactive Systems Engineer"),
+    job("A8", "Senior React Developer"),
+    job("H1", "Backend Engineer", hires=["Poland"]),
+    job("H2", "Backend Engineer", hires=["Poland", "Italy"]),
+    job("H3", "Backend Engineer", hires=["Worldwide"]),
+    job("H4", "Backend Engineer", hires=[]),
+    job("H5", "Backend Engineer", hires=["Turin, Italy"]),
+    job("H6", "Backend Engineer", hires=["EU"]),
+    job("H7", "Backend Engineer", hires=["Europe"]),
+]
+json.dump({"jobs": jobs}, open(sys.argv[1], "w", encoding="utf-8"))
+PYEOF
+"$PY" -I - "$S" "$T/grade470.json" "$T/r470-fit.json" >"$T/grade470-py.out" 2>"$T/grade470-py.err" <<'PYEOF'
+import json
+import sys
+
+sys.path.insert(0, sys.argv[1])
+import choices
+
+fit = json.load(open(sys.argv[3], encoding="utf-8"))
+for j in json.load(open(sys.argv[2], encoding="utf-8"))["jobs"]:
+    print(" | ".join([j["id"], *choices.grade(j, "normal", fit, 0)]))
+    print(" | ".join([j["id"], *choices.grade(j, "normal", None, 0)]), file=sys.stderr)  # no work languages, no places
+PYEOF
+check "grade 0.47.0: platform titles are other-language roles, the title only; a posting hiring only elsewhere is a hard gap" sh -c '
+    grep -q "^A1 |  | a hard gap: other-language role (title: Android): no work use in the record$" "$1" &&
+    grep -q "^A2 | high | $" "$1" &&
+    grep -q "^A3 |  | a hard gap: other-language role (title: Frontend): no work use in the record$" "$1" &&
+    grep -q "^A4 | high | $" "$1" && grep -q "^A5 |  | a hard gap: other-language role (title: SAP): no work" "$1" &&
+    grep -q "^A6 | normal | $" "$1" && grep -q "^A7 | high | $" "$1" && grep -q "^A8 | high | $" "$1" &&
+    grep -q "^H1 |  | a hard gap: hires only in Poland, outside the person.s places$" "$1" &&
+    grep -q "^H2 | high | $" "$1" && grep -q "^H3 | high | $" "$1" && grep -q "^H4 | high | $" "$1" &&
+    grep -q "^H5 |  | a hard gap: hires only in Turin, Italy, outside the person.s places$" "$1" &&
+    grep -q "^H6 | high | $" "$1" && grep -q "^H7 | high | $" "$1" &&
+    ! grep -q "other-language\|hires only" "$2"' _ "$T/grade470-py.out" "$T/grade470-py.err"
+if command -v node >/dev/null 2>&1; then
+    node "$T/grade468.js" "$S/../workflows/screen-and-prepare.js" "$T/grade470.json" "$T/r470-fit.json" \
+        >"$T/grade470-js.out" 2>"$T/grade470-js.err"
+    check "grade 0.47.0: the workflow (JS) grades every case as choices.py does, from args.fit's platforms and scope" \
+        diff --strip-trailing-cr "$T/grade470-py.out" "$T/grade470-js.out"
+    check "grade 0.47.0: the run's raw grade of a platform title and of a posting hiring elsewhere is hard" \
+        grep -q "^hard,high,hard,high,hard,normal,high,high,hard,high,high,high,hard,high,high$" "$T/grade470-js.err"
+else
+    echo "SKIP platform and hires_in grades in JS: no node"
+fi
+check "collect 0.47.0: a platform title alone is left out with the fit check's words; React is no platform; a work language keeps it" "$PY" -I -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+import choices, collect_postings as c
+posts = [{"id": "P1", "title": "Senior Android Engineer"}, {"id": "P2", "title": "Java Developer (Android)"},
+         {"id": "P3", "title": "Senior React Developer"}]
+left = c.language_left(posts, dict(choices.FIT_DEFAULTS, work_languages=["Java"]))
+assert left == {"P1": "fit: a hard gap: other-language role (title: Android): no work use in the record"}, left
+assert sorted(choices.PLATFORMS) == ["Android", "Frontend", "SAP", "Salesforce", "ServiceNow", "iOS"], sorted(choices.PLATFORMS)
+' "$S"
+# track.py add --file: a search file with a new job, a known link, a known id, one with no id, one with no link.
+"$PY" -I - "$T/r470-new.json" <<'PYEOF'
+import json
+import sys
+
+json.dump({"companies": [
+    {"name": "Acme Corp", "jobs": [
+        {"id": "P0000001", "title": "Platform Engineer", "url": "https://example.com/p1",
+         "apply_url": "https://example.com/apply/p1", "location": "Remote, Italy", "date": "2026-11-20",
+         "found_by": "script:himalayas-search:Italy"},
+        {"id": "P0000002", "title": "Engineer again", "url": "https://EXAMPLE.com/j1/"},
+        # LinkedIn links whose job number is in the query are two jobs; an apply link J1 has too names no twin.
+        {"id": "P0000003", "title": "Data Engineer", "url": "https://www.linkedin.com/jobs/search/?currentJobId=111"},
+        {"id": "P0000004", "title": "QA Engineer", "url": "https://www.linkedin.com/jobs/search/?currentJobId=222"},
+        {"id": "P0000005", "title": "Support Engineer", "url": "https://example.com/s5",
+         "apply_url": "https://example.com/apply/1"}]},
+    {"name": "Zeta Labs", "jobs": [
+        {"id": "J3", "title": "Designer", "url": "https://example.com/other"},
+        {"title": "Backend Engineer", "url": "https://example.com/z1"},
+        {"id": "P0000009", "title": "No Link Engineer"}]}]}, open(sys.argv[1], "w", encoding="utf-8"))
+PYEOF
+track add --file "$T/r470-new.json" >"$T/r470-add.out" 2>&1
+track add --file "$T/r470-new.json" >"$T/r470-add2.out" 2>&1
+check "track add --file 0.47.0: new jobs are found with their fields; a known id or link, and a job with no link, are named" sh -c '
+    grep -q "^added 5 found job(s) from r470-new.json$" "$1" &&
+    grep -q "^already tracked: P0000002 | Acme Corp | Engineer again (as J1)$" "$1" &&
+    grep -q "^already tracked: J3 | Zeta Labs | Designer$" "$1" &&
+    grep -q "^add --file: left out, no employer, title or link: P0000009$" "$1" &&
+    grep -q "^add --file: nothing new in r470-new.json$" "$2" &&
+    "$3" -I "$4/dq.py" "$5" "[(j[\"status\"], j[\"found_by\"], j[\"apply_url\"], j[\"location\"], j[\"date\"]) for c in R[\"companies\"] if c[\"name\"] == \"Acme Corp\" for j in c[\"jobs\"] if j[\"id\"] == \"P0000001\"] == [(\"found\", \"script:himalayas-search:Italy\", \"https://example.com/apply/p1\", \"Remote, Italy\", \"2026-11-20\")]" &&
+    "$3" -I "$4/dq.py" "$5" "[(j[\"id\"], j[\"found_by\"], j[\"history\"][0][\"outcome\"]) for c in R[\"companies\"] if c[\"name\"] == \"Zeta Labs\" for j in c[\"jobs\"]] == [(\"P\" + __import__(\"hashlib\").sha1(b\"https://example.com/z1\").hexdigest()[:8], \"file:r470-new.json\", \"added from r470-new.json\")]"' \
+    _ "$T/r470-add.out" "$T/r470-add2.out" "$PY" "$T" "$H/apply/targets.json"
+searches add "Beta careers" "analyst" alert=no >/dev/null 2>&1
+mkdir -p "$T/r470-src"
+"$PY" -I "$S/collect_postings.py" --since 2026-11-01 --from "$T/r470-src" --out "$T/r470-search.json" --env "$ENVF" \
+    >"$T/r470-collect.out" 2>&1
+check "collect 0.47.0: a found job never prepared joins the funnel whoever found it; a discovery source's keeps its note" sh -c '
+    "$1" -I "$2/dq.py" "$3" "sorted(j[\"id\"] for c in R[\"companies\"] for j in c[\"jobs\"]) == sorted([\"E1\", \"J3\", \"P0000001\", \"P0000003\", \"P0000004\", \"P0000005\", \"P\" + __import__(\"hashlib\").sha1(b\"https://example.com/z1\").hexdigest()[:8]])" &&
+    "$1" -I "$2/dq.py" "$3" "[(j.get(\"apply_url\"), bool(j.get(\"apply_note\"))) for c in R[\"companies\"] for j in c[\"jobs\"] if j[\"id\"] == \"P0000001\"] == [(\"\", True)]"' \
+    _ "$PY" "$T" "$T/r470-search.json"
+# track.py role and the regrade guard, on a split company tracker: rows the person works on are held, never skipped.
+mkhome "$T/r470r" old
+use "$T/r470r"
+"$PY" -I "$S/choices.py" fit --set work_languages=Java --env "$ENVF" >/dev/null 2>&1
+"$PY" -I - "$H/apply/targets.json" "$H/apply/pipeline.json" <<'PYEOF'
+import json
+import sys
+
+go = {"action": "apply", "grade": "normal", "read": "full", "gaps": [{"kind": "stack", "what": "Golang"}],
+      "requirements": [{"text": "Golang (title)", "place": "title", "level": "absent"},
+                       {"text": "Golang", "place": "must", "level": "absent"}]}
+
+def job(i, title, status, **more):
+    note = "sent 20 Nov" if status == "submitted" else "fit: apply"
+    return dict({"id": i, "title": title, "url": f"https://example.com/{i}", "status": status, "outcome": note,
+                 "applied": "2026-11-20" if status == "submitted" else "", "grade": "normal",
+                 "history": [{"date": "2026-11-20", "status": status, "outcome": note}],
+                 "prep": dict(go, id=i, title=title)}, **more)
+
+todo = lambda kind, text: [{"kind": kind, "text": text, "since": "2026-11-22"}]  # noqa: E731
+companies = [
+    {"name": "Lambda Talent", "verdict": "allow", "jobs": [
+        job("M1", "Senior Golang Engineer", "needs-person", todo=todo("todo", "answer the vetting mail")),
+        job("M2", "Senior Golang Engineer (pool)", "submitted")]},
+    {"name": "Acme Go", "verdict": "allow", "jobs": [
+        job("H2", "Lead Golang Engineer", "account-needed", todo=todo("click", "sign in to Acme Go")),
+        job("H3", "Staff Golang Engineer", "pending"),
+        job("R1", "Golang Engineer", "pending")]}]
+json.dump({"companies": companies}, open(sys.argv[1], "w", encoding="utf-8"))
+json.dump({"H3": {"stage": "approved", "steps": [{"name": "intro call", "date": "2026-11-25"}]}},
+          open(sys.argv[2], "w", encoding="utf-8"))
+PYEOF
+track split --apply >/dev/null 2>&1
+"$PY" -I "$S/build_app_folders.py" --env "$ENVF" >/dev/null 2>&1
+for d in "$H/job-applications/not-applied/"*Senior\ Golang* "$H/job-applications/pending/"*Senior\ Golang*; do
+    [ -d "$d" ] && echo "the person's notes" >"$d/notes.md"
+done
+track regrade >"$T/r470-regrade.out" 2>&1
+track regrade --apply >"$T/r470-regrade-apply.out" 2>&1
+check "track regrade 0.47.0: a row with an open to-do or a hiring step is held and named; a sign-in click holds nothing" sh -c '
+    grep -q "^held: M1 | Lambda Talent | Senior Golang Engineer | needs-person | a hard gap: other-language role (title: Go; must-haves: Go): no work use in the record: the person is working on it (to-do: answer the vetting mail): record its real role (track.py role M1 \"<the role>\") or skip it by hand$" "$1" &&
+    grep -q "^held: H3 | Acme Go | Staff Golang Engineer | pending | .*(a hiring step in PIPELINE)" "$1" &&
+    grep -q "^H2 | Acme Go | Lead Golang Engineer | account-needed -> skipped | " "$1" &&
+    grep -q "^R1 | Acme Go | Golang Engineer | pending -> skipped | " "$1" &&
+    grep -q "^regrade: 4 waiting to be sent with a stored fit: 2 a skip now, 2 held (the person is working on them), 0 grade(s) changed, 0 unchanged; 1 sent are a hard gap" "$1" &&
+    "$2" -I "$3/q.py" "$4/apply/targets.json" companies.0.jobs.id=M1.status eq needs-person &&
+    "$2" -I "$3/q.py" "$4/apply/targets.json" companies.1.jobs.id=H3.status eq pending &&
+    "$2" -I "$3/q.py" "$4/apply/targets.json" companies.1.jobs.id=H2.status eq skipped &&
+    "$2" -I "$3/q.py" "$4/apply/targets.json" companies.1.jobs.id=R1.status eq skipped' \
+    _ "$T/r470-regrade.out" "$PY" "$T" "$H"
+# M1's old folder now names another job (Z9): the build must leave it there; M2's own sent folder moves.
+sed -i 's/^- \*\*Job id:\*\* M1$/- **Job id:** Z9/' "$H/job-applications/not-applied/Lambda Talent - Senior Golang Engineer/overview.md"
+track role M1 "Backend developer, Java + Kafka" >"$T/r470-role.out" 2>&1
+track role M2 "Backend developer, Java + Kafka" >"$T/r470-role2.out" 2>&1
+track regrade >"$T/r470-regrade2.out" 2>&1
+"$PY" -I "$S/build_app_folders.py" --env "$ENVF" >"$T/r470-build.out" 2>&1
+check "track role 0.47.0: the real role is the title; the posting's title and fit move into history; the status stays" sh -c '
+    grep -q "^M1 Lambda Talent: Senior Golang Engineer -> Backend developer, Java + Kafka (needs-person; " "$1" &&
+    "$2" -I "$3/q.py" "$4/apply/targets.json" companies.0.jobs.id=M1.title eq "Backend developer, Java + Kafka" &&
+    "$2" -I "$3/q.py" "$4/apply/targets.json" companies.0.jobs.id=M1.status eq needs-person &&
+    "$2" -I "$3/q.py" "$4/apply/targets.json" companies.0.jobs.id=M1.todo len 1 &&
+    "$2" -I "$3/q.py" "$4/apply/details/jobs/M1.json" prep absent &&
+    "$2" -I "$3/dq.py" "$4/apply/details/jobs/M1.json" "R[\"history\"][-1][\"posting_title\"] == \"Senior Golang Engineer\" and R[\"history\"][-1][\"prep\"][\"grade\"] == \"normal\" and R[\"history\"][-1][\"grade\"] == \"normal\"" &&
+    grep -q "^regrade: 1 waiting to be sent with a stored fit: 0 a skip now, 1 held (the person is working on them), 0 grade(s) changed, 0 unchanged; 0 sent are a hard gap" "$5"' \
+    _ "$T/r470-role.out" "$PY" "$T" "$H" "$T/r470-regrade2.out"
+check "build_app_folders 0.47.0: the job's own folder of the title track.py role replaced moves, notes and all; another's stays" sh -c '
+    p="$1/job-applications/pending"; n="$1/job-applications/not-applied"
+    grep -q "^- \*\*Job id:\*\* Z9$" "$n/Lambda Talent - Senior Golang Engineer/overview.md" || exit 1
+    ls "$p" | grep "Lambda Talent" | grep -q "Golang" && exit 1
+    new=$(ls "$p" | grep "Lambda Talent - Backend developer") && [ -f "$p/$new/notes.md" ] || exit 1
+    new=$(ls "$n" | grep "Lambda Talent - Backend developer") && [ ! -f "$n/$new/notes.md" ] || exit 1
+    [ -f "$n/Lambda Talent - Senior Golang Engineer/notes.md" ]' _ "$H"
+check "0.47.0 text: hires_in, not a job and platforms in the fit prompt and the choices; held rows; role; marketplaces" sh -c '
+    grep -q "hires_in: the countries a remote worker must live in" "$1/workflows/screen-and-prepare.js" &&
+    grep -q "a listing that is no job (teaching or tutoring students" "$1/workflows/screen-and-prepare.js" &&
+    grep -q "or only the platforms Android, iOS, SAP, Salesforce, ServiceNow or Frontend (a framework such as React is no platform here)" "$1/workflows/screen-and-prepare.js" &&
+    grep -q "the fit check lists where a remote worker" "$1/references/choices.md" &&
+    grep -q "ask the person about each \"held:\" line" "$1/skills/plan/SKILL.md" &&
+    grep -q "dover, marketplaces" "$1/skills/apply/SKILL.md" && grep -q "track.py role <id>" "$1/references/sites/marketplaces.md" &&
+    grep -q "role (the role the person is really in" "$1/RULES/tools.md" &&
+    grep -q "^python -I track.py add --file <search file>" "$1/scripts/track.py" &&
+    grep -q "^python -I track.py role <id> \"<the real role>\"" "$1/scripts/track.py"' _ "$S/.."
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

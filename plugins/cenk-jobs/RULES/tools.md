@@ -6,9 +6,11 @@ of its file) has every command and option. Run one as RULES.md, "Where things ar
 
 ## Records
 
-- `track.py`: the tracker: add, set (`--file` for many), wait, todo (add, done, list), show (`--full`), brief, list,
-  summary, sync (a screening run's journal), split (summary rows and detail files), reopen, regrade (the fits
-  waiting to be sent, graded again under today's fit rules); `PIPELINE`: step (add, done, cancel, set), outcome.
+- `track.py`: the tracker: add (`--file` for a search file's jobs), set (`--file` for many), wait, todo (add, done,
+  list), show (`--full`), brief, list, summary, sync (a screening run's journal), split (summary rows and detail
+  files), reopen, regrade (the fits waiting to be sent, graded again under today's fit rules; a row the person is
+  working on is held), role (the role the person is really in, as the title; the posting's fit into history);
+  `PIPELINE`: step (add, done, cancel, set), outcome.
 - `records.py`: check: the records' faults by id (shape, sent, waits, links, dupes, steps, employer); writes nothing.
 - `recordlib.py` (a library): every write of the seven record files: STALE refusal, the changed rows checked,
   `changes.jsonl`.

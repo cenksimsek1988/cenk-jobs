@@ -8,7 +8,8 @@ python -I collect_postings.py [--since <YYYY-MM-DD[THH:MM]>] [--out <search file
     usage log, else 7 days back. A search read before starts at its own last read. Postings dated before the start are left out.
     --out: also writes the postings for workflows/screen-and-prepare.js ({companies: [{name, jobs: [{id, title, url,
     apply_url, location, date, found_by}]}]}): at most MAX_NEW_PER_RUN (default 30) jobs, newest first, then the
-    tracker's found jobs from earlier runs that were never prepared; the rest wait for the next run.
+    tracker's found jobs from earlier runs that were never prepared, whoever found them (a script, an agent, track.py
+    add --file); the rest wait for the next run.
     --add: also adds every new posting to the tracker (track.py add <id> ... found_by=<source> date=<date>).
     --from <dir>: reads each source's answer from <dir>/<source>-<board>.json (.html for linkedin, -p2 and -p3 for
     its next pages; <source>-<board>.status holding an HTTP code answers with that error) instead of the web; tests.
@@ -66,9 +67,9 @@ scope in its own location field: "Remote, Europe" passes with the region Europe,
 LinkedIn remote search's posting goes on only when its own text speaks of remote work (one text read, no model,
 TEXT_FETCHES a run; seen: 73 of 82 were hybrid in one city). The location check, seen 19 Nov: 32 of 40 "Europe"
 postings were single-country elsewhere. A repost of a role already applied to or declined, or skipped for fit in
-the last 30 days, is left out (reposts.py). So is a title that names only main programming languages outside the
-fit settings' work_languages (an other-language role, choices.py other_language), recorded skipped with no fit check.
-Example: "Staff Golang Engineer" for work_languages Java.
+the last 30 days, is left out (reposts.py). So is a title that names only main programming languages or platforms
+outside the fit settings' work_languages (an other-language role, choices.py other_language), recorded skipped with
+no fit check. Example: "Staff Golang Engineer" or "Senior Android Engineer" for work_languages Java.
 Add --env <job-search.env> anywhere to pick the env file.
 """
 import datetime
@@ -965,11 +966,11 @@ def main():
                             location=j.get("location", ""), date=j.get("date", ""), found_by=j.get("found_by", ""),
                             search=j.get("search", ""), unread=j.get("unread", ""))
                        for j in flat_jobs(json.load(fh))
-                       # track.py reopen: any finder, from its "reopened" day on (--per-day paces them); the
-                       # field stays on the row, so a reopened job left found and unprepared comes back next run
+                       # Any finder (0.47.0; before, only "script:" ones: a job added by track.py add --file or
+                       # by hand reached no run). track.py reopen: from its "reopened" day on (--per-day paces
+                       # them); the field stays on the row, so a reopened job left found and unprepared comes back
                        if j.get("status") == "found"
-                       and (str(j["reopened"]) <= datetime.date.today().isoformat() if j.get("reopened")
-                            else str(j.get("found_by", "")).startswith("script:"))
+                       and (not j.get("reopened") or str(j["reopened"]) <= datetime.date.today().isoformat())
                        and not j.get("prep") and j["id"] not in {p["id"] for p in new}]
         for p in backlog:
             row = rows_by_id.get(int(p["search"])) if str(p["search"]).isdigit() else None

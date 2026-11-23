@@ -217,11 +217,15 @@ else:
     report("WARN", "EMPLOYER_RULES", "not set: the plugin's defaults apply (every category: warn and ask)")
 if env.get("USAGE_SHARING", "").lower() not in ("yes", "no"):
     report("WARN", "USAGE_SHARING", "not set: ask the person once whether usage reports may go to the developer")
-# The other-language rule (0.46.8) runs in code only with the person's work languages.
+# The other-language rule (0.46.8) runs in code only with the person's work languages (or platforms, 0.47.0).
 try:
     fit = choices.fit_settings(env)
     work = [str(x) for x in fit.get("work_languages") or []]
-    unknown = [x for x in work if not choices.languages_in(x, fit["languages"])]  # a bad pattern exits here too
+    # A bad pattern exits here: every one is compiled once, with or without work languages.
+    choices.languages_in("", fit["languages"])
+    choices.languages_in("", fit["platforms"], "platforms")
+    unknown = [x for x in work if not (choices.languages_in(x, fit["languages"])
+                                       or choices.languages_in(x, fit["platforms"], "platforms"))]
 except SystemExit as problem:
     fit = None
     report("FAIL", "Fit settings (FIT_SETTINGS)", str(problem))

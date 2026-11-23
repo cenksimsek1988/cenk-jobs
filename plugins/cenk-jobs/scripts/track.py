@@ -2,6 +2,16 @@
 
 python -I track.py add <id> "<company>" "<title>" <url> [key=value ...]   add a job (keys: location, work_mode, cv,
                                                                            letter, apply_url, salary_note, note)
+python -I track.py add --file <search file>                               every job of a search file ({companies:
+                                                                           [{name, jobs: [{id, title, url, ...}]}]}) as
+                                                                           found, in one write, with its found_by, date,
+                                                                           location, apply_url and search; a job whose
+                                                                           id or link the tracker holds is named and
+                                                                           left out
+python -I track.py role <id> "<the real role>"                            the role the person is really in (a talent
+                                                                           marketplace's vetting) as the job's title;
+                                                                           the posting's title and stored fit move into
+                                                                           its history row; the status stays
 python -I track.py set --file <file>                                      many outcomes in one write: lines
                                                                            "<id><TAB><status><TAB><note>"
 python -I track.py set <id> <status> "<note>" [key=value ...]             record an outcome (and update fields, e.g.
@@ -64,7 +74,10 @@ python -I track.py regrade [--apply]                                      every 
                                                                            rules: a skip now is skipped with its
                                                                            reason, a changed grade is written; a sent
                                                                            job never changes (its hard gaps today are
-                                                                           counted); a dry run without --apply
+                                                                           counted); a row the person is working on (an
+                                                                           open to-do other than a sign-in click, or a
+                                                                           PIPELINE entry) is held, never skipped; a
+                                                                           dry run without --apply
 python -I track.py list [<status>]                                        one line per job
 python -I track.py summary                                                counts by status (and screening verdict)
 python -I track.py sync <journal.jsonl> [...]                             merge screening and preparation results
@@ -122,6 +135,7 @@ import ast
 import collections
 import copy
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -137,7 +151,7 @@ from trackerlib import (DETAILS, ENDED_STAGE, ENDED_STATUS, ISO_DATE, STATUSES, 
                         collapse_row,
                         companies, date_in, employer_link, entries, expand, expand_company, job_urls, login_of,
                         workday_host, expand_row, flat_jobs, is_company_shape, json_indent, load_settings, needs_of,
-                        note_key, split_tracker, waits_on_person, write_json)
+                        note_key, pipeline_entry, split_tracker, waits_on_person, write_json)
 from trackerlib import PAGES_BEHIND  # noqa: E402
 
 args = sys.argv[1:]
@@ -187,6 +201,16 @@ def find(data, job_id):
 
 def title_of(job):
     return job.get("title") or (job.get("prep") or {}).get("title", "")
+
+
+def link_key(url):
+    """A link as one job's key however it was copied: no scheme, www, fragment or trailing slash, lower case; a
+    LinkedIn job link (/jobs/view/<number>) also without its query, which holds tracking only. Every other query
+    stays: it may name the job (?gh_jid=, LinkedIn's ?currentJobId=)."""
+    u = str(url or "").split("#")[0].strip()
+    if re.search(r"(?i)^https?://([a-z0-9-]+\.)*linkedin\.com/jobs/view/", u):
+        u = u.split("?")[0]
+    return re.sub(r"^https?://(www\.)?", "", u.rstrip("/").lower())
 
 
 def fields(pairs):
@@ -782,7 +806,7 @@ def outcome_command(pipeline, job, rest):
 
 # --- the commands -------------------------------------------------------------------------------------------------
 if not args or args[0] not in ("add", "set", "todo", "wait", "step", "outcome", "show", "brief", "list", "summary",
-                               "sync", "split", "reopen", "regrade"):
+                               "sync", "split", "reopen", "regrade", "role"):
     sys.exit(__doc__)
 cmd = args[0]
 
@@ -832,7 +856,59 @@ data = load()
 if not is_company_shape(data):
     data.setdefault("jobs", [])
 NOTE = note_key(data)
-if cmd == "add":
+if cmd == "add" and args[1:2] == ["--file"]:
+    # A search file's jobs as found, in one tracker write (0.47.0; seen 23 Nov: a tune run's 27 new high fits needed a
+    # one-off script). A job whose id or link the tracker holds is named and left out, never added twice. The next
+    # run's funnel takes them (collect_postings.py: found and never prepared, from any finder).
+    if len(args) < 3:
+        sys.exit("add --file <search file: {companies: [{name, jobs: [{id, title, url, ...}]}]}>")
+    try:
+        with open(args[2], encoding="utf-8") as fh:
+            source = json.load(fh)
+    except (OSError, ValueError) as problem:
+        sys.exit(f"add --file: {args[2]} is not readable JSON: {problem}")
+    name_of_file = os.path.basename(args[2])
+    ids = {j["id"] for _, j in companies(data)}
+    by_link, owners = {}, collections.defaultdict(set)
+    for _, j in companies(data):
+        if link_key(j.get("url")):
+            by_link.setdefault(link_key(j.get("url")), j["id"])  # a job's own link always names it
+        for u in job_urls(j):
+            owners[link_key(u)].add(j["id"])
+    # An apply link names a job only when no other tracked job has it: a careers page may be many jobs' apply link.
+    by_link.update({k: next(iter(v)) for k, v in owners.items() if k and len(v) == 1 and k not in by_link})
+    added = []
+    for c in (source.get("companies") or []) if isinstance(source, dict) else []:
+        employer = str(c.get("name") or "").strip()
+        for pj in c.get("jobs") or []:
+            url, title = str(pj.get("url") or "").strip(), str(pj.get("title") or "").strip()
+            if not (employer and url and title):
+                print(f"add --file: left out, no employer, title or link: {pj.get('id') or url or title or '?'}")
+                continue
+            job_id = str(pj.get("id") or "").strip() or "P" + hashlib.sha1(url.encode("utf-8")).hexdigest()[:8]
+            # The job's own link only: its apply link may be a careers page many jobs share.
+            twin = job_id if job_id in ids else by_link.get(link_key(url), "")
+            if twin:
+                print(f"already tracked: {job_id} | {employer} | {title[:60]}" + (f" (as {twin})" if twin != job_id else ""))
+                continue
+            job = {"id": job_id, "title": title, "url": url, "status": "found", "applied": ""}
+            for key in ("found_by", "date", "location", "apply_url", "search"):
+                value = str(pj.get(key) or "").strip()
+                if value and not (key == "apply_url" and value == url):
+                    job[key] = value
+            job.setdefault("found_by", "file:" + name_of_file)
+            job["history"] = [{"date": today, "status": "found", NOTE: f"added from {name_of_file}"}]
+            add_job(data, employer, job)
+            ids.add(job_id)
+            by_link[link_key(url)] = job_id
+            added.append(job_id)
+    if added:
+        save(data, added)
+        print(f"added {len(added)} found job(s) from {name_of_file}")
+        print(PAGES_BEHIND)
+    else:
+        print(f"add --file: nothing new in {name_of_file}")
+elif cmd == "add":
     job_id, company, title, url = args[1:5]
     if any(j["id"] == job_id for _, j in entries(data)):
         sys.exit(f"{job_id} already exists")
@@ -1097,7 +1173,25 @@ elif cmd == "regrade":
     # the person chose to send over a cut stays, unless it is a hard gap now; an "unread" result changes nothing.
     rules = (choices.value(env, "APPLY_FITS")[0], choices.fit_settings(env),
              int(choices.value(env, "LONG_SHOTS_PER_DAY")[0] or 0))
-    skips, changes, same, sent_hard = [], [], 0, 0
+    # A row the person is working on is held, never skipped (0.47.0; seen 23 Nov: a marketplace row in vetting was
+    # skipped by the must-haves of the posting that found it): an open to-do other than a sign-in click, or a PIPELINE
+    # entry. The plan skill asks the person about each one: its real role (track.py role) or a skip by hand.
+    pipeline = {}
+    if env.get("PIPELINE") and os.path.isfile(env.path("PIPELINE")):
+        try:
+            with open(env.path("PIPELINE"), encoding="utf-8") as fh:
+                pipeline = json.load(fh)
+        except ValueError as problem:
+            sys.exit(f"{env.path('PIPELINE')}: not readable JSON ({problem}): regrade needs it to hold rows in a "
+                     "hiring process")
+
+    def working_on(row):
+        """What shows the person is working on the row, "" when nothing does."""
+        todo = next((t for t in row.get("todo") or [] if (t.get("kind") or "todo") != "click"), None)
+        if todo:
+            return "to-do: " + str(todo.get("text") or "")[:60]
+        return "a hiring step in PIPELINE" if pipeline_entry(pipeline, row["id"]) else ""
+    skips, held, changes, same, sent_hard = [], [], [], 0, 0
     for c, row in companies(data):
         status = row.get("status") or ""
         if not (status in ("pending", "to-apply", "submitted") or waits_on_person(status)):
@@ -1112,7 +1206,11 @@ elif cmd == "regrade":
         elif new.get("grade") == "unread":
             same += 1
         elif new.get("action") == "skip" and (hard or prep.get("action") != "skip"):
-            skips.append((c, row, prep, new))
+            why = working_on(row)
+            if why:
+                held.append((c, row, new, why))
+            else:
+                skips.append((c, row, prep, new))
         elif prep.get("action") == "skip":  # a cut the person chose to send over: only a hard gap changes it
             same += 1
         elif (new.get("grade") or "") != (prep.get("grade") or ""):
@@ -1122,11 +1220,16 @@ elif cmd == "regrade":
     for c, row, prep, new in skips:
         print(f"{row['id']} | {c.get('name', '') or row.get('company', '')} | {title_of(row)[:60]} | "
               f"{row.get('status')} -> skipped | {str(new.get('reason') or '')[:160]}")
+    for c, row, new, why in held:
+        print(f"held: {row['id']} | {c.get('name', '') or row.get('company', '')} | {title_of(row)[:60]} | "
+              f"{row.get('status')} | {str(new.get('reason') or '')[:120]}: the person is working on it ({why}): "
+              f"record its real role (track.py role {row['id']} \"<the role>\") or skip it by hand")
     for c, row, prep, new in changes:
         print(f"{row['id']} | {c.get('name', '') or row.get('company', '')} | {title_of(row)[:60]} | "
               f"grade {prep.get('grade') or '-'} -> {new.get('grade') or '-'}")
-    print(f"regrade: {len(skips) + len(changes) + same} waiting to be sent with a stored fit: {len(skips)} a skip now, "
-          f"{len(changes)} grade(s) changed, {same} unchanged; {sent_hard} sent are a hard gap under today's rules "
+    print(f"regrade: {len(skips) + len(held) + len(changes) + same} waiting to be sent with a stored fit: "
+          f"{len(skips)} a skip now" + (f", {len(held)} held (the person is working on them)" if held else "")
+          + f", {len(changes)} grade(s) changed, {same} unchanged; {sent_hard} sent are a hard gap under today's rules "
           "(sent: never changed)")
     if (skips or changes) and "--apply" not in args[1:]:
         print("dry run: nothing was changed (regrade --apply does it)")
@@ -1144,6 +1247,36 @@ elif cmd == "regrade":
             set_one(data, row["id"], "skipped", f"fit: {new.get('reason', '')} (graded again {today})", [])
         save(data, [row["id"] for _, row, _, _ in changes + skips])
         print(PAGES_BEHIND)
+elif cmd == "role":
+    # The role the person is really in, when it differs from the posting that found the row (0.47.0; a talent
+    # marketplace's posting advertises its pool, the role comes from its vetting; seen 23 Nov: regrade skipped such a
+    # row by the posting's must-haves). The posting's title and stored fit move into the history row, so no regrade,
+    # reopen or sync grades the row by the posting again. The status stays; no fit check runs: the person is in it.
+    if len(args) < 3 or not args[2].strip():
+        sys.exit('role <id> "<the real role>"')
+    real = " ".join(args[2].split())
+    company, row = find(data, args[1])
+    job = expand_row(PATH, row)
+    shown = (job.get("prep") or {}).get("title") or job.get("title") or ""  # the title flat_jobs shows
+    if shown == real and not job.get("prep") and not job.get("grade"):
+        print(f"{args[1]}: its title is already {real!r} and it holds no posting's fit: nothing changed")
+        sys.exit(0)
+    change = {"date": today, "status": job.get("status", ""), NOTE: f"real role: {real} (the posting's title and fit "
+              "are in this row)", "posting_title": shown}
+    if job.get("title") and job["title"] != shown:
+        change["title_before"] = job["title"]  # the job's own title, which its applications folder is named by
+    for key in ("prep", "grade"):
+        value = job.pop(key, None)
+        if value:
+            change[key] = value
+    job["title"] = real
+    job.setdefault("history", []).append(change)
+    ready()
+    collapse_row(PATH, row, job, is_company_shape(data))
+    save(data, [args[1]])
+    print(f"{args[1]} {company.get('name', '')}: {shown[:60]} -> {real} ({job.get('status', '')}; the posting's fit "
+          "is in its history)")
+    print(PAGES_BEHIND)
 elif cmd == "list":
     for company, job in companies(data):
         if len(args) < 2 or job.get("status") == args[1]:

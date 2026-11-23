@@ -11,9 +11,9 @@
     choices.py fit                  the fit settings in use (FIT_SETTINGS, default apply/fit-settings.json, over the
                                     defaults), as JSON
     choices.py fit --set work_languages=Java,Kotlin
-                                    the main programming languages the person has used at work, into the fit settings
-                                    file (made when missing); a role in none of them is a skip (other_language). Empty
-                                    clears it
+                                    the main programming languages (and platforms, such as Android) the person has
+                                    used at work, into the fit settings file (made when missing); a role in none of
+                                    them is a skip (other_language). Empty clears it
 
 Keys (default first):
     WRITER_MODEL    opus | sonnet            letters and free text by Opus, or by the cheaper model with its review
@@ -55,6 +55,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import jsenv  # noqa: E402
+from trackerlib import scope_of, terms, title_has  # noqa: E402
 
 STEPS = ("send", "free_text", "interview")
 KEYS = {
@@ -110,6 +111,24 @@ LANGUAGES = {
     "Perl": [r"\bperl\b", "i"],
     "Lua": [r"\bLua\b", ""],
 }
+# The platforms a job title can name (0.47.0), in the same form: a title that names only platforms or languages the
+# person has not used at work is an other-language role too. The title only: a must-have that names a platform
+# ("integrations with Salesforce") never counts. Seen 23 Nov: 12 Android, SAP, Salesforce and frontend titles graded
+# weak or long-shot for a Java record, and long-shots can be sent. Example: "Senior Android Engineer" names Android;
+# "Java Developer (Android)" names Java too and stays a fit. A framework is no platform here: "Senior React
+# Developer" goes to the fit check (the person's choice, 23 Nov).
+PLATFORMS = {
+    "Android": [r"\bandroid\b", "i"],
+    "iOS": [r"\biOS\b", ""],
+    "SAP": [r"\bSAP\b|\bABAP\b", ""],
+    "Salesforce": [r"\bsalesforce\b", "i"],
+    "ServiceNow": [r"\bservice[ \t-]?now\b", "i"],
+    "Frontend": [r"\bfront[ \t-]?end\b", "i"],
+}
+# A place in hires_in that names a region, not one country: the hires_in rule is about countries, so such an entry
+# always passes (a model may list "Europe" where the posting hires across it). ASCII, as the workflow's twin.
+WIDE_PLACE = re.compile(r"\b(worldwide|anywhere|global(ly)?|international(ly)?|europe(an union)?|eu|eea|emea|latam|"
+                        r"apac|americas|north america|asia|africa|middle east)\b", re.I | re.ASCII)
 
 
 def problem(key, value):
@@ -140,11 +159,12 @@ def ask_first(env):
 
 # The fit settings' defaults: a requirement's weight by its place in the posting (the score, kept as information
 # since 0.46.0), the score bands (read by feedback.py's analysis only), the channel notes, the soft gap kinds, the
-# main programming languages and the person's work languages (empty: the fit check's hands-on levels tell).
-# The person's own values: FIT_SETTINGS (default apply/fit-settings.json), as in templates/fit-settings-example.json.
+# main programming languages and platforms, and the person's work languages (empty: the fit check's hands-on levels
+# tell). The person's own values: FIT_SETTINGS (default apply/fit-settings.json), as in
+# templates/fit-settings-example.json. fit_settings adds "scope", the person's places (place_scope), never a file key.
 FIT_DEFAULTS = {"weights": {"title": 4, "must_years": 3, "must": 2, "nice": 1},
                 "grades": {"high": 80, "normal": 65, "long_shot": 50}, "channel_notes": {}, "soft": list(SOFT),
-                "languages": LANGUAGES, "work_languages": []}
+                "languages": LANGUAGES, "platforms": PLATFORMS, "work_languages": []}
 LEVEL_MATCH = {"hands_on": 1.0, "adjacent": 0.5, "absent": 0.0}
 
 
@@ -154,15 +174,19 @@ def fit_path(env):
 
 def set_work_languages(env, value):
     """work_languages into the person's fit settings file, made when missing; its other keys stay. Each name must
-    be a main language (LANGUAGES). Example: "Java,Kotlin" -> {"work_languages": ["Java", "Kotlin"], ...}."""
+    be a main language (LANGUAGES) or platform (PLATFORMS). Example: "Java,Kotlin" -> {"work_languages": ["Java",
+    "Kotlin"], ...}; "Java,android" -> ["Java", "Android"]."""
     given = [x.strip() for x in value.split(",") if x.strip()]
-    langs = fit_settings(env)["languages"]
-    unknown = [x for x in given if not languages_in(x, langs)]
+    fit = fit_settings(env)
+    langs, plats = fit["languages"], fit["platforms"]
+    named = lambda x: languages_in(x, langs) + languages_in(x, plats, "platforms")  # noqa: E731
+    unknown = [x for x in given if not named(x)]
     if unknown:
-        sys.exit(f"not a main language: {', '.join(unknown)} (the list: {', '.join(langs)})")
+        sys.exit(f"not a main language: {', '.join(unknown)} (the languages: {', '.join(langs)}; the platforms: "
+                 f"{', '.join(plats)})")
     names = []  # the list's own names: "golang" is stored as "Go"
     for x in given:
-        names += [n for n in languages_in(x, langs) if n not in names]
+        names += [n for n in named(x) if n not in names]
     path = fit_path(env)
     own = {}
     if os.path.isfile(path):
@@ -181,7 +205,8 @@ def set_work_languages(env, value):
 
 
 def fit_settings(env):
-    """The fit settings: the person's file over the defaults, key by key."""
+    """The fit settings: the person's file over the defaults, key by key, and "scope": the person's places
+    (place_scope), for the hires_in rule."""
     path = fit_path(env)
     own = {}
     if os.path.isfile(path):
@@ -192,15 +217,27 @@ def fit_settings(env):
             sys.exit(f"{path}: not readable as JSON: {problem}")
     if not isinstance(own, dict) or any(not isinstance(own.get(k) or {}, dict)
                                         for k, v in FIT_DEFAULTS.items() if isinstance(v, dict)):
-        sys.exit(f"{path}: an object whose weights, grades, channel_notes and languages are objects")
+        sys.exit(f"{path}: an object whose weights, grades, channel_notes, languages and platforms are objects")
     out = {k: ({**v, **(own.get(k) or {})} if isinstance(v, dict) else own.get(k, v))
            for k, v in FIT_DEFAULTS.items()}
-    bad = [name for name, entry in out["languages"].items()
+    bad = [f"{key} {name}" for key in ("languages", "platforms") for name, entry in out[key].items()
            if not (isinstance(entry, list) and len(entry) == 2 and all(isinstance(x, str) for x in entry))]
     if bad or not isinstance(out["work_languages"], list):
-        sys.exit(f"{path}: " + (f"languages {', '.join(bad)}: each is [pattern, flags], two strings" if bad else
+        sys.exit(f"{path}: " + (f"{', '.join(bad)}: each is [pattern, flags], two strings" if bad else
                                 "work_languages is a list of names"))
+    out["scope"] = place_scope(env)
     return out
+
+
+def place_scope(env):
+    """The person's places, for the hires_in rule (hires_elsewhere): the places taken in any work mode and the remote
+    regions (the master record's search scope over PLACES and REMOTE_REGIONS in job-search.env, as
+    collect_postings.py reads them), and the places ruled out (NOT_PLACES), each in lower case. Example: {"places":
+    ["rome"], "regions": ["italy", "eu"], "not_places": ["turin"]}."""
+    regions, places = scope_of(env)
+    return {"places": places if places is not None else terms(env.get("PLACES")),
+            "regions": regions if regions is not None else terms(env.get("REMOTE_REGIONS")),
+            "not_places": terms(env.get("NOT_PLACES"))}
 
 
 def match_of(req):
@@ -259,9 +296,9 @@ def gap_count(gaps):
 _PATTERNS = {}
 
 
-def languages_in(text, langs):
-    """The main programming languages a text names, in the order of langs (the fit settings' languages).
-    Example: "Go/Golang and Python" -> ["Go", "Python"]."""
+def languages_in(text, langs, kind="languages"):
+    """The main programming languages (or, with the platforms list, the platforms) a text names, in the order of
+    langs (the fit settings' languages or platforms). Example: "Go/Golang and Python" -> ["Go", "Python"]."""
     found = []
     for name, (pattern, flags) in langs.items():
         key = (pattern, flags)
@@ -269,7 +306,7 @@ def languages_in(text, langs):
             try:
                 _PATTERNS[key] = re.compile(pattern, re.ASCII | (re.I if "i" in str(flags or "") else 0))
             except re.error as problem:
-                sys.exit(f"fit settings: languages {name!r}: not a valid pattern: {problem}")
+                sys.exit(f"fit settings: {kind} {name!r}: not a valid pattern: {problem}")
         if _PATTERNS[key].search(str(text or "")):
             found.append(name)
     return found
@@ -277,22 +314,25 @@ def languages_in(text, langs):
 
 def other_language(job, settings=None):
     """Why a fit is an other-language role, "" when it is none (0.46.8; seen 21-22 Nov: four Go roles graded normal
-    to weak and sent to a Java record): the job title names main languages and none of them is a work language, or
-    the must-haves name some, none a work language, while neither the title nor another must-have asks one. Work
-    languages: the fit settings' work_languages; without them this rule is off and the fit check marks such a role a
-    hard gap by its own reading (the fit prompt). Seen: a "lead level" title requirement naming Golang graded
-    hands-on, so the fit check's levels cannot stand in for the list. A hands-on must-have ("Go or similar") never
-    counts: the fit check found the person meets it. Nice-to-haves never count. Example: "Lead Golang Engineer" for
-    work_languages ["Java"] -> "other-language role (title: Go): no work use in the record"; a Java role whose
-    must-haves also ask Python -> ""."""
+    to weak and sent to a Java record): the job title names main languages or platforms and none of them is a work
+    language, or the must-haves name languages, none a work language, while neither the title nor another must-have
+    asks one. Platforms count in the title only (0.47.0). Work languages: the fit settings' work_languages; without
+    them this rule is off and the fit check marks such a role a hard gap by its own reading (the fit prompt). Seen: a
+    "lead level" title requirement naming Golang graded hands-on, so the fit check's levels cannot stand in for the
+    list. A hands-on must-have ("Go or similar") never counts: the fit check found the person meets it. Nice-to-haves
+    never count. Example: "Lead Golang Engineer" for work_languages ["Java"] -> "other-language role (title: Go): no
+    work use in the record"; "Senior Android Engineer" -> "... (title: Android) ..."; a Java role whose must-haves
+    also ask Python -> ""."""
     settings = settings or FIT_DEFAULTS
-    langs = settings.get("languages") or {}
-    work = set(languages_in(", ".join(str(x) for x in settings.get("work_languages") or []), langs)) if langs else set()
+    langs, plats = settings.get("languages") or {}, settings.get("platforms") or {}
+    named = ", ".join(str(x) for x in settings.get("work_languages") or [])
+    work = set(languages_in(named, langs)) | set(languages_in(named, plats, "platforms")) if langs else set()
     if not work:
         return ""
     reqs = [r for r in job.get("requirements") or [] if isinstance(r, dict)]
-    title = languages_in(" | ".join([str(job.get("title") or "")] + [str(r.get("text") or "") for r in reqs
-                                                                      if r.get("place") == "title"]), langs)
+    title_text = " | ".join([str(job.get("title") or "")] + [str(r.get("text") or "") for r in reqs
+                                                              if r.get("place") == "title"])
+    title = languages_in(title_text, langs) + languages_in(title_text, plats, "platforms")
     parts = ["title: " + ", ".join(title)] if title and not work & set(title) else []
     ok, asked = bool(work & set(title)), []
     for r in reqs:
@@ -308,11 +348,33 @@ def other_language(job, settings=None):
     return f"other-language role ({'; '.join(parts)}): no work use in the record" if parts else ""
 
 
+def hires_elsewhere(job, settings=None):
+    """Why a fit hires only outside the person's places, "" when it does not (0.47.0; seen 23 Nov: one fit model
+    graded high 9 roles open only to remote workers in one other country, another called them a hard gap): the fit
+    check lists the countries a remote worker must live in (hires_in, the posting's words; [] when it names none),
+    and none is one of the person's places or remote regions, or each is a place ruled out: the collector's place
+    rule, so the person's own country counts only when their places or regions name it (setup asks for cities and
+    countries). A region entry (Europe, EMEA, Worldwide, Anywhere) always passes. Off without the person's places
+    and regions (the fit settings' scope). Example: hires_in ["Poland"] for remote regions ["italy", "eu"] -> "hires
+    only in Poland, outside the person's places"; ["Poland", "Italy"] -> ""; ["Europe"] -> ""."""
+    scope = (settings or {}).get("scope") or {}
+    wanted = [str(x) for x in list(scope.get("places") or []) + list(scope.get("regions") or [])]
+    hires = job.get("hires_in") if isinstance(job.get("hires_in"), list) else []
+    hires = [str(x).strip() for x in hires if str(x).strip()]
+    if not wanted or not hires:
+        return ""
+    banned = [str(x) for x in scope.get("not_places") or []]
+    if any(WIDE_PLACE.search(x) or (title_has(x, wanted) and not title_has(x, banned)) for x in hires):
+        return ""
+    return f"hires only in {', '.join(hires)}, outside the person's places"
+
+
 def grade(job, apply_fits="normal", settings=None, long_shots=0):
     """(grade, reason): high, normal, long-shot, weak or unread; a reason means the job is a skip, listed with it.
 
     A hard gap (place, work mode, eligibility, a required language, a security clearance, pay far under the rule, an
-    other-language role: other_language) is a skip with grade "", the title alone suffices for the last one. A
+    other-language role: other_language, where the title alone suffices; a posting that hires only outside the
+    person's places: hires_elsewhere) is a skip with grade "". A
     posting not read in full is "unread", a skip that waits for the next run's fit check with
     the posting text. Else the kinds of soft gaps decide (0.46.0; 19 Nov reply analysis: 72% of rejections had two
     or more gap groups, 31% of invitations): 0 high, 1 normal, 2 long-shot, 3 or more weak (gap_count). A long-shot or
@@ -329,7 +391,7 @@ def grade(job, apply_fits="normal", settings=None, long_shots=0):
     what = "; ".join(str(g.get("what", "")) for g in gaps)
     if any(g.get("kind") not in soft for g in gaps):
         return "", "a hard gap: " + what
-    other = other_language(job, settings)
+    other = other_language(job, settings) or hires_elsewhere(job, settings)
     if other:
         return "", "a hard gap: " + other
     if job.get("read", "full") != "full":

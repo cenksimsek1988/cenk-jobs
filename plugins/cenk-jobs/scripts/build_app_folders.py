@@ -15,7 +15,7 @@ Every application folder holds overview.md (read by export_dashboard.py), role.m
 letter. Reruns rewrite those four files and the README files only, and only where their text changed (an unchanged
 file keeps its time, so Google Drive syncs nothing); a row's detail file is read only for a job that gets a folder.
 Files written later (job-description.md, notes.md and every file inside a step folder) are never overwritten, and a
-folder whose stage changed is moved, not recreated.
+folder whose stage changed is moved, not recreated; so is one named by a title `track.py role` replaced.
 A step folder gets a feedback.md form once; Claude writes prep.md and cheat-sheet.md there before the step, and the
 overview links them once they exist. A sent job's CV and letter are copied into its folder once, so the folder keeps
 what was really sent. When a not-applied job is sent or dropped, the files the person or Claude wrote in its folder
@@ -251,17 +251,52 @@ def write(path, text):
         f.write(text)
 
 
-def place_folder(folder, target_dir):
-    """Move an existing folder of this application into its stage directory; create it if new."""
+def id_in(overview):
+    try:
+        with open(overview, encoding="utf-8") as f:
+            m = re.search(r"^- \*\*Job id:\*\* (\S+)", f.read(), re.M)
+        return m.group(1) if m else ""
+    except OSError:
+        return ""
+
+
+def place_folder(folder, target_dir, olds=(), job_id=""):
+    """Move an existing folder of this application into its stage directory; create it if new. olds: the names its
+    earlier titles gave it (old_names); such a folder moves only when its overview names this job, so another row's
+    folder of the same old title stays where it is."""
     target = os.path.join(target_dir, folder)
     if not os.path.isdir(target):
-        for old_dir in [out] + [os.path.join(out, s) for s in STAGES]:
-            old = os.path.join(old_dir, folder)
-            if old_dir != target_dir and os.path.isdir(old):
-                shutil.move(old, target)
-                break
+        dirs = [out] + [os.path.join(out, s) for s in STAGES]
+        old = next((os.path.join(d, name) for name in (folder, *olds) for d in dirs
+                    if os.path.join(d, name) != target and os.path.isdir(os.path.join(d, name))
+                    and (name == folder or id_in(os.path.join(d, name, "overview.md")) == job_id)), "")
+        if old:
+            shutil.move(old, target)
     os.makedirs(target, exist_ok=True)
     return target
+
+
+def role_titles(job):
+    """The titles a job had before track.py role gave it the role the person is really in (0.47.0): its folder may
+    still be named by one, and moves to the new name instead of being left behind. Example: "Senior Golang
+    Engineer" before "Backend developer, Java + Kafka"."""
+    found = []
+    for h in job.get("history") or []:
+        if isinstance(h, dict) and h.get("posting_title"):
+            for t in (h.get("title_before"), h["posting_title"], (h.get("prep") or {}).get("title")):
+                if t and t not in found:
+                    found.append(t)
+    return found
+
+
+def old_names(job, prefix):
+    """The folder names the job's earlier titles gave it, each also with the id unique() adds to a shared one.
+    prefix: "<date> <employer> - " for a sent job, "<employer> - " for one not sent."""
+    names = []
+    for t in role_titles(job):
+        name = safe(f"{prefix}{t}")
+        names += [name, f"{safe(name, max(0, 70 - len(job['id']) - 3))} ({job['id']})"]
+    return names
 
 
 def open_label(status):
@@ -354,10 +389,17 @@ for company, job in companies(data):
     date = applied(job) if sent else ""
     if sent:
         stage, folder = folders[job["id"]]
-        path = place_folder(folder, os.path.join(out, stage))
+        path = place_folder(folder, os.path.join(out, stage), old_names(job, f"{date} {company['name']} - "),
+                            job["id"])
     else:
         stage, folder = "not-applied", pending_names.get(job["id"]) or safe(f"{company['name']} - {title}")
         path = os.path.join(pending_dir, folder)
+        if not os.path.isdir(path):  # a title track.py role changed: the job's own folder of the old one moves
+            old = next((os.path.join(pending_dir, n) for n in old_names(job, f"{company['name']} - ")
+                        if os.path.isdir(os.path.join(pending_dir, n))
+                        and id_in(os.path.join(pending_dir, n, "overview.md")) == job["id"]), "")
+            if old:
+                shutil.move(old, path)
         os.makedirs(path, exist_ok=True)
 
     cv = cv_sent(job, prep)
@@ -550,15 +592,6 @@ def regenerable(folder, name):
     # A CV or letter copy goes only when its source still holds the very same file.
     return bool(re.fullmatch(re.escape(env.file_prefix(WHO["name"])) + r"-(CV|Cover-Letter)-.+\.pdf", name)) \
         and has_twin(path)
-
-
-def id_in(overview):
-    try:
-        with open(overview, encoding="utf-8") as f:
-            m = re.search(r"^- \*\*Job id:\*\* (\S+)", f.read(), re.M)
-        return m.group(1) if m else ""
-    except OSError:
-        return ""
 
 
 removed_stale, kept_stale = 0, []

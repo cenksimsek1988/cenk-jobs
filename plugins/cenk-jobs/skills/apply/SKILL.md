@@ -12,10 +12,11 @@ waits on the person.
 ## Before filling
 
 - First `track.py regrade --apply` (no model): a fit graded before today's fit rules is never sent; one that is a
-  skip now is skipped with its reason (an other-language role, a hard gap).
+  skip now is skipped with its reason (an other-language role, a hard gap). A "held:" row (the person is working on
+  it) is not sent before the person answers about it (the plan skill, step 1).
 - Check the posting is still open and its link lands on the employer's own form (RULES.md, "Links"). The site's
   own notes are in `../../references/sites/<site>.md` (greenhouse, ashby, linkedin, smartrecruiters, successfactors,
-  workday, eightfold, remoteok, freelancermap, himalayas, indeed, bamboohr, dover):
+  workday, eightfold, remoteok, freelancermap, himalayas, indeed, bamboohr, dover, marketplaces):
   read the one for the form in hand.
 - The letter is the one the funnel prepared (`track.py brief <id>`: `letter_txt`); the funnel writes one only for a
   form whose fields it read with a letter field. A job without one gets it now, only when the open form shows a
