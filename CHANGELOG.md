@@ -6,6 +6,41 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.48.0] - 2026-11-23
+
+The collector part of the tune-search bundle: what the first tune run found the search losing. Seen 23 Nov: over
+one week's postings, the saved searches found 9 high fits and the tuned ones 42.
+
+### Added
+
+- We Work Remotely as a source: `source=weworkremotely board=<category>` (no board: the whole feed); its region is
+  the posting's place and its description the text. Jobicy by tag: `tag=java,backend` reads one page per region and
+  tag.
+- `searches.py rules [--write]`: the title rules in use, checked; `--write` puts the default in place once. The
+  default (`templates/search-rules-example.json`) is now an engineering role's: another language's title forms, low
+  levels and other roles out, an engineering word needed, no level word (seen 23 Nov: a level-word rule kept 5 of 26
+  high fits). The setup skill writes it and adapts it to the person's roles.
+
+### Changed
+
+- A row that searches by its terms (LinkedIn, Himalayas, Remotive and Workable search, Remote Rocketship, Jobicy
+  tags) needs none of them in the title when the title rules name an engineering word (`need`): those rules filter its
+  titles. Without such rules, and on a board, the terms still filter. Seen 23 Nov: a LinkedIn row "java" dropped
+  "Senior Backend Developer"; the same sources with one title rule set found 17 high fits a week, against 9.
+  `ROW_TERMS=filter` in job-search.env keeps every row's terms as its title filter, for rows tuned that way (measured
+  23 Nov on such rows: the new rule added 93 fit checks a week and no high fit).
+- Flutter titles join the platform-title rule of 0.47.0 (a mobile platform like Android and iOS); React Native stays
+  with the fit check.
+- Every place a board names counts (Ashby's secondary locations, Lever's allLocations, Greenhouse's offices): the
+  first that passes is the posting's place.
+- A Himalayas search reads up to 3 pages a term while a page holds postings from the window's start on. Seen 23 Nov:
+  reading deeper took one week's high fits from 9 to 19.
+- A LinkedIn remote search's posting placed in the row's country itself, no city, goes on without a text read.
+- The location check reads a list of places whole: "Remote - India / Europe", "must be based in Germany or
+  Austria" (a comma joins none: "Turin, Italy" is one place); its "hires only in" reason names every place. Seen 23
+  Nov: such a list read as India alone left out a high fit.
+- `searches.py add` takes `tag=` only for Jobicy, and `source=weworkremotely` without a board.
+
 ## [0.47.0] - 2026-11-23
 
 The tracker and fit-check part of the tune-search bundle, and the real role of a talent marketplace's row. Seen 23

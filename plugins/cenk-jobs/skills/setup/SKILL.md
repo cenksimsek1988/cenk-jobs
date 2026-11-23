@@ -117,7 +117,14 @@ Cities, remote, hybrid, relocation; the pay floor (private); how interviews may 
 countries) and `NOT_PLACES` (cities ruled out). Example: PLACES=Rome, Italy; NOT_PLACES=Turin. The pay figure of a
 city goes into the private table once it is worked out (`career_view.py pay "<city>" --set "<figure>"`). The roles,
 for the scripts' search: `ROLE_TERMS`, as role phrases that match whole words ("tech lead", not "lead", which also
-passes "Lead Project Manager"), and `REMOTE_REGIONS`. Then ask once about the weekly usage report ("It holds no
+passes "Lead Project Manager"), and `REMOTE_REGIONS`. The title rules: `searches.py rules --write` writes the default
+for an engineering role (`apply/search-rules.json`: another language's title forms, low levels and other roles out,
+an engineering word needed, no level word); adapt `need`, `no` and `low` to the person's roles and `forms_out` to the
+languages they read, with their yes; `searches.py rules` checks the file. With `need` set, a row that searches by its
+terms (LinkedIn, Himalayas, Remotive and Workable search, Remote Rocketship, Jobicy tags) needs none of them in the
+title, unless `ROW_TERMS=filter`. The work languages:
+`choices.py fit --set work_languages=Java` (a title naming only others is skipped with no fit check). Then ask once
+about the weekly usage report ("It holds no
 name, contact, CV, pay or address; you read each one and send it yourself") and write `USAGE_SHARING=yes|no` in
 `job-search.env`.
 

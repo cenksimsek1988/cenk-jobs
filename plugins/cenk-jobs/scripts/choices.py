@@ -115,11 +115,13 @@ LANGUAGES = {
 # person has not used at work is an other-language role too. The title only: a must-have that names a platform
 # ("integrations with Salesforce") never counts. Seen 23 Nov: 12 Android, SAP, Salesforce and frontend titles graded
 # weak or long-shot for a Java record, and long-shots can be sent. Example: "Senior Android Engineer" names Android;
-# "Java Developer (Android)" names Java too and stays a fit. A framework is no platform here: "Senior React
-# Developer" goes to the fit check (the person's choice, 23 Nov).
+# "Java Developer (Android)" names Java too and stays a fit. A web framework is no platform here: "Senior React
+# Developer" goes to the fit check, and so does React Native (the person's choice, 23 Nov); Flutter is a mobile
+# platform like Android and iOS (0.48.0).
 PLATFORMS = {
     "Android": [r"\bandroid\b", "i"],
     "iOS": [r"\biOS\b", ""],
+    "Flutter": [r"\bflutter\b", "i"],
     "SAP": [r"\bSAP\b|\bABAP\b", ""],
     "Salesforce": [r"\bsalesforce\b", "i"],
     "ServiceNow": [r"\bservice[ \t-]?now\b", "i"],

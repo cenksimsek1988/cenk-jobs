@@ -4311,7 +4311,7 @@ posts = [{"id": "P1", "title": "Senior Android Engineer"}, {"id": "P2", "title":
          {"id": "P3", "title": "Senior React Developer"}]
 left = c.language_left(posts, dict(choices.FIT_DEFAULTS, work_languages=["Java"]))
 assert left == {"P1": "fit: a hard gap: other-language role (title: Android): no work use in the record"}, left
-assert sorted(choices.PLATFORMS) == ["Android", "Frontend", "SAP", "Salesforce", "ServiceNow", "iOS"], sorted(choices.PLATFORMS)
+assert sorted(choices.PLATFORMS) == ["Android", "Flutter", "Frontend", "SAP", "Salesforce", "ServiceNow", "iOS"], sorted(choices.PLATFORMS)
 ' "$S"
 # track.py add --file: a search file with a new job, a known link, a known id, one with no id, one with no link.
 "$PY" -I - "$T/r470-new.json" <<'PYEOF'
@@ -4428,13 +4428,229 @@ check "build_app_folders 0.47.0: the job's own folder of the title track.py role
 check "0.47.0 text: hires_in, not a job and platforms in the fit prompt and the choices; held rows; role; marketplaces" sh -c '
     grep -q "hires_in: the countries a remote worker must live in" "$1/workflows/screen-and-prepare.js" &&
     grep -q "a listing that is no job (teaching or tutoring students" "$1/workflows/screen-and-prepare.js" &&
-    grep -q "or only the platforms Android, iOS, SAP, Salesforce, ServiceNow or Frontend (a framework such as React is no platform here)" "$1/workflows/screen-and-prepare.js" &&
+    grep -q "or only the platforms Android, iOS, Flutter, SAP, Salesforce, ServiceNow or Frontend (a web framework such as React, and React Native, is no platform here)" "$1/workflows/screen-and-prepare.js" &&
     grep -q "the fit check lists where a remote worker" "$1/references/choices.md" &&
     grep -q "ask the person about each \"held:\" line" "$1/skills/plan/SKILL.md" &&
     grep -q "dover, marketplaces" "$1/skills/apply/SKILL.md" && grep -q "track.py role <id>" "$1/references/sites/marketplaces.md" &&
     grep -q "role (the role the person is really in" "$1/RULES/tools.md" &&
     grep -q "^python -I track.py add --file <search file>" "$1/scripts/track.py" &&
     grep -q "^python -I track.py role <id> \"<the real role>\"" "$1/scripts/track.py"' _ "$S/.."
+# --- 0.48.0: the collector: terms that only search, every place, Himalayas depth, place lists, WWR, Jobicy tags -----
+check "collect 0.48.0: a searching row's terms filter no title when the title rules name need; a board's still do" "$PY" -I -c '
+import re, sys
+sys.path.insert(0, sys.argv[1])
+import collect_postings as c
+need = {"need": re.compile("engineer|developer", re.I)}
+li = {"source": "linkedin", "query": "java", "place": "Italy", "mode": "remote"}
+assert c.searches_by_terms(li) and c.searches_by_terms({"source": "jobicy", "tag": "backend"})
+assert not c.searches_by_terms({"source": "jobicy"}) and not c.searches_by_terms({"source": "greenhouse"})
+assert c.wanted(li, "Senior Backend Developer", "Italy", [], ["italy"], need)
+assert not c.wanted(li, "Senior Backend Developer", "Italy", [], ["italy"], {})
+assert not c.wanted(li, "Senior Backend Developer", "Italy", [], ["italy"], {"no": re.compile("sales")})
+assert not c.wanted({"source": "greenhouse", "query": "java"}, "Senior Backend Developer", "Remote", [], [], need)
+' "$S"
+check "collect 0.48.0: a LinkedIn remote posting placed in the row's country needs no text read; one in a city does" "$PY" -I -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+import collect_postings as c
+c.PLACES, c.NOT_PLACES = ["rome"], []
+li = {"source": "linkedin", "mode": "remote", "place": "Italy"}
+assert c.remote_gate(li, "Italy") is False and c.remote_gate(li, "Milan, Lombardy, Italy") is True
+assert c.remote_gate({"source": "linkedin", "mode": "remote", "place": "Germany"}, "Italy") is True
+' "$S"
+mkdir -p "$T/r480-pages"
+check "collect 0.48.0: the location check reads a list of places whole" "$PY" -I -c '
+import os, sys
+sys.path.insert(0, sys.argv[1])
+import collect_postings as c
+c.PLACES, c.NOT_PLACES = ["rome"], []
+for pid, text in (("P481", "Locations : Remote - India / Europe"), ("P482", "Locations : Remote - India / Brazil"),
+                  ("P483", "You must be based in Germany or Italy."), ("P484", "You must be based in Germany or Austria.")):
+    with open(os.path.join(sys.argv[2], f"page-{pid}.html"), "w", encoding="utf-8") as fh:
+        fh.write("<p>" + text + "</p>")
+out = lambda pid, regions: c.location_out({"url": "https://jobs.example.com/" + pid, "id": pid}, sys.argv[2], regions)  # noqa: E731
+assert out("P481", ["europe"]) == "", out("P481", ["europe"])
+assert out("P482", ["europe"]) == "location on its own page: Remote, India; Remote, Brazil", out("P482", ["europe"])
+assert out("P483", ["italy"]) == "" and out("P484", ["italy"]) == "hires only in Germany, Austria", out("P484", ["italy"])
+# A comma joins no two places: a ruled-out city inside an accepted country stays out.
+with open(os.path.join(sys.argv[2], "page-P485.html"), "w", encoding="utf-8") as fh:
+    fh.write("<p>Remote - Turin, Italy</p>")
+c.NOT_PLACES = ["turin"]
+assert out("P485", ["italy"]) == "location on its own page: Remote, Turin", out("P485", ["italy"])
+' "$S" "$T/r480-pages"
+check "collect 0.48.0: a Himalayas search reads on while a page is new enough, 3 pages at most" "$PY" -I -c '
+import datetime, json, sys
+sys.path.insert(0, sys.argv[1])
+import collect_postings as c
+calls = []
+def fake(source, url):
+    calls.append(url)
+    n = int(url.rsplit("&page=", 1)[1]) if "&page=" in url else 1
+    days = {1: ["2026-11-22", "2026-11-21"], 2: ["2026-11-21", "2026-11-20"], 3: ["2026-11-20"], 4: ["2026-11-20"]}[n]
+    return json.dumps({"jobs": [{"title": "Engineer", "companyName": "Acme", "pubDate": d, "guid": f"u{n}{d}"} for d in days]})
+c.paced_fetch = fake
+row = {"source": "himalayas-search", "board": "Italy"}
+assert len(c.answers(row, None, c.LinkedInQueue(False), datetime.datetime(2026, 11, 20), ["engineer"])) == 3, calls
+assert calls[1].endswith("&page=2") and calls[2].endswith("&page=3"), calls
+calls.clear()
+assert len(c.answers(row, None, c.LinkedInQueue(False), datetime.datetime(2026, 11, 21, 12), ["engineer"])) == 2, calls
+assert c.older_than(json.dumps({"jobs": []}), datetime.datetime(2026, 11, 20)) and c.older_than("x", datetime.datetime(2026, 11, 20))
+# A deeper page that fails ends its term only; a refusal (429) there ends the feed.
+def failing(code):
+    def fetch(source, url):
+        if "q=java" in url and "&page=2" in url:
+            raise c.Refused(code) if code else OSError("down")
+        return fake(source, url)
+    return fetch
+calls.clear()
+c.paced_fetch = failing(0)
+assert len(c.answers(row, None, c.LinkedInQueue(False), datetime.datetime(2026, 11, 20), ["java", "kotlin"])) == 4, calls
+c.paced_fetch = failing(429)
+assert len(c.answers(row, None, c.LinkedInQueue(False), datetime.datetime(2026, 11, 20), ["java", "kotlin"])) == 1
+' "$S"
+check "collect 0.48.0: We Work Remotely's feed and Jobicy's tags are read; a board keeps every place it names" "$PY" -I -c '
+import json, sys
+sys.path.insert(0, sys.argv[1])
+import collect_postings as c
+rss = ("<rss><channel><item><title>Acme: Backend Engineer</title><region>Europe Only</region>"
+       "<pubDate>Mon, 17 Nov 2026 10:00:00 +0000</pubDate><link>https://wwr.example.com/acme-1</link>"
+       "<description><![CDATA[<p>Build &amp; run</p>]]></description></item></channel></rss>")
+assert c.parse("weworkremotely", "", rss) == [("Backend Engineer", "Acme", "Remote, Europe Only", "2026-11-17", "https://wwr.example.com/acme-1")]
+assert c.feed_urls({"source": "weworkremotely"}, []) == [c.WWR_ALL]
+assert c.feed_urls({"source": "weworkremotely", "board": "back-end"}, []) == ["https://weworkremotely.com/categories/back-end.rss"]
+assert c.feed_urls({"source": "jobicy", "tag": "java, backend", "place": "europe"}, []) == [
+    "https://jobicy.com/api/v2/remote-jobs?count=100&geo=europe&tag=java", "https://jobicy.com/api/v2/remote-jobs?count=100&geo=europe&tag=backend"]
+assert all("industry=dev" in u for u in c.feed_urls({"source": "jobicy", "place": "europe"}, []))
+c.parse("ashby", "Acme", json.dumps({"jobs": [{"title": "Engineer", "location": "Berlin, Germany", "isRemote": True,
+                                                 "secondaryLocations": [{"location": "Italy"}], "jobUrl": "a1", "publishedAt": "2026-11-20"}]}))
+c.parse("lever", "Acme", json.dumps([{"text": "Engineer", "categories": {"location": "Berlin", "allLocations": ["Berlin", "Rome"]},
+                                      "hostedUrl": "l1", "createdAt": 1763280000000}]))
+c.parse("greenhouse", "Acme", json.dumps({"jobs": [{"title": "Engineer", "location": {"name": "Berlin"}, "absolute_url": "g1",
+                                                    "offices": [{"name": "Rome", "location": "Rome, Italy"},
+                                                                {"name": "EMEA", "location": "EMEA"}]}]}))
+# An office name never counts, nor a region alone for an office job: only "Rome, Italy" is kept for g1.
+assert c.PLACES_OF == {"a1": ["Remote - Italy"], "l1": ["Rome"], "g1": ["Rome, Italy"]}, c.PLACES_OF
+' "$S"
+check "title rules 0.48.0: the default drops other roles; soft_no keeps one with an engineering word" "$PY" -I -c '
+import json, re, sys
+sys.path.insert(0, sys.argv[1])
+import collect_postings as c
+raw = json.load(open(sys.argv[2], encoding="utf-8"))
+rules = {k: re.compile(raw[k], re.I) for k in c.RULE_KEYS if raw.get(k)}
+assert "level" not in rules and "senior" not in rules
+for title in ("Software Engineer, Customer Platform", "Java Consultant", "Backend Engineer, People Platform",
+              "Senior Java Developer", "Business Intelligence Developer"):
+    assert c.title_out(title, rules) == "", title
+for title in ("Customer Success Manager", "Business Analyst", "Sales Engineer", "Junior Developer", "Product Manager"):
+    assert c.title_out(title, rules) != "", title
+' "$S" "$S/../templates/search-rules-example.json"
+check "searches add 0.48.0: weworkremotely needs no board; tag= is for jobicy only" sh -c '
+    "$1" -I "$2/searches.py" add "WWR" "engineer" source=weworkremotely --env "$3" >/dev/null 2>&1 &&
+    "$1" -I "$2/searches.py" add "Jobicy" "engineer" source=jobicy tag=java --env "$3" >/dev/null 2>&1 &&
+    ! "$1" -I "$2/searches.py" add "Acme" "engineer" source=greenhouse board=acme tag=java --env "$3" >/dev/null 2>&1 &&
+    "$1" -I "$4/dq.py" "$5" "[r.get(\"tag\") for r in R[\"searches\"] if r[\"site\"] == \"Jobicy\"] == [\"java\"]"' \
+    _ "$PY" "$S" "$ENVF" "$T" "$H/apply/searches.json"
+# A collect run: a board posting kept by its second place, a LinkedIn title with no term kept by the rules, WWR read.
+mkhome "$T/r480" flat
+use "$T/r480"
+{ echo "PLACES=Rome"; echo "REMOTE_REGIONS=Italy, Europe"; echo "ROLE_TERMS=engineer"; } >>"$ENVF"
+mkdir -p "$T/r480-src"
+"$PY" -I - "$T/r480-src" <<'PYEOF'
+import json
+import os
+import sys
+
+src = sys.argv[1]
+w = lambda name, text: open(os.path.join(src, name), "w", encoding="utf-8").write(text)  # noqa: E731
+w("ashby-acme.json", json.dumps({"jobs": [
+    {"title": "Platform Engineer", "location": "Berlin, Germany", "secondaryLocations": [{"location": "Rome, Italy"}],
+     "jobUrl": "https://jobs.example.com/acme/1", "publishedAt": "2026-11-20T08:00:00Z"},
+    {"title": "Data Engineer", "location": "Berlin, Germany", "jobUrl": "https://jobs.example.com/acme/2",
+     "publishedAt": "2026-11-20T08:00:00Z"}]}))
+card = lambda n, title, company: (  # noqa: E731
+    f'<li><div class="base-card relative"><a class="base-card__full-link absolute" href="https://www.linkedin.com/jobs/view/{n}/?trk=x">x</a>'
+    f'<h3 class="base-search-card__title">{title}</h3><h4 class="base-search-card__subtitle"><a>{company}</a></h4>'
+    f'<span class="job-search-card__location">Rome, Lazio, Italy</span><time datetime="2026-11-20">1 day ago</time></div></li>')
+w("linkedin-search.html", card(4800000001, "Senior Backend Developer", "Kappa Works") + card(4800000002, "Sales Manager", "Lambda SpA"))
+w("weworkremotely-feed.json", "<rss><channel><item><title>Mu Labs: Backend Engineer</title><region>Europe Only</region>"
+  "<pubDate>Thu, 20 Nov 2026 10:00:00 +0000</pubDate><link>https://wwr.example.com/mu-1</link>"
+  "<description><![CDATA[<p>Remote in Europe.</p>]]></description></item></channel></rss>")
+PYEOF
+searches add "Acme jobs" "engineer" source=ashby board=acme >/dev/null 2>&1
+searches add "LinkedIn Rome" "java" source=linkedin place=Rome >/dev/null 2>&1
+searches add "WWR" "" source=weworkremotely >/dev/null 2>&1
+"$PY" -I "$S/collect_postings.py" --since 2026-11-01 --from "$T/r480-src" --env "$ENVF" >"$T/r480-a.out" 2>&1
+"$PY" -I "$S/searches.py" rules --env "$ENVF" >"$T/r480-rules0.out" 2>&1; echo "exit $?" >>"$T/r480-rules0.out"
+"$PY" -I "$S/searches.py" rules --write --env "$ENVF" >"$T/r480-rules1.out" 2>&1
+"$PY" -I "$S/searches.py" rules --write --env "$ENVF" >"$T/r480-rules2.out" 2>&1
+"$PY" -I "$S/collect_postings.py" --since 2026-11-01 --from "$T/r480-src" --env "$ENVF" >"$T/r480-b.out" 2>&1
+check "collect 0.48.0: a board posting passes by its second place; WWR is read; without rules a LinkedIn row's term filters" sh -c '
+    grep -q "^Acme | Platform Engineer | Rome, Italy | 2026-11-20 | https://jobs.example.com/acme/1 | script:ashby:acme$" "$1" &&
+    ! grep -q "Data Engineer" "$1" &&
+    grep -q "^Mu Labs | Backend Engineer | Remote, Europe Only | 2026-11-20 | https://wwr.example.com/mu-1 | script:weworkremotely:feed$" "$1" &&
+    ! grep -q "Kappa Works" "$1"' _ "$T/r480-a.out"
+check "collect 0.48.0: with the default title rules a LinkedIn row's term only searches; the rules still drop a sales role" sh -c '
+    grep -q "^Kappa Works | Senior Backend Developer | Rome, Lazio, Italy | 2026-11-20 | https://www.linkedin.com/jobs/view/4800000001/ | script:linkedin:search$" "$1" &&
+    ! grep -q "Sales Manager" "$1"' _ "$T/r480-b.out"
+check "searches rules 0.48.0: none is named with the command; --write puts the default in place once; its keys are checked" sh -c '
+    grep -q "^no title rules at .*search-rules.json: every row.s terms filter its titles (searches.py rules --write)$" "$1" &&
+    grep -q "^exit 1$" "$1" && grep -q "^wrote .*search-rules.json: the default title rules" "$2" &&
+    grep -q "search-rules.json: forms_out, low, no, soft_no, need; need is set: a searching row.s terms only search$" "$2" &&
+    grep -q "search-rules.json exists: left as it is$" "$3"' _ "$T/r480-rules0.out" "$T/r480-rules1.out" "$T/r480-rules2.out"
+echo '{"need": "("}' >"$H/apply/search-rules.json"
+"$PY" -I "$S/searches.py" rules --env "$ENVF" >"$T/r480-rules3.out" 2>&1; echo "exit $?" >>"$T/r480-rules3.out"
+check "searches rules 0.48.0: a rule that is no regular expression is named, and the command fails" sh -c '
+    grep -q "not readable as title rules" "$1" && grep -q "^exit 1$" "$1"' _ "$T/r480-rules3.out"
+# ROW_TERMS=filter: a row's terms stay its title filter, whatever the rules; another value is refused.
+cp "$S/../templates/search-rules-example.json" "$H/apply/search-rules.json"
+{ cat "$ENVF"; echo "ROW_TERMS=filter"; } >"$H/filter.env"
+{ cat "$ENVF"; echo "ROW_TERMS=sometimes"; } >"$H/bad-terms.env"
+"$PY" -I "$S/collect_postings.py" --since 2026-11-01 --from "$T/r480-src" --env "$H/filter.env" >"$T/r480-c.out" 2>&1
+"$PY" -I "$S/collect_postings.py" --since 2026-11-01 --from "$T/r480-src" --env "$H/bad-terms.env" >"$T/r480-d.out" 2>&1
+echo "exit $?" >>"$T/r480-d.out"
+"$PY" -I "$S/searches.py" rules --env "$H/filter.env" >"$T/r480-rules4.out" 2>&1
+check "collect 0.48.0: ROW_TERMS=filter keeps a row's terms as its title filter; another value is refused" sh -c '
+    ! grep -q "Kappa Works" "$1" && grep -q "^Acme | Platform Engineer | Rome, Italy" "$1" &&
+    grep -q "^ROW_TERMS is search or filter (empty: search): got .sometimes.$" "$2" && grep -q "^exit 1$" "$2" &&
+    grep -q "ROW_TERMS=filter: every row.s terms filter its titles$" "$3"' _ "$T/r480-c.out" "$T/r480-d.out" "$T/r480-rules4.out"
+# Flutter is a platform title (0.48.0); React Native and React go to the fit check. Made-up roles; the person: Java.
+"$PY" -I - "$T/grade480.json" <<'PYEOF'
+import json
+import sys
+
+job = lambda i, title: {"id": i, "title": title, "action": "apply", "read": "full", "must_haves": ["x"], "gaps": [],  # noqa: E731
+                        "requirements": [{"text": "Java", "place": "must", "level": "hands_on"}]}
+json.dump({"jobs": [job("F1", "Flutter Developer"), job("F2", "React Native Developer"), job("F3", "Senior React Developer")]},
+          open(sys.argv[1], "w", encoding="utf-8"))
+PYEOF
+"$PY" -I - "$S" "$T/grade480.json" "$T/r470-fit.json" >"$T/grade480-py.out" 2>&1 <<'PYEOF'
+import json
+import sys
+
+sys.path.insert(0, sys.argv[1])
+import choices
+
+fit = json.load(open(sys.argv[3], encoding="utf-8"))
+for j in json.load(open(sys.argv[2], encoding="utf-8"))["jobs"]:
+    print(" | ".join([j["id"], *choices.grade(j, "normal", fit, 0)]))
+PYEOF
+check "grade 0.48.0: a Flutter title is an other-language role; React Native and React stay with the fit check" sh -c '
+    grep -q "^F1 |  | a hard gap: other-language role (title: Flutter): no work use in the record$" "$1" &&
+    grep -q "^F2 | high | $" "$1" && grep -q "^F3 | high | $" "$1"' _ "$T/grade480-py.out"
+if command -v node >/dev/null 2>&1; then
+    node "$T/grade468.js" "$S/../workflows/screen-and-prepare.js" "$T/grade480.json" "$T/r470-fit.json" \
+        >"$T/grade480-js.out" 2>/dev/null
+    check "grade 0.48.0: the workflow (JS) grades Flutter, React Native and React as choices.py does" \
+        diff --strip-trailing-cr "$T/grade480-py.out" "$T/grade480-js.out"
+else
+    echo "SKIP Flutter grade in JS: no node"
+fi
+check "0.48.0 text: setup writes the title rules; the search skill names WWR, Jobicy tags and terms that only search" sh -c '
+    grep -q "searches.py rules --write" "$1/skills/setup/SKILL.md" && grep -q "work_languages=Java" "$1/skills/setup/SKILL.md" &&
+    grep -q "source=weworkremotely board=<category>" "$1/skills/search/SKILL.md" && grep -q "tag=java,backend" "$1/skills/search/SKILL.md" &&
+    grep -q "rules (the title rules, checked" "$1/RULES/tools.md" && grep -q "Every place" "$1/scripts/collect_postings.py" &&
+    grep -q "\"need\"" "$1/templates/search-rules-example.json" && ! grep -q "\"level\"" "$1/templates/search-rules-example.json" &&
+    grep -q "^ROW_TERMS=$" "$1/templates/job-search.env.template" && grep -q "ROW_TERMS=filter" "$1/skills/search/SKILL.md"' _ "$S/.."
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

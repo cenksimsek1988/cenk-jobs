@@ -20,7 +20,7 @@ of its file) has every command and option. Run one as RULES.md, "Where things ar
 - `employer.py`: employer checks: check (`--full`), own, record, environment, decide, alias (`--not`), rules,
   recheck-running, shared-update (`--apply`), split, repair-clear, import-tracker, merge.
 - `searches.py`: saved searches: add, list, due, done, fail, sites (`--add`), seen, rates, import, every, discover,
-  scope-ok, query, suggest.
+  scope-ok, query, suggest, rules (the title rules, checked; `--write` puts the default in place once).
 - `usage.py`: the usage log and the weekly usage report: log, due, run-due, report, mark-drafted, stats.
 - `feedback.py`: employer replies as fit clues: add, silent, clues, analyse.
 - `profilelib.py`: the person's profile through cenk-base: home, path, get, set (compare-and-set), erase, create,

@@ -29,13 +29,13 @@ week: not known yet."
    a Kafka role for a record without Kafka is a long-shot). Send high and normal, or only high. Each application less
    saves about 280k W. `APPLY_FITS=normal|high`, default normal.
    An other-language role, at every level: the job title names only main programming languages (Go, C#, Python,
-   Rust, ...) or platforms (Android, iOS, SAP, Salesforce, ServiceNow, Frontend) outside the person's
+   Rust, ...) or platforms (Android, iOS, Flutter, SAP, Salesforce, ServiceNow, Frontend) outside the person's
    work languages, whatever the must-haves; or the must-haves name only such languages, while neither the title nor
-   another must-have names a work language (a platform counts in the title only; a framework such as React is no
-   platform). Example: "Lead Golang Engineer" and "Senior Android Engineer" for a Java record are skips; "Senior React
-   Developer" goes to the fit check; a Java role that also asks Python stays a fit, with a stack gap. Ask the person
-   which languages they used at work:
-   `choices.py fit --set work_languages=Java`. Without them, only the fit check's own reading skips such a role.
+   another must-have names a work language (a platform counts in the title only; a web framework such as React, and
+   React Native, is no platform). Example: "Lead Golang Engineer" and "Senior Android Engineer" for a Java record are
+   skips; "Senior React Developer" goes to the fit check; a Java role that also asks Python stays a fit, with a stack
+   gap. Ask the person which languages they used at work: `choices.py fit --set work_languages=Java`. Without them,
+   only the fit check's own reading skips such a role.
    A posting that hires only in countries outside the person's places: the fit check lists where a remote worker
    must live (`hires_in`), and the code skips it when none is a place or remote region of the person's (the search's
    place rule), on every fit model. Example: "remote, Poland only" for a person in Italy. A region (Europe, EMEA,

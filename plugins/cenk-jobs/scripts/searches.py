@@ -13,9 +13,12 @@ python -I searches.py add "<site>" "<terms>" source=<kind> board=<name> [place="
                                                                                  kinds: greenhouse, lever, ashby,
                                                                                  smartrecruiters, workable, linkedin,
                                                                                  and the remote feeds remotive,
-                                                                                 remoteok, jobicy, himalayas,
-                                                                                 arbeitnow, workable-search (no
-                                                                                 board), remoterocketship and
+                                                                                 remoteok, jobicy (tag=<tags>: by
+                                                                                 tag), himalayas, arbeitnow,
+                                                                                 workable-search (no board),
+                                                                                 weworkremotely (board=<category>, or
+                                                                                 none: the whole feed),
+                                                                                 remoterocketship and
                                                                                  himalayas-search (board=<country>,
                                                                                  tech=<stack> for the first). Boards
                                                                                  and workable-search: every 7 days by
@@ -69,6 +72,12 @@ python -I searches.py suggest [--days <n>] [--from <dir>]                       
                                                                                  changes nothing (the person's yes
                                                                                  first); --from: saved pages
                                                                                  (rocketship-<country>-<title>.html)
+python -I searches.py rules [--write]                                            the title rules in use (SEARCH_RULES,
+                                                                                 default apply/search-rules.json),
+                                                                                 checked: their keys, or why they
+                                                                                 cannot be read; --write: the default
+                                                                                 (templates/search-rules-example.json)
+                                                                                 when there is no file yet
 python -I searches.py done <id> found=<n>                                        record that a search was read
 python -I searches.py seen <url> [<url> ...]                                     says "new" or "known" per link
 python -I searches.py seen --file <links file>                                   the same, one link per line in a file
@@ -111,9 +120,36 @@ if "--today" in args:
         sys.exit("--today takes a date, YYYY-MM-DD")
 ASK_AFTER = 20  # screened postings with no real fit before the person is asked about the search
 if not args or args[0] not in ("add", "list", "due", "done", "seen", "sites", "fail", "import", "rates", "every",
-                               "discover", "scope-ok", "query", "suggest"):
+                               "discover", "scope-ok", "query", "suggest", "rules"):
     sys.exit(__doc__)
 env = jsenv.load(env_arg, __file__)
+if args[0] == "rules":
+    # The person's title rules (0.48.0), checked as collect_postings.py reads them; --write puts the default in place
+    # once (seen 23 Nov: no rules file existed, so no title rule ran and every row's terms filtered its titles).
+    import shutil
+    import collect_postings as cp
+    rules_path = env.path("SEARCH_RULES") if env.get("SEARCH_RULES") else os.path.join(env.home, "apply",
+                                                                                       "search-rules.json")
+    if "--write" in args[1:]:
+        template = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templates",
+                                                 "search-rules-example.json"))
+        if os.path.isfile(rules_path):
+            print(f"{rules_path} exists: left as it is")
+        elif not os.path.isfile(template):
+            sys.exit(f"the default title rules are missing from the plugin ({template}): reinstall it")
+        else:
+            os.makedirs(os.path.dirname(rules_path), exist_ok=True)
+            shutil.copyfile(template, rules_path)
+            print(f"wrote {rules_path}: the default title rules (templates/search-rules-example.json)")
+    if not os.path.isfile(rules_path):
+        sys.exit(f"no title rules at {rules_path}: every row's terms filter its titles (searches.py rules --write)")
+    have = cp.title_rules(env)  # exits naming the problem when a value is no regular expression
+    keep = (env.get("ROW_TERMS") or "").strip().lower() == "filter"
+    print(f"{rules_path}: {', '.join(k for k in cp.RULE_KEYS if k in have) or 'no rule'}; "
+          + ("ROW_TERMS=filter: every row's terms filter its titles" if keep
+             else "need is set: a searching row's terms only search" if "need" in have
+             else "no need: every row's terms filter its titles"))
+    sys.exit(0)
 PATH = env.path("SEARCHES") if env.get("SEARCHES") else env.path("TRACKER") + "/../searches.json"
 PATH = os.path.normpath(PATH)
 today = datetime.date.fromisoformat(as_of) if as_of else datetime.date.today()
@@ -138,7 +174,8 @@ def pairs(items):
     return dict(item.split("=", 1) for item in items if "=" in item)
 
 
-FEEDS = ("remotive", "remoteok", "jobicy", "himalayas", "arbeitnow", "workable-search")  # remote feeds: no board
+# Remote feeds: no board needed (weworkremotely: board=<category> picks one, none reads the whole feed).
+FEEDS = ("remotive", "remoteok", "jobicy", "himalayas", "arbeitnow", "workable-search", "weworkremotely")
 COUNTRY_FEEDS = ("remoterocketship", "himalayas-search")  # board=<country>
 SOURCES = ("greenhouse", "lever", "ashby", "smartrecruiters", "workable", "linkedin") + FEEDS + COUNTRY_FEEDS
 # Read weekly by default (19 Nov: 0 new fits from 1,091 board postings; Workable search 0 fits): a new row's every.
@@ -238,6 +275,8 @@ if cmd == "add":
     source = extra.get("source", "")
     if source and source not in SOURCES:
         sys.exit(f"source is one of {', '.join(SOURCES)}: got {source!r}")
+    if extra.get("tag") and source != "jobicy":
+        sys.exit("tag=<tags> is Jobicy's: its pages by tag")
     if source and source != "linkedin" and source not in FEEDS and not extra.get("board"):
         sys.exit(f'a {source} search needs board=<the board name in its address>')
     if extra.get("mode") and extra["mode"] not in MODES:
@@ -248,7 +287,7 @@ if cmd == "add":
     rows.append({"id": next_id, "site": args[1], "query": args[2], "alert": alert, "gmail": extra.get("gmail", ""),
                  "every_days": int(extra.get("every") or (7 if source in WEEKLY else 1)), "added": today.isoformat(),
                  "last_checked": "", "last_found": None, "method": "script" if source else "agent",
-                 **{k: extra[k] for k in ("note", "source", "board", "place", "employer", "mode", "tech")
+                 **{k: extra[k] for k in ("note", "source", "board", "place", "employer", "mode", "tech", "tag")
                     if extra.get(k)}})
     save(data)
     print(next_id, args[1], args[2])

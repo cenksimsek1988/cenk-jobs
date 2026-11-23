@@ -18,7 +18,10 @@ Only searches due today are read (searches.py due), and each is marked read (sea
 read again with --since 00:00).
 A search row: site, employer (for a board: the employer's name, which names every posting; without it, the site
 without a trailing "jobs" or "careers"), query (terms, comma-separated: a
-title must hold one; empty: ROLE_TERMS from job-search.env; neither: the search is skipped and stays due), source,
+title must hold one; empty: ROLE_TERMS from job-search.env; neither: the search is skipped and stays due; a row that
+searches by them, LinkedIn, Himalayas, Remotive or Workable search, Remote Rocketship or Jobicy with tag=, needs no
+term in the title when the title rules name an engineering word, need: those rules filter it; ROW_TERMS=filter in
+job-search.env keeps every row's terms as its title filter), source,
 board (the name in the board's address; for linkedin: none), place (terms, comma-separated: the place must hold one;
 empty: PLACES from job-search.env, else any place). A place in NOT_PLACES never passes, also inside an accepted
 country ("Turin, Italy" with NOT_PLACES=Turin); carried postings pass the same places check. Each posting of the
@@ -26,7 +29,9 @@ search file gets its city's pay from PAY_TABLE (career_view.py pay) when the tab
 A remote posting passes only when its place also holds one of the search's places or one of
 REMOTE_REGIONS (job-search.env), or reads just "Remote". Example: "Remote, EU" passes with REMOTE_REGIONS=EU;
 "Remote, US" does not. A board's own remote flag (Ashby, Lever, Workable, SmartRecruiters) makes the place
-"Remote - <place>", and a place that names only a region ("EMEA", "Europe") is checked as a remote one.
+"Remote - <place>", and a place that names only a region ("EMEA", "Europe") is checked as a remote one. Every place
+a board names counts (Ashby's secondary locations, Lever's allLocations, Greenhouse's offices): the first that
+passes is the posting's place.
 Example: searches.py add "Acme jobs" "engineer, architect" source=greenhouse board=acme place="Rome, Italy".
 A board row read for the first time takes every open posting of the board, whatever its date; later reads start at
 the row's last read. The posting text a board's list carries (Greenhouse, Lever, Ashby), and a LinkedIn remote
@@ -37,11 +42,14 @@ of PLACES (or the scope's any_mode_places). Example: a LinkedIn row "Berlin" wit
 from a Berlin office.
 Feeds, 3 s apart per source; 2 refusals (429) in a row stop a source for the run, its searches stay due. New
 sources: remoterocketship (board=<country slug>, a term is a title slug, optional tech=<stack>; the 20 newest per
-page, so daily), himalayas-search (board=<country>; discovery only: apply_url is left empty with an apply_note, the
-fit check finds the employer's own page; the himalayas feed too), workable-search (remote postings; kept only with a
-place or region of the person's). Before the funnel, each posting's own page is read (LOCATION_CHECKS a run, default
+page, so daily), himalayas-search (board=<country>; up to 3 pages a term while a page holds postings from the
+window's start on; discovery only: apply_url is left empty with an apply_note, the fit check finds the employer's own
+page; the himalayas feed too), workable-search (remote postings; kept only with a place or region of the person's),
+weworkremotely (board=<category>, else the whole feed; its region is the place), jobicy with tag=<tags> (one page per
+region and tag). Before the funnel, each posting's own page is read (LOCATION_CHECKS a run, default
 60; Ashby and Greenhouse from their APIs): one whose every place is outside the person's places, that must be based
-in another country, or works US hours is left out ("some overlap with US hours" is no reason). A posting whose
+in another country, or works US hours is left out ("some overlap with US hours" is no reason; a list of places
+counts whole: "Remote - India / Europe" passes with Europe). A posting whose
 employer and title are already in the tracker under another link is left out, unless that job closed or was skipped
 only by a setting's cut the person's settings no longer make (track.py reopen). A "team lead" title needs an
 engineering word. A job the last fit check could not read ("unread" in the tracker) gets its text saved (fetch_jd.py
@@ -58,14 +66,16 @@ the last call; one refusal (429) pauses 60 s and slows to 8 s, an error or a sec
 run and its remaining searches stay due. A board that answers 404 twice is marked gone (searches.py fail).
 found_by is script:<source>:<board>; the run report counts script and agent finds apart.
 The order, in which the funnel is filled too: company boards and remote feeds (remotive, remoteok, jobicy,
-himalayas, arbeitnow, remoterocketship, himalayas-search, workable-search), then LinkedIn by city (mode=any), then
-LinkedIn remote searches (mode=remote). On 19 Nov Remote Rocketship gave 12 of 14 fits.
-The person's title rules (SEARCH_RULES, see templates/search-rules-example.json) apply before any text is read, to
+himalayas, arbeitnow, remoterocketship, himalayas-search, workable-search, weworkremotely), then LinkedIn by city
+(mode=any), then LinkedIn remote searches (mode=remote). On 19 Nov Remote Rocketship gave 12 of 14 fits.
+The person's title rules (SEARCH_RULES; searches.py rules --write writes the default,
+templates/search-rules-example.json) apply before any text is read, to
 boards and feeds too, whose postings are often sales or operations roles: another language's title form, a low
 level, no level word, a word they drop, no engineering word. A feed's posting passes only with a region of the
 scope in its own location field: "Remote, Europe" passes with the region Europe, "Remote, USA only" does not. A
 LinkedIn remote search's posting goes on only when its own text speaks of remote work (one text read, no model,
-TEXT_FETCHES a run; seen: 73 of 82 were hybrid in one city). The location check, seen 19 Nov: 32 of 40 "Europe"
+TEXT_FETCHES a run; seen: 73 of 82 were hybrid in one city), unless it is placed in the row's country itself, no
+city ("Italy" for a row place Italy). The location check, seen 19 Nov: 32 of 40 "Europe"
 postings were single-country elsewhere. A repost of a role already applied to or declined, or skipped for fit in
 the last 30 days, is left out (reposts.py). So is a title that names only main programming languages or platforms
 outside the fit settings' work_languages (an other-language role, choices.py other_language), recorded skipped with
@@ -73,6 +83,7 @@ no fit check. Example: "Staff Golang Engineer" or "Senior Android Engineer" for 
 Add --env <job-search.env> anywhere to pick the env file.
 """
 import datetime
+import email.utils
 import hashlib
 import html
 import json
@@ -99,6 +110,10 @@ UA = {"User-Agent": "Mozilla/5.0 (job-search assistant)"}
 # The posting texts a board's list already carries (Greenhouse with content=true, Lever, Ashby), by link: saved as
 # the posting's text file when it goes to the fit check, which then reads it whole instead of fetching it (0.46.0).
 TEXTS = {}
+# The other places a board's posting names (Ashby's secondary locations, Lever's allLocations, Greenhouse's offices),
+# by link: the place check passes the posting when one of its places passes (0.48.0; seen 23 Nov: a role open in a
+# second country of the person's was left out by its first place).
+PLACES_OF = {}
 BOARDS = ("greenhouse", "lever", "ashby", "smartrecruiters", "workable")  # each lists every open posting
 API = {
     "greenhouse": "https://boards-api.greenhouse.io/v1/boards/{board}/jobs?content=true",
@@ -123,8 +138,21 @@ FEED_API = {
     "remoterocketship": "https://www.remoterocketship.com/country/{board}/jobs/{slug}",
     "himalayas-search": "https://himalayas.app/jobs/api/search?q={term}&country={board}&sort=recent",
     "workable-search": "https://jobs.workable.com/api/v1/jobs?query={term}&workplace=remote",
+    # We Work Remotely (0.48.0): an RSS feed, board = a category ("remote-back-end-programming-jobs"); no board: the
+    # whole feed. Its region is the posting's place; its description is the text.
+    "weworkremotely": "https://weworkremotely.com/categories/{board}.rss",
 }
 FEEDS = tuple(FEED_API)
+WWR_ALL = "https://weworkremotely.com/remote-jobs.rss"
+# Jobicy by tag (0.48.0): a row's tag=<tags> reads one page per region and tag instead of the dev industry's page.
+JOBICY_TAG = "https://jobicy.com/api/v2/remote-jobs?count=100&geo={geo}&tag={tag}"
+# Himalayas search pages per term, newest first, read while a page holds postings from the window's start on (0.48.0;
+# seen 23 Nov: 1 page a term found 9 high fits in a week, 3 pages 19).
+HIMALAYAS_PAGES = 3
+# The sources a row's terms are a search at, not a title filter: LinkedIn's keywords, a Himalayas or Remotive or
+# Workable search, a Remote Rocketship title page, Jobicy's tags. With title rules that name an engineering word
+# (need), those rules filter such a row's titles (wanted).
+SEARCHING = ("linkedin", "himalayas-search", "remotive", "workable-search", "remoterocketship")
 DISCOVERY_ONLY = ("himalayas", "himalayas-search")  # the apply link is the employer's own careers page
 # Every source but LinkedIn: 3 s between calls of one source; 2 refusals (429) in a row stop it for the run, its
 # searches stay due (19 Nov: Himalayas and Workable refused every call after ~100 at 1.2 s).
@@ -133,10 +161,16 @@ SOURCE_GAP, SOURCE_REFUSALS = 3.0, 2
 WIDE = re.compile(r"(?i)\b(EU|EMEA|Europe|European Union|worldwide|anywhere)\b")
 # A place that says remote with a word of degree before it: read as plain "remote" (0.46.6). Example: "Full Remote".
 FULL_REMOTE = re.compile(r"(?i)(?:\b(?:full|fully|completely|entirely)|\b100\s*%)[\s-]+remote\b")
-# Hiring only in another country (18 Nov gate): the person's places decide whether it is "another" one.
+# Hiring only in another country (18 Nov gate): the person's places decide whether it is "another" one. Each takes a
+# list of places (0.48.0; seen 23 Nov: "Locations : Remote - India / Europe" read as India alone left out a high fit):
+# "India / Europe", "Germany or Austria"; places_in splits it. A comma never joins two places here: "Turin, Italy" is
+# one place, and "Brazil, EU candidates welcome" no list.
+_ONLY_WORD, _REMOTE_WORD = r"[A-Z][A-Za-z.]+(?: [A-Z][A-Za-z.]+)*", r"[A-Z][A-Za-z]+(?: [A-Z][a-z]+)?"
+_AND = r"[ \t]*(?:/|&|\bor\b|\band\b)[ \t]*"
 ONLY_IN = re.compile(r"\b(?i:must|need to|needs to|required to|should|have to)\s+(?i:be\s+)?(?i:based|located|"
-                     r"reside|residing|resident|live|living)\s+(?i:in)\s+(?:the\s+)?([A-Z][A-Za-z.]+(?: [A-Z][A-Za-z.]+)*)")
-REMOTE_IN = re.compile(r"\b(?i:remote)\s*[-–(,]\s*([A-Z][A-Za-z]+(?: [A-Z][a-z]+)?)")
+                     r"reside|residing|resident|live|living)\s+(?i:in)\s+(?:the\s+)?"
+                     rf"({_ONLY_WORD}(?:{_AND}{_ONLY_WORD})*)")
+REMOTE_IN = re.compile(rf"\b(?i:remote)\s*[-–(,]\s*({_REMOTE_WORD}(?:{_AND}{_REMOTE_WORD})*)")
 TIME_ZONES = re.compile(r"(?i)\b(?:US|U\.S\.|North American?|EST|PST|CST|Pacific|Eastern|Central)\s+(?:time\s*zones?|"
                         r"hours|business hours)\b")
 LOCATION_CHECKS = 60  # postings whose own page is read for the location check, per run (LOCATION_CHECKS)
@@ -212,19 +246,26 @@ def parse(source, board, text):
                         pick(r'class="job-search-card__location">(.*?)</span>'),
                         (re.search(r'datetime="([\d-]+)"', card) or [None, ""])[1], html.unescape(url).split("?")[0]))
         return out
-    data = next_data(text) if source == "remoterocketship" else json.loads(text)
+    data = next_data(text) if source == "remoterocketship" else text if source == "weworkremotely" else json.loads(text)
     if source in FEEDS:
         return feed_postings(source, data, board)
     name = board
     if source == "greenhouse":
         for j in data.get("jobs", []):
             keep_text(j.get("absolute_url", ""), html.unescape(j.get("content") or ""))
+            # An office's location, never its name: a name groups offices ("EMEA", "Remote").
+            keep_places(j.get("absolute_url", ""), [o.get("location") for o in j.get("offices") or []
+                                                    if isinstance(o, dict)],
+                        (j.get("location") or {}).get("name", ""))
         return [(j.get("title", ""), name, (j.get("location") or {}).get("name", ""),
                  day(j.get("first_published") or j.get("updated_at")), j.get("absolute_url", "")) for j in data.get("jobs", [])]
     if source == "lever":
         for j in data:
             lists = "".join(f"<h3>{x.get('text')}</h3><ul>{x.get('content') or ''}</ul>" for x in j.get("lists") or [])
             keep_text(j.get("hostedUrl", ""), (j.get("description") or "") + lists + (j.get("additional") or ""))
+            cat, remote = j.get("categories") or {}, str(j.get("workplaceType", "")).lower() == "remote"
+            keep_places(j.get("hostedUrl", ""), [remote_flagged(x, remote) for x in cat.get("allLocations") or [] if x],
+                        remote_flagged(cat.get("location", ""), remote))
         return [(j.get("text", ""), name, remote_flagged((j.get("categories") or {}).get("location", ""),
                                                          str(j.get("workplaceType", "")).lower() == "remote"),
                  day(j.get("createdAt")), j.get("hostedUrl", "")) for j in data]
@@ -232,6 +273,10 @@ def parse(source, board, text):
         listed = [j for j in data.get("jobs", []) if j.get("isListed", True)]
         for j in listed:
             keep_text(j.get("jobUrl", ""), j.get("descriptionHtml") or j.get("descriptionPlain") or "")
+            remote = bool(j.get("isRemote")) or str(j.get("workplaceType", "")).lower() == "remote"
+            keep_places(j.get("jobUrl", ""), [remote_flagged(x.get("location", ""), remote)
+                                              for x in j.get("secondaryLocations") or [] if isinstance(x, dict)],
+                        remote_flagged(j.get("location", ""), remote))
         return [(j.get("title", ""), name, remote_flagged(j.get("location", ""), bool(j.get("isRemote"))
                                                           or str(j.get("workplaceType", "")).lower() == "remote"),
                  day(j.get("publishedAt")), j.get("jobUrl", "")) for j in listed]
@@ -264,6 +309,18 @@ def keep_text(url, markup):
     text = to_text(markup)
     if url and len(text) >= 300:
         TEXTS[url] = text
+
+
+def keep_places(url, places, primary):
+    """A board's posting's other places, by link (PLACES_OF): each once, the first place left out. A posting that is
+    not remote keeps only concrete ones: a bare "Remote" or a region alone ("EMEA") would pass an office job anywhere.
+    Example: an Ashby posting in "Berlin, Germany" with the secondary location "Remote - Italy"."""
+    primary = str(primary or "").strip()
+    remote = remote_like(primary.lower())
+    other = [p for p in dict.fromkeys(str(x).strip() for x in places if x)
+             if p and p != primary and (remote or not remote_like(p.lower()))]
+    if url and other:
+        PLACES_OF[url] = other
 
 
 def next_data(text):
@@ -398,16 +455,39 @@ def feed_postings(source, data, board=""):
     if source == "arbeitnow":
         return [(j.get("title", ""), j.get("company_name", ""), remote(j.get("location", "")), day(j.get("created_at")),
                  j.get("url", "")) for j in data.get("data", []) if j.get("remote")]
+    if source == "weworkremotely":
+        out = []
+        for item in re.findall(r"(?s)<item>(.*?)</item>", data if isinstance(data, str) else ""):
+            def tag(name):
+                m = re.search(rf"(?s)<{name}>(.*?)</{name}>", item)
+                value = re.sub(r"(?s)^<!\[CDATA\[(.*)\]\]>$", r"\1", (m.group(1) if m else "").strip())
+                return html.unescape(value).strip()
+            company, _, title = tag("title").partition(": ")  # "Acme: Backend Engineer"
+            link = tag("link")
+            try:
+                date = email.utils.parsedate_to_datetime(tag("pubDate")).date().isoformat()
+            except (TypeError, ValueError):
+                date = ""
+            keep_text(link, tag("description"))
+            out.append((title or company, company if title else "", remote(tag("region")), date, link))
+        return out
     return []
 
 
 def feed_urls(row, words):
-    """The pages a feed is read from: one per term (remotive), per region (jobicy), or the first pages."""
+    """The pages a feed is read from: one per term (remotive), per region (jobicy; with tag=, per region and tag), or
+    the first pages."""
     source = row["source"]
     if source == "remotive":
         return [FEED_API[source].format(term=urllib.parse.quote(w)) for w in words[:8]]
     if source == "jobicy":
-        return [FEED_API[source].format(geo=urllib.parse.quote(g)) for g in (terms(row.get("place")) or ["europe", "emea", "anywhere"])]
+        geos = terms(row.get("place")) or ["europe", "emea", "anywhere"]
+        if terms(row.get("tag")):
+            return [JOBICY_TAG.format(geo=urllib.parse.quote(g), tag=urllib.parse.quote(t))
+                    for g in geos for t in terms(row.get("tag"))]
+        return [FEED_API[source].format(geo=urllib.parse.quote(g)) for g in geos]
+    if source == "weworkremotely":
+        return [FEED_API[source].format(board=urllib.parse.quote(row["board"]))] if row.get("board") else [WWR_ALL]
     if source == "himalayas":
         return [FEED_API[source].format(n=n) for n in range(0, 100, 20)]
     if source == "arbeitnow":
@@ -508,6 +588,18 @@ def rocketship_pages(row, words, from_dir=None):
     return out
 
 
+def older_than(text, start):
+    """True when a Himalayas search page ends the reading: no posting on it, or its oldest one is from before the
+    window's start (the next page is older still). Example: a page whose oldest posting is dated the day the window
+    starts reads on."""
+    try:
+        jobs = json.loads(text).get("jobs") or []
+    except (ValueError, AttributeError):
+        return True
+    dates = [d for d in (day(j.get("pubDate")) for j in jobs if isinstance(j, dict)) if d]
+    return not jobs or (bool(dates) and min(dates) < start.date().isoformat())
+
+
 def linkedin_keywords(words):
     """The search's terms as one LinkedIn query: each term of two or more words quoted, the terms joined with OR, so a
     posting with any one of them matches (0.46.0; before, "a, b" asked LinkedIn for the words of every term, and a
@@ -544,12 +636,25 @@ def answers(row, from_dir, queue, start, words=()):
         out = []
         for url in feed_urls(row, list(words)):
             try:
-                out.append(paced_fetch(source, url))
+                text = paced_fetch(source, url)
             except (Refused, OSError, ValueError) as problem:
                 if not out:
                     raise
                 print(f"{source}: {url} not read ({problem}); {len(out)} page(s) kept")
                 break  # a later page that fails ends the feed; the pages read are kept
+            out.append(text)
+            n = 1  # a Himalayas search reads on while a page is new enough (HIMALAYAS_PAGES)
+            while source == "himalayas-search" and n < HIMALAYAS_PAGES and not older_than(text, start):
+                n += 1
+                try:
+                    text = paced_fetch(source, f"{url}&page={n}")
+                except (Refused, OSError, ValueError) as problem:
+                    # A deeper page ends this term only; a refusal ends the feed, as on a first page.
+                    print(f"{source}: {url}&page={n} not read ({problem}); {len(out)} page(s) kept")
+                    if isinstance(problem, Refused) and problem.code == 429:
+                        return out
+                    break
+                out.append(text)
         return out
     if source != "linkedin":
         return [fetch(API[source].format(board=urllib.parse.quote(board)))]
@@ -599,6 +704,11 @@ def own_page(url, from_dir, pid):
     return [], re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", page)))
 
 
+def places_in(found):
+    """The places of a list ONLY_IN or REMOTE_IN found. Example: "India / Europe" -> ["India", "Europe"]."""
+    return [x for x in re.split(_AND, found) if x.strip()]
+
+
 def location_out(p, from_dir, regions):
     """Why the posting's own page puts it outside the person's places, or "": every place it names is outside them
     (Ashby, Greenhouse, "Remote - Poland" in its text), it must be based in another country, or it works US hours.
@@ -607,12 +717,12 @@ def location_out(p, from_dir, regions):
         places, text = own_page(p["url"], from_dir, p["id"])
     except (Refused, OSError, ValueError):
         return ""
-    named = [x for x in places if x] + ["Remote, " + m.group(1) for m in REMOTE_IN.finditer(text)]
+    named = [x for x in places if x] + ["Remote, " + x for m in REMOTE_IN.finditer(text) for x in places_in(m.group(1))]
     if named and not any(place_ok(x, PLACES, regions) for x in named):
         return "location on its own page: " + "; ".join(dict.fromkeys(named))
-    only = [m.group(1).rstrip(".") for m in ONLY_IN.finditer(text)]
+    only = [x.rstrip(".") for m in ONLY_IN.finditer(text) for x in places_in(m.group(1))]
     if only and not any(place_ok("Remote, " + x, PLACES, regions) for x in only):
-        return "hires only in " + only[0]
+        return "hires only in " + ", ".join(dict.fromkeys(only))
     zones = TIME_ZONES.search(text)
     # "some overlap with US hours" asks for a few shared hours, not US working hours; "full overlap" asks for them.
     near = text[max(0, zones.start() - 60):zones.end() + 20] if zones else ""
@@ -718,12 +828,15 @@ def remote_gate(row, location):
     """True when a LinkedIn remote search's posting must say remote work in its text to go on. A posting in a place
     the person takes in any work mode needs no such word (0.46.6; seen 21 Nov: hybrid postings in the scope's own
     any_mode_places city were left out by a remote search). Example: "Lisbon, Portugal (Hybrid)" with any_mode_places
-    Lisbon goes on."""
+    Lisbon goes on. Neither does one placed exactly in one of the row's own places, as for a country row the country
+    itself with no city (0.48.0; seen 23 Nov: the remote filter's country-level postings were remote, its city ones
+    were not; LinkedIn names a city with its region and country). Example: "Italy" for a row place Italy."""
     if row.get("source") != "linkedin" or row.get("mode") != "remote":
         return False
     where = str(location or "").lower()
     any_mode = bool(PLACES) and "remote" not in where and title_has(where, PLACES) and not title_has(where, NOT_PLACES)
-    return not any_mode
+    country = where.strip() in terms(row.get("place"))
+    return not (any_mode or country)
 
 
 def load_places(env):
@@ -737,16 +850,25 @@ def load_places(env):
     return scope_regions if scope_regions is not None else regions
 
 
-def wanted(row, title, place, role_terms, regions):
+def searches_by_terms(row):
+    """True when the row's terms are its search at the source (SEARCHING, or a Jobicy row with tag=), not only a
+    title filter. Example: a LinkedIn row "java" asks LinkedIn for java; a Greenhouse row's terms filter its titles."""
+    return row.get("source") in SEARCHING or (row.get("source") == "jobicy" and bool(terms(row.get("tag"))))
+
+
+def wanted(row, title, place, role_terms, regions, rules=None):
     """A title must hold one of the search's terms (else ROLE_TERMS); the place one of its places. A remote posting
     passes only with one of its places or REMOTE_REGIONS in the same text, or as a bare "Remote".
+    A row that searches by its terms (searches_by_terms) needs no term in the title when the person's title rules
+    name an engineering word (need): those rules filter it (0.48.0; seen 23 Nov: a LinkedIn row "java" dropped
+    "Senior Backend Developer", and 9 high fits a week were lost this way). Without such rules the terms filter.
     A row's own places narrow the person's places, never widen them: a posting that is not remote, found by a row
     that is not a remote search, must also be in one of PLACES (the scope's any_mode_places when set). A remote
     search's postings often name only a city. A place that names a hybrid or office part is not remote here. Seen 20
     Nov: LinkedIn city rows the person had dropped gave 89 of 103 postings out of scope. Example: a row "Berlin" with
     PLACES=Rome, Italy passes no "Berlin, Germany" and no "Berlin (Hybrid, remote 2 days)"."""
     words, own = terms(row.get("query")) or role_terms, terms(row.get("place"))
-    if not title_has(title, words):
+    if not (searches_by_terms(row) and "need" in (rules or {})) and not title_has(title, words):
         return False
     if not place_ok(place, own or PLACES, regions):
         return False
@@ -847,6 +969,12 @@ def main():
         sys.exit("--since takes a date, YYYY-MM-DD or YYYY-MM-DDTHH:MM")
     role_terms, regions = terms(ENV.get("ROLE_TERMS")), load_places(ENV)
     rules = title_rules(ENV)
+    # ROW_TERMS=filter: every row's terms stay its title filter (0.48.0; seen 23 Nov: rows tuned with their terms as
+    # filters got 93 more fit checks a week and no more high fits when their terms only searched).
+    row_terms = (ENV.get("ROW_TERMS") or "").strip().lower()
+    if row_terms not in ("", "search", "filter"):
+        sys.exit(f"ROW_TERMS is search or filter (empty: search): got {row_terms!r}")
+    term_rules = {} if row_terms == "filter" else rules
     since_args = ["--since", opts["--since"]] if opts.get("--since") else []
     rows = [r for r in json.loads(run("searches.py", "due", "--json", *since_args) or "[]") if r.get("method") == "script"]
     if opts.get("--rows"):
@@ -905,13 +1033,18 @@ def main():
         since = "" if row["source"] in BOARDS and not last[:10] else start.date().isoformat()
         kept, dropped = [], {}
         for t, c, p, d, u in postings:
-            if not u or not wanted(row, t, p, role_terms, regions) or (d and since and d < since):
+            if not u or (d and since and d < since):
+                continue
+            # Every place the board names (PLACES_OF): the first one that passes is the posting's place.
+            place = next((x for x in [p] + PLACES_OF.get(u, []) if wanted(row, t, x, role_terms, regions, term_rules)),
+                         None)
+            if place is None:
                 continue
             why = title_out(t, rules)  # before any text is read: the person's title rules
             if why:
                 dropped[why] = dropped.get(why, 0) + 1
             else:
-                kept.append((t, c, p, d, u))
+                kept.append((t, c, place, d, u))
         if dropped:
             read.append(f"search {row['id']} {row['site']}: title rules left out "
                         + ", ".join(f"{n} ({why})" for why, n in sorted(dropped.items())))

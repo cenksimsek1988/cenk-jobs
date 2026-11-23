@@ -20,9 +20,13 @@ tracker, and nothing is prepared or sent.
    `search` id.
    - Remote Rocketship, one row per country: `searches.py add "Remote Rocketship Italy" "<titles>"
      source=remoterocketship board=italy` (a title becomes its page, `tech=Java` adds a stack filter), read daily.
-     Himalayas (`himalayas-search board=Italy`) finds postings only: the funnel applies on the employer's own
-     careers page (`../../references/sites/himalayas.md`: its texts are saved from Chrome). Boards and
-     `workable-search` are read weekly (`every=7`, their default; older rows: `searches.py every greenhouse 7`).
+     Himalayas (`himalayas-search board=Italy`, up to 3 pages a term) finds postings only: the funnel applies on the
+     employer's own careers page (`../../references/sites/himalayas.md`: its texts are saved from Chrome). Boards and
+     `workable-search` are read weekly (`every=7`, their default; older rows: `searches.py every greenhouse 7`). We
+     Work Remotely: `source=weworkremotely board=<category>` (none: the whole feed); Jobicy by tag: `tag=java,backend`.
+   - With title rules that set `need` (`searches.py rules`), a row's terms at LinkedIn, Himalayas, Remotive, Workable,
+     Remote Rocketship and Jobicy tags only search, and the rules filter titles; a board row's terms still filter.
+     `ROW_TERMS=filter` in job-search.env keeps every row's terms as its title filter (rows tuned that way).
    - RemoteOK's Apply needs a paid plan: the fit check takes the employer's own posting, else skips the job
      (`../../references/sites/remoteok.md`).
    - The scope: `preferences.locations.search_scope` in the master record; its `remote_regions` stands for

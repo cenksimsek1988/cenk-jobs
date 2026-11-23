@@ -1,12 +1,8 @@
 {
- "_about": "Title rules for collect_postings.py (SEARCH_RULES), applied before any text is read. Each value is a regular expression, case-insensitive; a key left out does not count. forms_out: another language's title form; low: a level too low; level and senior: the level words (one is needed); senior_need and senior_no: a title whose only level word is a senior one needs senior_need and none of senior_no; no: words to drop; soft_no: dropped unless the title also holds a need word; need: an engineering word. Made-up example for a backend lead.",
- "forms_out": "\\b(h/f|m/w/d|w/m/d)\\b",
- "low": "\\b(junior|intern|trainee|graduate)\\b",
- "level": "\\b(lead|staff|principal|architect|head|manager)\\b",
- "senior": "\\b(senior|sr)\\b",
- "senior_need": "backend|software engineer|java",
- "senior_no": "frontend|full[- ]?stack|dot ?net",
- "no": "\\b(sales|marketing|recruit|legal|finance)\\b",
- "soft_no": "\\b(customer|operations|growth)\\b",
- "need": "engineer|developer|software|backend|architect|platform"
+ "_about": "The default title rules for an engineering role (SEARCH_RULES, default apply/search-rules.json; searches.py rules --write copies this file there), applied by collect_postings.py before any text is read. Each value is a regular expression, case-insensitive; a key left out does not count. forms_out: another language's title form; low: a level too low; no: a role to drop; soft_no: dropped unless the title also holds a need word (example: 'Customer Success Manager' goes, 'Software Engineer, Customer Platform' stays); need: an engineering word (with it, a row that searches by its terms needs none of them in the title). No level word is asked (keys level and senior, one of them needed; senior_need and senior_no): seen 23 Nov 2026, plain 'Java Developer' and 'Backend Engineer' titles held most high fits, and a level-word rule kept 5 of 26. Adapt need, no, soft_no and low to the person's roles, and forms_out to the languages they read, with their yes.",
+ "forms_out": "\\b(h/f|f/h|m/w/d|w/m/d|m/w/x|w/m/x|d/w/m|m/w/divers)\\b|\\(m/w\\)|\\(w/m\\)",
+ "low": "\\b(junior|jr\\.?|intern|internship|trainee|graduate|new grad|werkstudent|working student|stage|stagiaire|stagista|tirocin\\w+|apprentice|entry[- ]level|praktik\\w+|student|alternance|alternant|ausbildung)\\b",
+ "no": "\\bsales\\b|pre-?sales|marketing|recruit|\\btalent\\b|\\blegal\\b|financ|accounting|account (manager|executive)|help ?desk|designer|\\bux\\b|\\bui\\b|product (manager|owner|designer|marketing|lead|analyst)|\\bseo\\b|procurement|\\bhr\\b|payroll|\\bwriter\\b|project manager|program manager|scrum|agile coach|mechanical|electrical|\\bcivil\\b|hardware|\\bhw\\b|manufactur|\\bfield\\b|technician|\\boperator\\b|solutions? (engineer|architect|consultant)|sales engineer|forward[- ]deployed|developer (advocate|relations)|devrel|evangelist|trainer|instructor|teacher|\\btutor\\b|professor|researcher|\\bphd\\b|postdoc|annotat|evaluator|data (entry|collection|label)",
+ "soft_no": "\\b(customer|support|people|content|community|brand|partnership|business|analyst|consultant)\\b",
+ "need": "engineer|developer|software|backend|back-end|back end|architect|platform|tech(nical)? lead|team lead|engineering|development|\\bjava\\b|\\bjvm\\b|kotlin|programmer|\\bcto\\b|sviluppo|sviluppatore|ingegner|programmatore|entwickler|desarrollador|développeur|ingénieur|ingeniero"
 }
