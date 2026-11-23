@@ -77,7 +77,8 @@ python -I track.py regrade [--apply]                                      every 
                                                                            counted); a row the person is working on (an
                                                                            open to-do other than a sign-in click, or a
                                                                            PIPELINE entry) is held, never skipped; a
-                                                                           dry run without --apply
+                                                                           dry run without --apply; --apply names what
+                                                                           it saved
 python -I track.py list [<status>]                                        one line per job
 python -I track.py summary                                                counts by status (and screening verdict)
 python -I track.py sync <journal.jsonl> [...]                             merge screening and preparation results
@@ -1216,6 +1217,10 @@ elif cmd == "regrade":
         for c, row, prep, new in skips:
             set_one(data, row["id"], "skipped", f"fit: {new.get('reason', '')} (graded again {today})", [])
         save(data, [row["id"] for _, row, _, _ in changes + skips])
+        # What was written, named after the save as set names its rows (0.49.1; seen 23 Nov: a grade raised alone
+        # printed only the pages line, so the write could not be told from a dry run).
+        print(f"regrade --apply: saved {len(changes) + len(skips)} row(s): {len(changes)} grade(s) changed, "
+              f"{len(skips)} set to skipped" + (f"; {len(held)} held, not changed" if held else ""))
         print(PAGES_BEHIND)
 elif cmd == "role":
     # The role the person is really in, when it differs from the posting that found the row (0.47.0; a talent

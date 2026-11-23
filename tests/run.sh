@@ -4790,6 +4790,60 @@ check "0.49.0 text: the skill, its tools line, the router, the coordinator's tab
     grep -q "/cenk-jobs:tune-search" "$1/skills/coordinate/SKILL.md" &&
     grep -q "^TUNE_TOKENS=35000000$" "$1/templates/job-search.env.template" && grep -q "^TUNE_CACHE=$" "$1/templates/job-search.env.template" &&
     grep -q "countsOnly" "$1/workflows/screen-and-prepare.js"' _ "$S/.."
+
+# --- 0.49.1: regrade --apply names what it saved ----------------------------------------------------------------------
+# A grade raised alone printed only the pages line (seen 23 Nov): the write could not be told from a dry run.
+mkhome "$T/r491" old
+use "$T/r491"
+"$PY" -I "$S/choices.py" fit --set work_languages=Java --env "$ENVF" >/dev/null 2>&1
+cat >"$T/r491.py" <<'PYEOF'
+import json
+import sys
+
+raised = {"action": "apply", "grade": "normal", "read": "full", "gaps": [],
+          "requirements": [{"text": "Kubernetes operations", "place": "must", "level": "hands_on"}]}
+go = {"action": "apply", "grade": "normal", "read": "full", "gaps": [{"kind": "stack", "what": "Golang"}],
+      "requirements": [{"text": "Golang (title)", "place": "title", "level": "absent"},
+                       {"text": "Golang", "place": "must", "level": "absent"}]}
+
+
+def job(i, title, status, fit, **more):
+    return dict({"id": i, "title": title, "url": f"https://example.com/{i}", "status": status, "outcome": "fit: apply",
+                 "applied": "", "grade": "normal",
+                 "history": [{"date": "2026-11-20", "status": status, "outcome": "fit: apply"}],
+                 "prep": dict(fit, id=i, title=title)}, **more)
+
+
+if sys.argv[2:] == ["more"]:
+    # Beside G1: a skip now (G2) and a row the person works on (G3), held.
+    data = json.load(open(sys.argv[1], encoding="utf-8"))
+    data["companies"][0]["jobs"] += [
+        job("G2", "Golang Engineer", "pending", go),
+        job("G3", "Senior Golang Engineer", "needs-person", go,
+            todo=[{"kind": "todo", "text": "answer the vetting mail", "since": "2026-11-22"}])]
+else:
+    data = {"companies": [{"name": "Acme", "verdict": "allow",
+                           "jobs": [job("G1", "Platform Engineer", "pending", raised)]}]}
+json.dump(data, open(sys.argv[1], "w", encoding="utf-8"))
+PYEOF
+"$PY" -I "$T/r491.py" "$H/apply/targets.json"
+track regrade >"$T/r491-dry.out" 2>&1
+track regrade --apply >"$T/r491-apply.out" 2>&1
+"$PY" -I "$T/r491.py" "$H/apply/targets.json" more
+track regrade --apply >"$T/r491-mixed.out" 2>&1
+track regrade --apply >"$T/r491-again.out" 2>&1
+check "track regrade --apply 0.49.1: a grade raised alone is named as saved; the dry run names no save" sh -c '
+    grep -q "^G1 | Acme | Platform Engineer | grade normal -> high$" "$1" &&
+    grep -q "^dry run: nothing was changed (regrade --apply does it)$" "$1" && ! grep -q "^regrade --apply: saved" "$1" &&
+    grep -q "^regrade --apply: saved 1 row(s): 1 grade(s) changed, 0 set to skipped$" "$2" &&
+    "$3" -I "$4/q.py" "$5/apply/targets.json" companies.0.jobs.id=G1.grade eq high' \
+    _ "$T/r491-dry.out" "$T/r491-apply.out" "$PY" "$T" "$H"
+check "track regrade --apply 0.49.1: the saved line counts the skips and the held rows; with nothing to write, none" sh -c '
+    grep -q "^regrade --apply: saved 1 row(s): 0 grade(s) changed, 1 set to skipped; 1 held, not changed$" "$1" &&
+    "$3" -I "$4/q.py" "$5/apply/targets.json" companies.0.jobs.id=G2.status eq skipped &&
+    "$3" -I "$4/q.py" "$5/apply/targets.json" companies.0.jobs.id=G3.status eq needs-person &&
+    grep -q "^regrade: 2 waiting to be sent with a stored fit: 0 a skip now, 1 held (the person is working on them), 0 grade(s) changed, 1 unchanged;" "$2" &&
+    ! grep -q "^regrade --apply: saved" "$2"' _ "$T/r491-mixed.out" "$T/r491-again.out" "$PY" "$T" "$H"
 use "$H38"
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

@@ -6,6 +6,17 @@ All notable changes to the cenk-jobs plugin. The format follows
 `plugins/cenk-jobs/.claude-plugin/plugin.json` (the catalog entries carry none): a GitHub install updates only when
 the version changes.
 
+## [0.49.1] - 2026-11-23
+
+A lesson from the job search of 23 Nov: what `track.py regrade --apply` saved.
+
+### Changed
+
+- `track.py regrade --apply` ends with what it saved, before the pages line, as `track.py set` names each row it
+  writes: "regrade --apply: saved 1 row(s): 1 grade(s) changed, 0 set to skipped", with "; 1 held, not changed" when
+  rows are held. Seen 23 Nov: a grade raised alone printed only the pages line, so the write could not be told from a
+  dry run. A dry run and an --apply with nothing to write print no such line.
+
 ## [0.49.0] - 2026-11-23
 
 The tune-search skill: candidate searches compared by high fits over one fixed week. Seen 23 Nov 2026: the first
